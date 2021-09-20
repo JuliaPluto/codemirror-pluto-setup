@@ -1583,6 +1583,12 @@ declare class LanguageSupport {
     support?: Extension);
 }
 /**
+Facet for overriding the unit by which indentation happens.
+Should be a string consisting either entirely of spaces or
+entirely of tabs. When not set, this defaults to 2 spaces.
+*/
+declare const indentUnit: Facet<string, string>;
+/**
 Indentation contexts are used when calling [indentation
 services](https://codemirror.net/6/docs/ref/#language.indentService). They provide helper utilities
 useful in indentation logic, and can selectively override the
@@ -4296,4 +4302,4 @@ Default key bindings for this package.
 */
 declare const commentKeymap: readonly KeyBinding[];
 
-export { Compartment, Decoration, EditorSelection, EditorState, EditorView, HighlightStyle, SelectionRange, StreamLanguage, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, autocompletion, bracketMatching, closeBrackets, closeBracketsKeymap, commentKeymap, completionKeymap, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, indentLess, indentMore, indentOnInput, julia as julia_andrey, julia$1 as julia_legacy, keymap, lineNumbers, placeholder, rectangularSelection, searchKeymap, syntaxTree, tags };
+export { Compartment, Decoration, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, SelectionRange, StateEffect, StateField, StreamLanguage, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, autocompletion, bracketMatching, closeBrackets, closeBracketsKeymap, commentKeymap, completionKeymap, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, indentLess, indentMore, indentOnInput, indentUnit, julia as julia_andrey, julia$1 as julia_legacy, keymap, lineNumbers, placeholder, rectangularSelection, searchKeymap, syntaxTree, tags };

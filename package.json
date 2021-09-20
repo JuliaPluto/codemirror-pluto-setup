@@ -6,8 +6,7 @@
     "test": "cm-runtests",
     "prepare": "cm-buildhelper src/basic-setup.ts",
     "esbuild": "cm-buildhelper src/basic-setup.ts && esbuild dist/index.js --bundle --format=esm --outfile=dist/index.bundle.js",
-    "roll": "cm-buildhelper src/basic-setup.ts && rollup --config --configDebug",
-    "bundle": "rollup src/basic-setup.ts -f es -o dist/index.es.js -p @rollup/plugin-node-resolve"
+    "bundle": "rollup --config --configDebug"
   },
   "keywords": [
     "editor",
@@ -51,6 +50,7 @@
     "@lezer/common": "^0.15.5",
     "esbuild": "^0.12.28",
     "lang-julia": "^0.1.0",
+    "lezer-julia": "^0.1.0",
     "tslib": "^2.3.1"
   },
   "devDependencies": {
