@@ -18158,6 +18158,7 @@ let styleTags = styleTags$1({
     Comment: tags.lineComment,
     BlockComment: tags.comment,
     Number: tags.number,
+    "Symbol!": tags.literal,
     [syntaxConfig.keywords.map((t) => t.name).join(" ")]: tags.keyword,
     "( )": tags.paren,
     "[ ]": tags.paren,
