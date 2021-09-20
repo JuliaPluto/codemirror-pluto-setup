@@ -4,8 +4,7 @@
   "description": "Example configuration for the CodeMirror code editor - as used by Pluto.jl",
   "scripts": {
     "test": "cm-runtests",
-    "prepare": "cm-buildhelper src/basic-setup.ts",
-    "esbuild": "cm-buildhelper src/basic-setup.ts && esbuild dist/index.js --bundle --format=esm --outfile=dist/index.bundle.js",
+    "prepare": "npm run bundle",
     "bundle": "rollup --config --configDebug"
   },
   "keywords": [

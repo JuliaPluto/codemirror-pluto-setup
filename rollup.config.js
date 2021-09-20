@@ -7,14 +7,14 @@ export default [
   {
     input: "src/basic-setup.ts",
     output: {
-      file: "dist/bundle.js",
+      file: "dist/index.es.js",
       format: "es",
     },
     plugins: [typescript(), nodeResolve()],
   },
   {
     input: "src/basic-setup.ts",
-    output: { file: "dist/bundle.d.ts", format: "es" },
+    output: { file: "dist/index.es.d.ts", format: "es" },
     plugins: [
       typescript(),
       nodeResolve(),

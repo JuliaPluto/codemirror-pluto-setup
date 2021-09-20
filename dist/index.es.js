@@ -18157,6 +18157,7 @@ let styleTags = styleTags$1({
     TripleString: tags.string,
     Comment: tags.lineComment,
     BlockComment: tags.comment,
+    Number: tags.number,
     [syntaxConfig.keywords.map((t) => t.name).join(" ")]: tags.keyword,
     "( )": tags.paren,
     "[ ]": tags.paren,
