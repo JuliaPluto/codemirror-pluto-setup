@@ -24817,7 +24817,7 @@ function maybeNest(node, input, tags) {
   let attrs;
   for (let tag of tags) {
     if (!tag.attrs || tag.attrs(attrs || (attrs = getAttrs(node.node.parent, input))))
-      console.log("bad", input.read(node.node.from, node.node.to))
+      console.log("bad", input.read(node.node.parent.from, node.node.parent.to))
       return {parser: tag.parser}
   }
   return null
