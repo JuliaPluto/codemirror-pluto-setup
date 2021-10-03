@@ -30,6 +30,7 @@ import { commentKeymap } from "@codemirror/comment"
 import { TreeCursor, NodeProp, parseMixed } from "@lezer/common"
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown"
 import { html, htmlLanguage } from "@codemirror/lang-html"
+import { javascript, javascriptLanguage } from "@codemirror/lang-javascript"
 
 export {
     Facet,
@@ -83,5 +84,7 @@ export {
     markdownLanguage,
     parseMixed,
     html,
-    htmlLanguage
+    htmlLanguage,
+    javascript,
+    javascriptLanguage
 }
