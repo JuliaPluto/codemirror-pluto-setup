@@ -29,6 +29,7 @@ import { completionKeymap } from "@codemirror/autocomplete"
 import { commentKeymap } from "@codemirror/comment"
 import { TreeCursor, NodeProp, parseMixed } from "@lezer/common"
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown"
+import { html, htmlLanguage } from "@codemirror/lang-html"
 
 export {
     Facet,
@@ -80,5 +81,7 @@ export {
     NodeProp,
     markdown,
     markdownLanguage,
-    parseMixed
+    parseMixed,
+    html,
+    htmlLanguage
 }

@@ -1495,6 +1495,77 @@ interface NestedParse {
 }
 declare function parseMixed(nest: (node: TreeCursor, input: Input) => NestedParse | null): ParseWrapper;
 
+declare class Stack {
+    pos: number;
+    get context(): any;
+    canShift(term: number): boolean;
+    get parser(): LRParser;
+    dialectEnabled(dialectID: number): boolean;
+    private shiftContext;
+    private reduceContext;
+    private updateContext;
+}
+
+declare class InputStream {
+    private chunk2;
+    private chunk2Pos;
+    next: number;
+    pos: number;
+    private rangeIndex;
+    private range;
+    resolveOffset(offset: number, assoc: -1 | 1): number;
+    peek(offset: number): any;
+    acceptToken(token: number, endOffset?: number): void;
+    private getChunk;
+    private readNext;
+    advance(n?: number): number;
+    private setDone;
+}
+interface Tokenizer {
+}
+interface ExternalOptions {
+    contextual?: boolean;
+    fallback?: boolean;
+    extend?: boolean;
+}
+declare class ExternalTokenizer implements Tokenizer {
+    constructor(token: (input: InputStream, stack: Stack) => void, options?: ExternalOptions);
+}
+
+declare class ContextTracker<T> {
+    constructor(spec: {
+        start: T;
+        shift?(context: T, term: number, stack: Stack, input: InputStream): T;
+        reduce?(context: T, term: number, stack: Stack, input: InputStream): T;
+        reuse?(context: T, node: Tree, stack: Stack, input: InputStream): T;
+        hash?(context: T): number;
+        strict?: boolean;
+    });
+}
+interface ParserConfig {
+    props?: readonly NodePropSource[];
+    top?: string;
+    dialect?: string;
+    tokenizers?: {
+        from: ExternalTokenizer;
+        to: ExternalTokenizer;
+    }[];
+    contextTracker?: ContextTracker<any>;
+    strict?: boolean;
+    wrap?: ParseWrapper;
+    bufferLength?: number;
+}
+declare class LRParser extends Parser {
+    readonly nodeSet: NodeSet;
+    createParse(input: Input, fragments: readonly TreeFragment[], ranges: readonly {
+        from: number;
+        to: number;
+    }[]): PartialParse;
+    configure(config: ParserConfig): LRParser;
+    getName(term: number): string;
+    get topNode(): NodeType;
+}
+
 /**
 A language object manages parsing and per-language
 [metadata](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt). Parse data is
@@ -1560,6 +1631,39 @@ declare class Language {
     Indicates whether this language allows nested languages. The
     default implementation returns true.
     */
+    get allowsNesting(): boolean;
+}
+/**
+A subclass of [`Language`](https://codemirror.net/6/docs/ref/#language.Language) for use with Lezer
+[LR parsers](https://lezer.codemirror.net/docs/ref#lr.LRParser)
+parsers.
+*/
+declare class LRLanguage extends Language {
+    readonly parser: LRParser;
+    private constructor();
+    /**
+    Define a language from a parser.
+    */
+    static define(spec: {
+        /**
+        The parser to use. Should already have added editor-relevant
+        node props (and optionally things like dialect and top rule)
+        configured.
+        */
+        parser: LRParser;
+        /**
+        [Language data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt)
+        to register for this language.
+        */
+        languageData?: {
+            [name: string]: any;
+        };
+    }): LRLanguage;
+    /**
+    Create a new instance of this language with a reconfigured
+    version of its parser.
+    */
+    configure(options: ParserConfig): LRLanguage;
     get allowsNesting(): boolean;
 }
 /**
@@ -4564,4 +4668,31 @@ declare function markdown(config?: {
     base?: Language;
 }): LanguageSupport;
 
-export { Compartment, Decoration, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, NodeProp, SelectionRange, StateEffect, StateField, StreamLanguage, Text, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, autocompletion, bracketMatching, closeBrackets, closeBracketsKeymap, combineConfig, commentKeymap, completionKeymap, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, indentLess, indentMore, indentOnInput, indentUnit, julia as julia_andrey, julia$1 as julia_legacy, keymap, lineNumbers, markdown, markdownLanguage, parseMixed, placeholder, rectangularSelection, searchKeymap, syntaxTree, tags };
+/**
+A language provider based on the [Lezer HTML
+parser](https://github.com/lezer-parser/html), extended with the
+JavaScript and CSS parsers to parse the content of `<script>` and
+`<style>` tags.
+*/
+declare const htmlLanguage: LRLanguage;
+/**
+Language support for HTML, including
+[`htmlCompletion`](https://codemirror.net/6/docs/ref/#lang-html.htmlCompletion) and JavaScript and
+CSS support extensions.
+*/
+declare function html(config?: {
+    /**
+    By default, the syntax tree will highlight mismatched closing
+    tags. Set this to `false` to turn that off (for example when you
+    expect to only be parsing a fragment of HTML text, not a full
+    document).
+    */
+    matchClosingTags?: boolean;
+    /**
+    Determines whether [`autoCloseTags`](https://codemirror.net/6/docs/ref/#lang-html.autoCloseTags)
+    is included in the support extensions. Defaults to true.
+    */
+    autoCloseTags?: boolean;
+}): LanguageSupport;
+
+export { Compartment, Decoration, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, NodeProp, SelectionRange, StateEffect, StateField, StreamLanguage, Text, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, autocompletion, bracketMatching, closeBrackets, closeBracketsKeymap, combineConfig, commentKeymap, completionKeymap, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, julia as julia_andrey, julia$1 as julia_legacy, keymap, lineNumbers, markdown, markdownLanguage, parseMixed, placeholder, rectangularSelection, searchKeymap, syntaxTree, tags };
