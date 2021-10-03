@@ -40,11 +40,11 @@ declare abstract class Text implements Iterable<string> {
     /**
     Get the line description around the given position.
     */
-    lineAt(pos: number): Line;
+    lineAt(pos: number): Line$1;
     /**
     Get the description for the given (1-based) line number.
     */
-    line(n: number): Line;
+    line(n: number): Line$1;
     /**
     Replace a range of the text with the given content.
     */
@@ -118,7 +118,7 @@ declare class LineCursor implements TextIterator {
 This type describes a line in the document. It is created
 on-demand when lines are [queried](https://codemirror.net/6/docs/ref/#text.Text.lineAt).
 */
-declare class Line {
+declare class Line$1 {
     /**
     The position of the start of the line.
     */
@@ -1320,6 +1320,10 @@ interface Input {
     readonly lineChunks: boolean;
     read(from: number, to: number): string;
 }
+declare type ParseWrapper = (inner: PartialParse, input: Input, fragments: readonly TreeFragment[], ranges: readonly {
+    from: number;
+    to: number;
+}[]) => PartialParse;
 
 declare class NodeProp<T> {
     perNode: boolean;
@@ -1479,6 +1483,18 @@ declare class TreeCursor {
     get tree(): Tree | null;
 }
 
+interface NestedParse {
+    parser: Parser;
+    overlay?: readonly {
+        from: number;
+        to: number;
+    }[] | ((node: TreeCursor) => {
+        from: number;
+        to: number;
+    } | boolean);
+}
+declare function parseMixed(nest: (node: TreeCursor, input: Input) => NestedParse | null): ParseWrapper;
+
 /**
 A language object manages parsing and per-language
 [metadata](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt). Parse data is
@@ -1592,6 +1608,85 @@ declare class LanguageSupport {
     in its own set of support extensions.
     */
     support?: Extension);
+}
+/**
+Language descriptions are used to store metadata about languages
+and to dynamically load them. Their main role is finding the
+appropriate language for a filename or dynamically loading nested
+parsers.
+*/
+declare class LanguageDescription {
+    /**
+    The name of this language.
+    */
+    readonly name: string;
+    /**
+    Alternative names for the mode (lowercased, includes `this.name`).
+    */
+    readonly alias: readonly string[];
+    /**
+    File extensions associated with this language.
+    */
+    readonly extensions: readonly string[];
+    /**
+    Optional filename pattern that should be associated with this
+    language.
+    */
+    readonly filename: RegExp | undefined;
+    private loadFunc;
+    /**
+    If the language has been loaded, this will hold its value.
+    */
+    support: LanguageSupport | undefined;
+    private loading;
+    private constructor();
+    /**
+    Start loading the the language. Will return a promise that
+    resolves to a [`LanguageSupport`](https://codemirror.net/6/docs/ref/#language.LanguageSupport)
+    object when the language successfully loads.
+    */
+    load(): Promise<LanguageSupport>;
+    /**
+    Create a language description.
+    */
+    static of(spec: {
+        /**
+        The language's name.
+        */
+        name: string;
+        /**
+        An optional array of alternative names.
+        */
+        alias?: readonly string[];
+        /**
+        An optional array of extensions associated with this language.
+        */
+        extensions?: readonly string[];
+        /**
+        An optional filename pattern associated with this language.
+        */
+        filename?: RegExp;
+        /**
+        A function that will asynchronously load the language.
+        */
+        load: () => Promise<LanguageSupport>;
+    }): LanguageDescription;
+    /**
+    Look for a language in the given array of descriptions that
+    matches the filename. Will first match
+    [`filename`](https://codemirror.net/6/docs/ref/#language.LanguageDescription.filename) patterns,
+    and then [extensions](https://codemirror.net/6/docs/ref/#language.LanguageDescription.extensions),
+    and return the first language that matches.
+    */
+    static matchFilename(descs: readonly LanguageDescription[], filename: string): LanguageDescription | null;
+    /**
+    Look for a language whose name or alias matches the the given
+    name (case-insensitively). If `fuzzy` is true, and no direct
+    matchs is found, this'll also search for a language whose name
+    or alias occurs in the string (for names shorter than three
+    characters, only when surrounded by non-word characters).
+    */
+    static matchLanguageName(descs: readonly LanguageDescription[], name: string, fuzzy?: boolean): LanguageDescription | null;
 }
 /**
 Facet for overriding the unit by which indentation happens.
@@ -3009,7 +3104,7 @@ declare class EditorView {
     left-to-right, the leftmost spans come first, otherwise the
     rightmost spans come first.
     */
-    bidiSpans(line: Line): readonly BidiSpan[];
+    bidiSpans(line: Line$1): readonly BidiSpan[];
     /**
     Check whether the editor has focus.
     */
@@ -3411,7 +3506,6 @@ The default keymap. Includes all bindings from
 - Shift-Alt-ArrowUp: [`copyLineUp`](https://codemirror.net/6/docs/ref/#commands.copyLineUp)
 - Shift-Alt-ArrowDown: [`copyLineDown`](https://codemirror.net/6/docs/ref/#commands.copyLineDown)
 - Escape: [`simplifySelection`](https://codemirror.net/6/docs/ref/#commands.simplifySelection)
-- Ctrl-Enter (Comd-Enter on macOS): [`insertBlankLine`](https://codemirror.net/6/docs/ref/#commands.insertBlankLine)
 - Alt-l (Ctrl-l on macOS): [`selectLine`](https://codemirror.net/6/docs/ref/#commands.selectLine)
 - Ctrl-i (Cmd-i on macOS): [`selectParentSyntax`](https://codemirror.net/6/docs/ref/#commands.selectParentSyntax)
 - Ctrl-[ (Cmd-[ on macOS): [`indentLess`](https://codemirror.net/6/docs/ref/#commands.indentLess)
@@ -3619,9 +3713,13 @@ declare const tags: {
     */
     tagName: Tag;
     /**
-    A property, field, or attribute [name](https://codemirror.net/6/docs/ref/#highlight.tags.name).
+    A property or field [name](https://codemirror.net/6/docs/ref/#highlight.tags.name).
     */
     propertyName: Tag;
+    /**
+    An attribute name (subtag of [`propertyName`](https://codemirror.net/6/docs/ref/#highlight.tags.propertyName)).
+    */
+    attributeName: Tag;
     /**
     The [name](https://codemirror.net/6/docs/ref/#highlight.tags.name) of a class.
     */
@@ -3654,6 +3752,10 @@ declare const tags: {
     A character literal (subtag of [string](https://codemirror.net/6/docs/ref/#highlight.tags.string)).
     */
     character: Tag;
+    /**
+    An attribute value (subtag of [string](https://codemirror.net/6/docs/ref/#highlight.tags.string)).
+    */
+    attributeValue: Tag;
     /**
     A number [literal](https://codemirror.net/6/docs/ref/#highlight.tags.literal).
     */
@@ -4314,4 +4416,152 @@ Default key bindings for this package.
 */
 declare const commentKeymap: readonly KeyBinding[];
 
-export { Compartment, Decoration, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, NodeProp, SelectionRange, StateEffect, StateField, StreamLanguage, Text, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, autocompletion, bracketMatching, closeBrackets, closeBracketsKeymap, combineConfig, commentKeymap, completionKeymap, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, indentLess, indentMore, indentOnInput, indentUnit, julia as julia_andrey, julia$1 as julia_legacy, keymap, lineNumbers, placeholder, rectangularSelection, searchKeymap, syntaxTree, tags };
+declare class LeafBlock {
+    readonly start: number;
+    content: string;
+}
+declare class Line {
+    text: string;
+    baseIndent: number;
+    basePos: number;
+    pos: number;
+    indent: number;
+    next: number;
+    skipSpace(from: number): number;
+    moveBase(to: number): void;
+    moveBaseColumn(indent: number): void;
+    addMarker(elt: Element$1): void;
+    countIndent(to: number, from?: number, indent?: number): number;
+    findColumn(goal: number): number;
+}
+declare type BlockResult = boolean | null;
+declare class BlockContext implements PartialParse {
+    readonly parser: MarkdownParser;
+    private line;
+    private atEnd;
+    private fragments;
+    private to;
+    stoppedAt: number | null;
+    lineStart: number;
+    get parsedPos(): number;
+    advance(): Tree;
+    stopAt(pos: number): void;
+    private reuseFragment;
+    nextLine(): boolean;
+    private moveRangeI;
+    private lineChunkAt;
+    prevLineEnd(): number;
+    startComposite(type: string, start: number, value?: number): void;
+    addElement(elt: Element$1): void;
+    addLeafElement(leaf: LeafBlock, elt: Element$1): void;
+    private finish;
+    private addGaps;
+    elt(type: string, from: number, to: number, children?: readonly Element$1[]): Element$1;
+    elt(tree: Tree, at: number): Element$1;
+}
+interface NodeSpec {
+    name: string;
+    block?: boolean;
+    composite?(cx: BlockContext, line: Line, value: number): boolean;
+}
+interface InlineParser {
+    name: string;
+    parse(cx: InlineContext, next: number, pos: number): number;
+    before?: string;
+    after?: string;
+}
+interface BlockParser {
+    name: string;
+    parse?(cx: BlockContext, line: Line): BlockResult;
+    leaf?(cx: BlockContext, leaf: LeafBlock): LeafBlockParser | null;
+    endLeaf?(cx: BlockContext, line: Line): boolean;
+    before?: string;
+    after?: string;
+}
+interface LeafBlockParser {
+    nextLine(cx: BlockContext, line: Line, leaf: LeafBlock): boolean;
+    finish(cx: BlockContext, leaf: LeafBlock): boolean;
+}
+interface MarkdownConfig {
+    props?: readonly NodePropSource[];
+    defineNodes?: readonly (string | NodeSpec)[];
+    parseBlock?: readonly BlockParser[];
+    parseInline?: readonly InlineParser[];
+    remove?: readonly string[];
+    wrap?: ParseWrapper;
+}
+declare type MarkdownExtension = MarkdownConfig | readonly MarkdownExtension[];
+declare class MarkdownParser extends Parser {
+    readonly nodeSet: NodeSet;
+    createParse(input: Input, fragments: readonly TreeFragment[], ranges: readonly {
+        from: number;
+        to: number;
+    }[]): PartialParse;
+    configure(spec: MarkdownExtension): MarkdownParser;
+    parseInline(text: string, offset: number): any[];
+}
+declare class Element$1 {
+    readonly type: number;
+    readonly from: number;
+    readonly to: number;
+}
+interface DelimiterType {
+    resolve?: string;
+    mark?: string;
+}
+declare class InlineContext {
+    readonly parser: MarkdownParser;
+    readonly text: string;
+    readonly offset: number;
+    char(pos: number): number;
+    get end(): number;
+    slice(from: number, to: number): string;
+    addDelimiter(type: DelimiterType, from: number, to: number, open: boolean, close: boolean): number;
+    addElement(elt: Element$1): number;
+    findOpeningDelimiter(type: DelimiterType): number;
+    takeContent(startIndex: number): any[];
+    skipSpace(from: number): number;
+    elt(type: string, from: number, to: number, children?: readonly Element$1[]): Element$1;
+    elt(tree: Tree, at: number): Element$1;
+}
+
+/**
+Language support for [GFM](https://github.github.com/gfm/) plus
+subscript, superscript, and emoji syntax.
+*/
+declare const markdownLanguage: Language;
+/**
+Markdown language support.
+*/
+declare function markdown(config?: {
+    /**
+    When given, this language will be used by default to parse code
+    blocks.
+    */
+    defaultCodeLanguage?: Language | LanguageSupport;
+    /**
+    A collection of language descriptions to search through for a
+    matching language (with
+    [`LanguageDescription.matchLanguageName`](https://codemirror.net/6/docs/ref/#language.LanguageDescription^matchLanguageName))
+    when a fenced code block has an info string.
+    */
+    codeLanguages?: readonly LanguageDescription[];
+    /**
+    Set this to false to disable installation of the Markdown
+    [keymap](https://codemirror.net/6/docs/ref/#lang-markdown.markdownKeymap).
+    */
+    addKeymap?: boolean;
+    /**
+    Markdown parser
+    [extensions](https://github.com/lezer-parser/markdown#user-content-markdownextension)
+    to add to the parser.
+    */
+    extensions?: MarkdownExtension;
+    /**
+    The base language to use. Defaults to
+    [`commonmarkLanguage`](https://codemirror.net/6/docs/ref/#lang-markdown.commonmarkLanguage).
+    */
+    base?: Language;
+}): LanguageSupport;
+
+export { Compartment, Decoration, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, NodeProp, SelectionRange, StateEffect, StateField, StreamLanguage, Text, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, autocompletion, bracketMatching, closeBrackets, closeBracketsKeymap, combineConfig, commentKeymap, completionKeymap, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, indentLess, indentMore, indentOnInput, indentUnit, julia as julia_andrey, julia$1 as julia_legacy, keymap, lineNumbers, markdown, markdownLanguage, parseMixed, placeholder, rectangularSelection, searchKeymap, syntaxTree, tags };
