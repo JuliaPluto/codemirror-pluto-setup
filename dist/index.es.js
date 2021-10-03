@@ -123,16 +123,21 @@ function countColumn(string, tabSize, to = string.length) {
 }
 /**
 Find the offset that corresponds to the given column position in a
-string, taking extending characters and tab size into account.
+string, taking extending characters and tab size into account. By
+default, the string length is returned when it is too short to
+reach the column. Pass `strict` true to make it return -1 in that
+situation.
 */
-function findColumn(string, col, tabSize) {
-    for (let i = 0, n = 0; i < string.length;) {
+function findColumn(string, col, tabSize, strict) {
+    for (let i = 0, n = 0;;) {
         if (n >= col)
             return i;
+        if (i == string.length)
+            break;
         n += string.charCodeAt(i) == 9 ? tabSize - (n % tabSize) : 1;
         i = findClusterBreak(string, i);
     }
-    return string.length;
+    return strict === true ? -1 : string.length;
 }
 
 /**
@@ -192,13 +197,16 @@ class Text {
             return true;
         if (other.length != this.length || other.lines != this.lines)
             return false;
+        let start = this.scanIdentical(other, 1), end = this.length - this.scanIdentical(other, -1);
         let a = new RawTextCursor(this), b = new RawTextCursor(other);
-        for (;;) {
-            a.next();
-            b.next();
+        for (let skip = start, pos = start;;) {
+            a.next(skip);
+            b.next(skip);
+            skip = 0;
             if (a.lineBreak != b.lineBreak || a.done != b.done || a.value != b.value)
                 return false;
-            if (a.done)
+            pos += a.value.length;
+            if (a.done || pos >= end)
                 return true;
         }
     }
@@ -258,8 +266,6 @@ class Text {
         return text.length <= 32 /* Branch */ ? new TextLeaf(text) : TextNode.from(TextLeaf.split(text, []));
     }
 }
-if (typeof Symbol != "undefined")
-    Text.prototype[Symbol.iterator] = function () { return this.iter(); };
 // Leaves store an array of line strings. There are always line breaks
 // between these strings. Leaves are limited in size and have to be
 // contained in TextNode instances for bigger documents.
@@ -323,6 +329,7 @@ class TextLeaf extends Text {
         for (let line of this.text)
             target.push(line);
     }
+    scanIdentical() { return 0; }
     static split(text, target) {
         let part = [], len = -1;
         for (let line of text) {
@@ -411,6 +418,21 @@ class TextNode extends Text {
     flatten(target) {
         for (let child of this.children)
             child.flatten(target);
+    }
+    scanIdentical(other, dir) {
+        if (!(other instanceof TextNode))
+            return 0;
+        let length = 0;
+        let [iA, iB, eA, eB] = dir > 0 ? [0, 0, this.children.length, other.children.length]
+            : [this.children.length - 1, other.children.length - 1, -1, -1];
+        for (;; iA += dir, iB += dir) {
+            if (iA == eA || iB == eB)
+                return length;
+            let chA = this.children[iA], chB = other.children[iB];
+            if (chA != chB)
+                return length + chA.scanIdentical(chB, dir);
+            length += chA.length + 1;
+        }
     }
     static from(children, length = children.reduce((l, ch) => l + ch.length + 1, -1)) {
         let lines = 0;
@@ -623,6 +645,11 @@ class LineCursor {
         return this;
     }
     get lineBreak() { return false; }
+}
+if (typeof Symbol != "undefined") {
+    Text.prototype[Symbol.iterator] = function () { return this.iter(); };
+    RawTextCursor.prototype[Symbol.iterator] = PartialTextCursor.prototype[Symbol.iterator] =
+        LineCursor.prototype[Symbol.iterator] = function () { return this; };
 }
 /**
 This type describes a line in the document. It is created
@@ -4378,7 +4405,7 @@ class StructureCursor {
     }
     hasNode(cursor) {
         this.moveTo(cursor.from);
-        if (!this.done && this.cursor.from + this.offset == cursor.from) {
+        if (!this.done && this.cursor.from + this.offset == cursor.from && this.cursor.tree) {
             for (let tree = this.cursor.tree;;) {
                 if (tree == cursor.tree)
                     return true;
@@ -5636,7 +5663,17 @@ function keyName(event) {
 }
 
 function getSelection(root) {
-    return (root.getSelection ? root.getSelection() : document.getSelection());
+    let target;
+    // Browsers differ on whether shadow roots have a getSelection
+    // method. If it exists, use that, otherwise, call it on the
+    // document.
+    if (root.nodeType == 11) { // Shadow root
+        target = root.getSelection ? root : root.ownerDocument;
+    }
+    else {
+        target = root;
+    }
+    return target.getSelection();
 }
 function contains(dom, node) {
     return node ? dom.contains(node.nodeType != 1 ? node.parentNode : node) : false;
@@ -7409,7 +7446,9 @@ class ViewUpdate {
             this.flags |= 2 /* Height */;
     }
     /**
-    Tells you whether the viewport changed in this update.
+    Tells you whether the [viewport](https://codemirror.net/6/docs/ref/#view.EditorView.viewport) or
+    [visible ranges](https://codemirror.net/6/docs/ref/#view.EditorView.visibleRanges) changed in this
+    update.
     */
     get viewportChanged() {
         return (this.flags & 4 /* Viewport */) > 0;
@@ -7425,7 +7464,7 @@ class ViewUpdate {
     or the lines or characters within it has changed.
     */
     get geometryChanged() {
-        return this.docChanged || (this.flags & (16 /* Geometry */ | 2 /* Height */)) > 0;
+        return this.docChanged || (this.flags & (8 /* Geometry */ | 2 /* Height */)) > 0;
     }
     /**
     True when this update indicates a focus change.
@@ -7510,7 +7549,7 @@ class DocView extends ContentView {
         changedRanges = ChangedRange.extendWithRanges(changedRanges, decoDiff);
         let pointerSel = update.transactions.some(tr => tr.isUserEvent("select.pointer"));
         if (this.dirty == 0 /* Not */ && changedRanges.length == 0 &&
-            !(update.flags & (4 /* Viewport */ | 8 /* LineGaps */)) &&
+            !(update.flags & 4 /* Viewport */) &&
             update.state.selection.main.from >= this.view.viewport.from &&
             update.state.selection.main.to <= this.view.viewport.to) {
             this.updateSelection(forceSelection, pointerSel);
@@ -7545,6 +7584,12 @@ class DocView extends ContentView {
             this.updateSelection(forceSelection, pointerSel);
             this.dom.style.height = "";
         });
+        let gaps = [];
+        if (this.view.viewport.from || this.view.viewport.to < this.view.state.doc.length)
+            for (let child of this.children)
+                if (child instanceof BlockWidgetView && child.widget instanceof BlockGapWidget)
+                    gaps.push(child.dom);
+        observer.updateGaps(gaps);
     }
     updateChildren(changes, deco, oldLength) {
         let cursor = this.childCursor(oldLength);
@@ -8413,25 +8458,27 @@ function posAtCoords(view, { x, y }, precise, bias = -1) {
         y = bias > 0 ? block.bottom + halfLine : block.top - halfLine;
     }
     let lineStart = block.from;
+    // Clip x to the viewport sides
     x = Math.max(content.left + 1, Math.min(content.right - 1, x));
     // If this is outside of the rendered viewport, we can't determine a position
     if (lineStart < view.viewport.from)
         return view.viewport.from == 0 ? 0 : posAtCoordsImprecise(view, content, block, x, y);
     if (lineStart > view.viewport.to)
         return view.viewport.to == view.state.doc.length ? view.state.doc.length : posAtCoordsImprecise(view, content, block, x, y);
-    // Clip x to the viewport sides
-    let root = view.root, element = root.elementFromPoint(x, y);
+    // Prefer ShadowRootOrDocument.elementFromPoint if present, fall back to document if not
+    let doc = view.dom.ownerDocument;
+    let element = (view.root.elementFromPoint ? view.root : doc).elementFromPoint(x, y);
     // There's visible editor content under the point, so we can try
     // using caret(Position|Range)FromPoint as a shortcut
     let node, offset = -1;
     if (element && view.contentDOM.contains(element) && !(view.docView.nearest(element) instanceof WidgetView)) {
-        if (root.caretPositionFromPoint) {
-            let pos = root.caretPositionFromPoint(x, y);
+        if (doc.caretPositionFromPoint) {
+            let pos = doc.caretPositionFromPoint(x, y);
             if (pos)
                 ({ offsetNode: node, offset } = pos);
         }
-        else if (root.caretRangeFromPoint) {
-            let range = root.caretRangeFromPoint(x, y);
+        else if (doc.caretRangeFromPoint) {
+            let range = doc.caretRangeFromPoint(x, y);
             if (range) {
                 ({ startContainer: node, startOffset: offset } = range);
                 if (browser.safari && isSuspiciousCaretResult(node, offset, x))
@@ -8850,7 +8897,7 @@ function capturePaste(view) {
 function doPaste(view, input) {
     let { state } = view, changes, i = 1, text = state.toText(input);
     let byLine = text.lines == state.selection.ranges.length;
-    let linewise = lastLinewiseCopy && state.selection.ranges.every(r => r.empty) && lastLinewiseCopy == text.toString();
+    let linewise = lastLinewiseCopy != null && state.selection.ranges.every(r => r.empty) && lastLinewiseCopy == text.toString();
     if (linewise) {
         let lastLine = -1;
         changes = state.changeByRange(range => {
@@ -9061,9 +9108,8 @@ handlers.paste = (view, event) => {
         return event.preventDefault();
     view.observer.flush();
     let data = brokenClipboardAPI ? null : event.clipboardData;
-    let text = data && data.getData("text/plain");
-    if (text) {
-        doPaste(view, text);
+    if (data) {
+        doPaste(view, data.getData("text/plain"));
         event.preventDefault();
     }
     else {
@@ -9112,7 +9158,7 @@ function copiedRange(state) {
 let lastLinewiseCopy = null;
 handlers.copy = handlers.cut = (view, event) => {
     let { text, ranges, linewise } = copiedRange(view.state);
-    if (!text)
+    if (!text && !linewise)
         return;
     lastLinewiseCopy = linewise ? text : null;
     let data = brokenClipboardAPI ? null : event.clipboardData;
@@ -9952,14 +9998,11 @@ class ViewState {
         let viewport = heightChanges.length ? this.mapViewport(this.viewport, update.changes) : this.viewport;
         if (scrollTo && (scrollTo.head < viewport.from || scrollTo.head > viewport.to) || !this.viewportIsAppropriate(viewport))
             viewport = this.getViewport(0, scrollTo);
-        if (!viewport.eq(this.viewport)) {
-            this.viewport = viewport;
-            update.flags |= 4 /* Viewport */;
-        }
+        this.viewport = viewport;
         this.updateForViewport();
         if (this.lineGaps.length || this.viewport.to - this.viewport.from > 15000 /* MinViewPort */)
-            update.flags |= this.updateLineGaps(this.ensureLineGaps(this.mapLineGaps(this.lineGaps, update.changes)));
-        this.computeVisibleRanges();
+            this.updateLineGaps(this.ensureLineGaps(this.mapLineGaps(this.lineGaps, update.changes)));
+        update.flags |= this.computeVisibleRanges();
         if (scrollTo)
             this.scrollTo = scrollTo;
         if (!this.mustEnforceCursorAssoc && update.selectionSet && update.view.lineWrapping &&
@@ -9968,12 +10011,17 @@ class ViewState {
     }
     measure(docView, repeated) {
         let dom = docView.dom, whiteSpace = "", direction = Direction.LTR;
+        let result = 0;
         if (!repeated) {
             // Vertical padding
             let style = window.getComputedStyle(dom);
             whiteSpace = style.whiteSpace, direction = (style.direction == "rtl" ? Direction.RTL : Direction.LTR);
-            this.paddingTop = parseInt(style.paddingTop) || 0;
-            this.paddingBottom = parseInt(style.paddingBottom) || 0;
+            let paddingTop = parseInt(style.paddingTop) || 0, paddingBottom = parseInt(style.paddingBottom) || 0;
+            if (this.paddingTop != paddingTop || this.paddingBottom != paddingBottom) {
+                result |= 8 /* Geometry */;
+                this.paddingTop = paddingTop;
+                this.paddingBottom = paddingBottom;
+            }
         }
         // Pixel viewport
         let pixelViewport = this.printing ? { top: -1e8, bottom: 1e8, left: -1e8, right: 1e8 } : visiblePixelRange(dom, this.paddingTop);
@@ -9983,7 +10031,7 @@ class ViewState {
         if (!this.inView)
             return 0;
         let lineHeights = docView.measureVisibleLineHeights();
-        let refresh = false, bias = 0, result = 0, oracle = this.heightOracle;
+        let refresh = false, bias = 0, oracle = this.heightOracle;
         if (!repeated) {
             let contentWidth = docView.dom.clientWidth;
             if (oracle.mustRefresh(lineHeights, whiteSpace, direction) ||
@@ -9992,12 +10040,12 @@ class ViewState {
                 refresh = oracle.refresh(whiteSpace, direction, lineHeight, charWidth, contentWidth / charWidth, lineHeights);
                 if (refresh) {
                     docView.minWidth = 0;
-                    result |= 16 /* Geometry */;
+                    result |= 8 /* Geometry */;
                 }
             }
             if (this.contentWidth != contentWidth) {
                 this.contentWidth = contentWidth;
-                result |= 16 /* Geometry */;
+                result |= 8 /* Geometry */;
             }
             if (dTop > 0 && dBottom > 0)
                 bias = Math.max(dTop, dBottom);
@@ -10009,17 +10057,12 @@ class ViewState {
         if (oracle.heightChanged)
             result |= 2 /* Height */;
         if (!this.viewportIsAppropriate(this.viewport, bias) ||
-            this.scrollTo && (this.scrollTo.head < this.viewport.from || this.scrollTo.head > this.viewport.to)) {
-            let newVP = this.getViewport(bias, this.scrollTo);
-            if (newVP.from != this.viewport.from || newVP.to != this.viewport.to) {
-                this.viewport = newVP;
-                result |= 4 /* Viewport */;
-            }
-        }
+            this.scrollTo && (this.scrollTo.head < this.viewport.from || this.scrollTo.head > this.viewport.to))
+            this.viewport = this.getViewport(bias, this.scrollTo);
         this.updateForViewport();
         if (this.lineGaps.length || this.viewport.to - this.viewport.from > 15000 /* MinViewPort */)
-            result |= this.updateLineGaps(this.ensureLineGaps(refresh ? [] : this.lineGaps));
-        this.computeVisibleRanges();
+            this.updateLineGaps(this.ensureLineGaps(refresh ? [] : this.lineGaps));
+        result |= this.computeVisibleRanges();
         if (this.mustEnforceCursorAssoc) {
             this.mustEnforceCursorAssoc = false;
             // This is done in the read stage, because moving the selection
@@ -10141,9 +10184,7 @@ class ViewState {
         if (!LineGap.same(gaps, this.lineGaps)) {
             this.lineGaps = gaps;
             this.lineGapDeco = Decoration.set(gaps.map(gap => gap.draw(this.heightOracle.lineWrapping)));
-            return 8 /* LineGaps */;
         }
-        return 0;
     }
     computeVisibleRanges() {
         let deco = this.state.facet(decorations);
@@ -10154,7 +10195,10 @@ class ViewState {
             span(from, to) { ranges.push({ from, to }); },
             point() { }
         }, 20);
+        let changed = ranges.length != this.visibleRanges.length ||
+            this.visibleRanges.some((r, i) => r.from != ranges[i].from || r.to != ranges[i].to);
         this.visibleRanges = ranges;
+        return changed ? 4 /* Viewport */ : 0;
     }
     lineAt(pos, editorTop) {
         editorTop += this.paddingTop;
@@ -10179,16 +10223,11 @@ class ViewState {
         return this.scaler.toDOM(this.heightMap.height, this.paddingTop);
     }
 }
-/**
-Indicates the range of the document that is in the visible
-viewport.
-*/
 class Viewport {
     constructor(from, to) {
         this.from = from;
         this.to = to;
     }
-    eq(b) { return this.from == b.from && this.to == b.to; }
 }
 function lineStructure(from, to, state) {
     let ranges = [], pos = from, total = 0;
@@ -10481,6 +10520,8 @@ class DOMObserver {
         this.scrollTargets = [];
         this.intersection = null;
         this.intersecting = false;
+        this.gapIntersection = null;
+        this.gaps = [];
         // Used to work around a Safari Selection/shadow DOM bug (#414)
         this._selectionRange = null;
         // Timeout for scheduling check of the parents that need scroll handlers
@@ -10528,6 +10569,10 @@ class DOMObserver {
                 }
             }, {});
             this.intersection.observe(this.dom);
+            this.gapIntersection = new IntersectionObserver(entries => {
+                if (entries[entries.length - 1].intersectionRatio > 0)
+                    this.onScrollChanged(document.createEvent("Event"));
+            }, {});
         }
         this.listenForScroll();
     }
@@ -10535,6 +10580,14 @@ class DOMObserver {
         if (this.intersecting)
             this.flush();
         this.onScrollChanged(e);
+    }
+    updateGaps(gaps) {
+        if (this.gapIntersection && (gaps.length != this.gaps.length || this.gaps.some((g, i) => g != gaps[i]))) {
+            this.gapIntersection.disconnect();
+            for (let gap of gaps)
+                this.gapIntersection.observe(gap);
+            this.gaps = gaps;
+        }
     }
     onSelectionChange(event) {
         if (this.lastFlush < Date.now() - 50)
@@ -10717,6 +10770,8 @@ class DOMObserver {
         this.stop();
         if (this.intersection)
             this.intersection.disconnect();
+        if (this.gapIntersection)
+            this.gapIntersection.disconnect();
         for (let dom of this.scrollTargets)
             dom.removeEventListener("scroll", this.onScroll);
         window.removeEventListener("scroll", this.onScroll);
@@ -10917,8 +10972,9 @@ class DOMReader {
             if (next == end)
                 break;
             let view = ContentView.get(cur), nextView = ContentView.get(next);
-            if ((view ? view.breakAfter : isBlockElement(cur)) ||
-                ((nextView ? nextView.breakAfter : isBlockElement(next)) && !(cur.nodeName == "BR" && !cur.cmIgnore)))
+            if (view && nextView ? view.breakAfter :
+                (view ? view.breakAfter : isBlockElement(cur)) ||
+                    (isBlockElement(next) && (cur.nodeName != "BR" || cur.cmIgnore)))
                 this.text += this.lineBreak;
             cur = next;
         }
@@ -11021,6 +11077,7 @@ class EditorView {
         this.editorAttrs = {};
         this.contentAttrs = {};
         this.bidiCache = [];
+        this.destroyed = false;
         /**
         @internal
         */
@@ -11119,6 +11176,10 @@ class EditorView {
                 throw new RangeError("Trying to update state with a transaction that doesn't start from the previous state.");
             state = tr.state;
         }
+        if (this.destroyed) {
+            this.viewState.state = state;
+            return;
+        }
         // When the phrases change, redraw the editor
         if (state.facet(EditorState.phrases) != this.state.facet(EditorState.phrases))
             return this.setState(state);
@@ -11168,6 +11229,10 @@ class EditorView {
     setState(newState) {
         if (this.updateState != 0 /* Idle */)
             throw new Error("Calls to EditorView.setState are not allowed while an update is in progress");
+        if (this.destroyed) {
+            this.viewState.state = newState;
+            return;
+        }
         this.updateState = 2 /* Updating */;
         try {
             for (let plugin of this.plugins)
@@ -11217,6 +11282,8 @@ class EditorView {
     @internal
     */
     measure(flush = true) {
+        if (this.destroyed)
+            return;
         if (this.measureScheduled > -1)
             cancelAnimationFrame(this.measureScheduled);
         this.measureScheduled = -1; // Prevent requestMeasure calls from scheduling another animation frame
@@ -11226,15 +11293,18 @@ class EditorView {
         try {
             for (let i = 0;; i++) {
                 this.updateState = 1 /* Measuring */;
+                let oldViewport = this.viewport;
                 let changed = this.viewState.measure(this.docView, i > 0);
-                let measuring = this.measureRequests;
-                if (!changed && !measuring.length && this.viewState.scrollTo == null)
+                if (!changed && !this.measureRequests.length && this.viewState.scrollTo == null)
                     break;
-                this.measureRequests = [];
                 if (i > 5) {
                     console.warn("Viewport failed to stabilize");
                     break;
                 }
+                let measuring = [];
+                // Only run measure requests in this cycle when the viewport didn't change
+                if (!(changed & 4 /* Viewport */))
+                    [this.measureRequests, measuring] = [measuring, this.measureRequests];
                 let measured = measuring.map(m => {
                     try {
                         return m.read(this);
@@ -11271,7 +11341,7 @@ class EditorView {
                     this.docView.scrollRangeIntoView(this.viewState.scrollTo);
                     this.viewState.scrollTo = null;
                 }
-                if (!(changed & 4 /* Viewport */) && this.measureRequests.length == 0)
+                if (this.viewport.from == oldViewport.from && this.viewport.to == oldViewport.to && this.measureRequests.length == 0)
                     break;
             }
         }
@@ -11607,11 +11677,13 @@ class EditorView {
     destroy() {
         for (let plugin of this.plugins)
             plugin.destroy(this);
+        this.plugins = [];
         this.inputState.destroy();
         this.dom.remove();
         this.observer.destroy();
         if (this.measureScheduled > -1)
             cancelAnimationFrame(this.measureScheduled);
+        this.destroyed = true;
     }
     /**
     Facet that can be used to add DOM event handlers. The value
@@ -14474,6 +14546,80 @@ const defaultHighlightStyle = /*@__PURE__*/HighlightStyle.define([
     { tag: tags$1.invalid,
         color: "#f00" }
 ]);
+/**
+This is a highlight style that adds stable, predictable classes to
+tokens, for styling with external CSS.
+
+These tags are mapped to their name prefixed with `"cmt-"` (for
+example `"cmt-comment"`):
+
+* [`link`](https://codemirror.net/6/docs/ref/#highlight.tags.link)
+* [`heading`](https://codemirror.net/6/docs/ref/#highlight.tags.heading)
+* [`emphasis`](https://codemirror.net/6/docs/ref/#highlight.tags.emphasis)
+* [`strong`](https://codemirror.net/6/docs/ref/#highlight.tags.strong)
+* [`keyword`](https://codemirror.net/6/docs/ref/#highlight.tags.keyword)
+* [`atom`](https://codemirror.net/6/docs/ref/#highlight.tags.atom) [`bool`](https://codemirror.net/6/docs/ref/#highlight.tags.bool)
+* [`url`](https://codemirror.net/6/docs/ref/#highlight.tags.url)
+* [`labelName`](https://codemirror.net/6/docs/ref/#highlight.tags.labelName)
+* [`inserted`](https://codemirror.net/6/docs/ref/#highlight.tags.inserted)
+* [`deleted`](https://codemirror.net/6/docs/ref/#highlight.tags.deleted)
+* [`literal`](https://codemirror.net/6/docs/ref/#highlight.tags.literal)
+* [`string`](https://codemirror.net/6/docs/ref/#highlight.tags.string)
+* [`number`](https://codemirror.net/6/docs/ref/#highlight.tags.number)
+* [`variableName`](https://codemirror.net/6/docs/ref/#highlight.tags.variableName)
+* [`typeName`](https://codemirror.net/6/docs/ref/#highlight.tags.typeName)
+* [`namespace`](https://codemirror.net/6/docs/ref/#highlight.tags.namespace)
+* [`macroName`](https://codemirror.net/6/docs/ref/#highlight.tags.macroName)
+* [`propertyName`](https://codemirror.net/6/docs/ref/#highlight.tags.propertyName)
+* [`operator`](https://codemirror.net/6/docs/ref/#highlight.tags.operator)
+* [`comment`](https://codemirror.net/6/docs/ref/#highlight.tags.comment)
+* [`meta`](https://codemirror.net/6/docs/ref/#highlight.tags.meta)
+* [`punctuation`](https://codemirror.net/6/docs/ref/#highlight.tags.puncutation)
+* [`invalid`](https://codemirror.net/6/docs/ref/#highlight.tags.invalid)
+
+In addition, these mappings are provided:
+
+* [`regexp`](https://codemirror.net/6/docs/ref/#highlight.tags.regexp),
+  [`escape`](https://codemirror.net/6/docs/ref/#highlight.tags.escape), and
+  [`special`](https://codemirror.net/6/docs/ref/#highlight.tags.special)[`(string)`](https://codemirror.net/6/docs/ref/#highlight.tags.string)
+  are mapped to `"cmt-string2"`
+* [`special`](https://codemirror.net/6/docs/ref/#highlight.tags.special)[`(variableName)`](https://codemirror.net/6/docs/ref/#highlight.tags.variableName)
+  to `"cmt-variableName2"`
+* [`local`](https://codemirror.net/6/docs/ref/#highlight.tags.local)[`(variableName)`](https://codemirror.net/6/docs/ref/#highlight.tags.variableName)
+  to `"cmt-variableName cmt-local"`
+* [`definition`](https://codemirror.net/6/docs/ref/#highlight.tags.definition)[`(variableName)`](https://codemirror.net/6/docs/ref/#highlight.tags.variableName)
+  to `"cmt-variableName cmt-definition"`
+*/
+/*@__PURE__*/HighlightStyle.define([
+    { tag: tags$1.link, class: "cmt-link" },
+    { tag: tags$1.heading, class: "cmt-heading" },
+    { tag: tags$1.emphasis, class: "cmt-emphasis" },
+    { tag: tags$1.strong, class: "cmt-strong" },
+    { tag: tags$1.keyword, class: "cmt-keyword" },
+    { tag: tags$1.atom, class: "cmt-atom" },
+    { tag: tags$1.bool, class: "cmt-bool" },
+    { tag: tags$1.url, class: "cmt-url" },
+    { tag: tags$1.labelName, class: "cmt-labelName" },
+    { tag: tags$1.inserted, class: "cmt-inserted" },
+    { tag: tags$1.deleted, class: "cmt-deleted" },
+    { tag: tags$1.literal, class: "cmt-literal" },
+    { tag: tags$1.string, class: "cmt-string" },
+    { tag: tags$1.number, class: "cmt-number" },
+    { tag: [tags$1.regexp, tags$1.escape, /*@__PURE__*/tags$1.special(tags$1.string)], class: "cmt-string2" },
+    { tag: tags$1.variableName, class: "cmt-variableName" },
+    { tag: /*@__PURE__*/tags$1.local(tags$1.variableName), class: "cmt-variableName cmt-local" },
+    { tag: /*@__PURE__*/tags$1.definition(tags$1.variableName), class: "cmt-variableName cmt-definition" },
+    { tag: /*@__PURE__*/tags$1.special(tags$1.variableName), class: "cmt-variableName2" },
+    { tag: tags$1.typeName, class: "cmt-typeName" },
+    { tag: tags$1.namespace, class: "cmt-namespace" },
+    { tag: tags$1.macroName, class: "cmt-macroName" },
+    { tag: tags$1.propertyName, class: "cmt-propertyName" },
+    { tag: tags$1.operator, class: "cmt-operator" },
+    { tag: tags$1.comment, class: "cmt-comment" },
+    { tag: tags$1.meta, class: "cmt-meta" },
+    { tag: tags$1.invalid, class: "cmt-invalid" },
+    { tag: tags$1.punctuation, class: "cmt-punctuation" }
+]);
 
 // Counts the column offset in a string, taking tabs into account.
 // Used mostly to find indentation.
@@ -15342,9 +15488,8 @@ class Stack {
     constructor(
     /// The parse that this stack is part of @internal
     p, 
-    /// Holds state, pos, value stack pos (15 bits array index, 15 bits
-    /// buffer index) triplets for all but the top state
-    /// @internal
+    /// Holds state, input pos, buffer index triplets for all but the
+    /// top state @internal
     stack, 
     /// The current parse state @internal
     state, 
@@ -15630,7 +15775,12 @@ class Stack {
         let reduce = this.p.parser.stateSlot(this.state, 5 /* ForcedReduce */);
         if ((reduce & 65536 /* ReduceFlag */) == 0)
             return false;
-        if (!this.p.parser.validAction(this.state, reduce)) {
+        let { parser } = this.p;
+        if (!parser.validAction(this.state, reduce)) {
+            let depth = reduce >> 19 /* ReduceDepthShift */, term = reduce & 65535 /* ValueMask */;
+            let target = this.stack.length - depth * 3;
+            if (target < 0 || parser.getGoto(this.stack[target], term, false) < 0)
+                return false;
             this.storeNode(0 /* Err */, this.reducePos, this.reducePos, 4, true);
             this.score -= 100 /* Reduce */;
         }
@@ -19625,8 +19775,8 @@ const historyKeymap = [
 ];
 
 const baseTheme$4 = /*@__PURE__*/EditorView.baseTheme({
-    ".cm-matchingBracket": { color: "#0b0" },
-    ".cm-nonmatchingBracket": { color: "#a22" }
+    ".cm-matchingBracket": { backgroundColor: "#328c8252" },
+    ".cm-nonmatchingBracket": { backgroundColor: "#bb555544" }
 });
 const DefaultScanDist = 10000, DefaultBrackets = "()[]{}";
 const bracketMatchingConfig = /*@__PURE__*/Facet.define({
@@ -19697,11 +19847,13 @@ bracket was found at `pos`, or a match result otherwise.
 */
 function matchBrackets(state, pos, dir, config = {}) {
     let maxScanDistance = config.maxScanDistance || DefaultScanDist, brackets = config.brackets || DefaultBrackets;
-    let tree = syntaxTree(state), sub = tree.resolve(pos, dir), matches;
-    if (matches = matchingNodes(sub.type, dir, brackets))
-        return matchMarkedBrackets(state, pos, dir, sub, matches, brackets);
-    else
-        return matchPlainBrackets(state, pos, dir, tree, sub.type, maxScanDistance, brackets);
+    let tree = syntaxTree(state), node = tree.resolveInner(pos, dir);
+    for (let cur = node; cur; cur = cur.parent) {
+        let matches = matchingNodes(cur.type, dir, brackets);
+        if (matches && cur.from < cur.to)
+            return matchMarkedBrackets(state, pos, dir, cur, matches, brackets);
+    }
+    return matchPlainBrackets(state, pos, dir, tree, node.type, maxScanDistance, brackets);
 }
 function matchMarkedBrackets(_state, _pos, dir, token, matching, brackets) {
     let parent = token.parent, firstToken = { from: token.from, to: token.to };
@@ -19709,7 +19861,7 @@ function matchMarkedBrackets(_state, _pos, dir, token, matching, brackets) {
     if (cursor && (dir < 0 ? cursor.childBefore(token.from) : cursor.childAfter(token.to)))
         do {
             if (dir < 0 ? cursor.to <= token.from : cursor.from >= token.to) {
-                if (depth == 0 && matching.indexOf(cursor.type.name) > -1) {
+                if (depth == 0 && matching.indexOf(cursor.type.name) > -1 && cursor.from < cursor.to) {
                     return { start: firstToken, end: { from: cursor.from, to: cursor.to }, matched: true };
                 }
                 else if (matchingNodes(cursor.type, dir, brackets)) {
@@ -19718,7 +19870,11 @@ function matchMarkedBrackets(_state, _pos, dir, token, matching, brackets) {
                 else if (matchingNodes(cursor.type, -dir, brackets)) {
                     depth--;
                     if (depth == 0)
-                        return { start: firstToken, end: { from: cursor.from, to: cursor.to }, matched: false };
+                        return {
+                            start: firstToken,
+                            end: cursor.from == cursor.to ? undefined : { from: cursor.from, to: cursor.to },
+                            matched: false
+                        };
                 }
             }
         } while (dir < 0 ? cursor.prevSibling() : cursor.nextSibling());
@@ -20321,31 +20477,40 @@ will also delete that whitespace. When the cursor is between
 matching brackets, an additional newline will be inserted after
 the cursor.
 */
-const insertNewlineAndIndent = ({ state, dispatch }) => {
-    if (state.readOnly)
-        return false;
-    let changes = state.changeByRange(({ from, to }) => {
-        let explode = from == to && isBetweenBrackets(state, from);
-        let cx = new IndentContext(state, { simulateBreak: from, simulateDoubleBreak: !!explode });
-        let indent = getIndentation(cx, from);
-        if (indent == null)
-            indent = /^\s*/.exec(state.doc.lineAt(from).text)[0].length;
-        let line = state.doc.lineAt(from);
-        while (to < line.to && /\s/.test(line.text[to - line.from]))
-            to++;
-        if (explode)
-            ({ from, to } = explode);
-        else if (from > line.from && from < line.from + 100 && !/\S/.test(line.text.slice(0, from)))
-            from = line.from;
-        let insert = ["", indentString(state, indent)];
-        if (explode)
-            insert.push(indentString(state, cx.lineIndent(line.from, -1)));
-        return { changes: { from, to, insert: Text.of(insert) },
-            range: EditorSelection.cursor(from + 1 + insert[1].length) };
-    });
-    dispatch(state.update(changes, { scrollIntoView: true, userEvent: "input" }));
-    return true;
-};
+const insertNewlineAndIndent = /*@__PURE__*/newlineAndIndent(false);
+/**
+Create a blank, indented line below the current line.
+*/
+const insertBlankLine = /*@__PURE__*/newlineAndIndent(true);
+function newlineAndIndent(atEof) {
+    return ({ state, dispatch }) => {
+        if (state.readOnly)
+            return false;
+        let changes = state.changeByRange(range => {
+            let { from, to } = range, line = state.doc.lineAt(from);
+            let explode = !atEof && from == to && isBetweenBrackets(state, from);
+            if (atEof)
+                from = to = (to <= line.to ? line : state.doc.lineAt(to)).to;
+            let cx = new IndentContext(state, { simulateBreak: from, simulateDoubleBreak: !!explode });
+            let indent = getIndentation(cx, from);
+            if (indent == null)
+                indent = /^\s*/.exec(state.doc.lineAt(from).text)[0].length;
+            while (to < line.to && /\s/.test(line.text[to - line.from]))
+                to++;
+            if (explode)
+                ({ from, to } = explode);
+            else if (from > line.from && from < line.from + 100 && !/\S/.test(line.text.slice(0, from)))
+                from = line.from;
+            let insert = ["", indentString(state, indent)];
+            if (explode)
+                insert.push(indentString(state, cx.lineIndent(line.from, -1)));
+            return { changes: { from, to, insert: Text.of(insert) },
+                range: EditorSelection.cursor(from + 1 + insert[1].length) };
+        });
+        dispatch(state.update(changes, { scrollIntoView: true, userEvent: "input" }));
+        return true;
+    };
+}
 function changeBySelectedLine(state, f) {
     let atLine = -1;
     return state.changeByRange(range => {
@@ -20535,6 +20700,7 @@ The default keymap. Includes all bindings from
 - Shift-Alt-ArrowUp: [`copyLineUp`](https://codemirror.net/6/docs/ref/#commands.copyLineUp)
 - Shift-Alt-ArrowDown: [`copyLineDown`](https://codemirror.net/6/docs/ref/#commands.copyLineDown)
 - Escape: [`simplifySelection`](https://codemirror.net/6/docs/ref/#commands.simplifySelection)
+- Ctrl-Enter (Comd-Enter on macOS): [`insertBlankLine`](https://codemirror.net/6/docs/ref/#commands.insertBlankLine)
 - Alt-l (Ctrl-l on macOS): [`selectLine`](https://codemirror.net/6/docs/ref/#commands.selectLine)
 - Ctrl-i (Cmd-i on macOS): [`selectParentSyntax`](https://codemirror.net/6/docs/ref/#commands.selectParentSyntax)
 - Ctrl-[ (Cmd-[ on macOS): [`indentLess`](https://codemirror.net/6/docs/ref/#commands.indentLess)
@@ -20551,6 +20717,7 @@ const defaultKeymap = /*@__PURE__*/[
     { key: "Alt-ArrowDown", run: moveLineDown },
     { key: "Shift-Alt-ArrowDown", run: copyLineDown },
     { key: "Escape", run: simplifySelection },
+    { key: "Mod-Enter", run: insertBlankLine },
     { key: "Alt-l", mac: "Ctrl-l", run: selectLine },
     { key: "Mod-i", run: selectParentSyntax, preventDefault: true },
     { key: "Mod-[", run: indentLess },
@@ -20578,9 +20745,11 @@ function rectangleFor(state, a, b) {
         let startCol = Math.min(a.col, b.col), endCol = Math.max(a.col, b.col);
         for (let i = startLine; i <= endLine; i++) {
             let line = state.doc.line(i);
-            let start = findColumn(line.text, startCol, state.tabSize), end = findColumn(line.text, endCol, state.tabSize);
-            if (start < end)
+            let start = findColumn(line.text, startCol, state.tabSize, true);
+            if (start > -1) {
+                let end = findColumn(line.text, endCol, state.tabSize);
                 ranges.push(EditorSelection.range(line.from + start, line.from + end));
+            }
         }
     }
     return ranges;
@@ -25134,7 +25303,7 @@ const javascriptLanguage = /*@__PURE__*/LRLanguage.define({
         props: [
             /*@__PURE__*/indentNodeProp.add({
                 IfStatement: /*@__PURE__*/continuedIndent({ except: /^\s*({|else\b)/ }),
-                TryStatement: /*@__PURE__*/continuedIndent({ except: /^\s*({|catch|finally)\b/ }),
+                TryStatement: /*@__PURE__*/continuedIndent({ except: /^\s*({|catch\b|finally\b)/ }),
                 LabeledStatement: flatIndent,
                 SwitchBody: context => {
                     let after = context.textAfter, closed = /^\s*\}/.test(after), isCase = /^\s*(case|default)\b/.test(after);
@@ -25201,13 +25370,13 @@ const javascriptLanguage = /*@__PURE__*/LRLanguage.define({
                 TypeName: tags$1.typeName,
                 TypeDefinition: /*@__PURE__*/tags$1.definition(tags$1.typeName),
                 "type enum interface implements namespace module declare": tags$1.definitionKeyword,
-                "abstract global privacy readonly": tags$1.modifier,
+                "abstract global privacy readonly override": tags$1.modifier,
                 "is keyof unique infer": tags$1.operatorKeyword,
-                JSXAttributeValue: tags$1.string,
+                JSXAttributeValue: tags$1.attributeValue,
                 JSXText: tags$1.content,
                 "JSXStartTag JSXStartCloseTag JSXSelfCloseEndTag JSXEndTag": tags$1.angleBracket,
                 "JSXIdentifier JSXNameSpacedName": tags$1.tagName,
-                "JSXAttribute/JSXIdentifier JSXAttribute/JSXNameSpacedName": tags$1.propertyName
+                "JSXAttribute/JSXIdentifier JSXAttribute/JSXNameSpacedName": tags$1.attributeName
             })
         ]
     }),
