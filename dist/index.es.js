@@ -4265,7 +4265,8 @@ class MixedParse {
         let fragmentCursor = new FragmentCursor$2(this.fragments);
         let overlay = null;
         let covered = null;
-        scan: for (let cursor = this.baseTree.fullCursor(), nest, isCovered;;) {
+        let cursor = new TreeCursor(new TreeNode(this.baseTree, this.ranges[0].from, 0, null), 1 /* Full */);
+        scan: for (let nest, isCovered;;) {
             let enter = true, range;
             if (fragmentCursor.hasNode(cursor)) {
                 if (overlay) {
@@ -24817,7 +24818,6 @@ function maybeNest(node, input, tags) {
   let attrs;
   for (let tag of tags) {
     if (!tag.attrs || tag.attrs(attrs || (attrs = getAttrs(node.node.parent, input))))
-      console.log("bad", input.read(node.node.parent.from + 4, node.node.parent.to + 4))
       return {parser: tag.parser}
   }
   return null
