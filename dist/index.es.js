@@ -17487,6 +17487,7 @@ const parser$6 = LRParser.deserialize({
   termNames: {"0":"⚠","1":"Identifier","2":"BlockComment","3":"Comment","4":"@top","5":"IfStatement","6":"Identifier/\"if\"","7":"ElseifClause","8":"Identifier/\"elseif\"","9":"ElseClause","10":"Identifier/\"else\"","11":"Identifier/\"end\"","12":"TryStatement","13":"Identifier/\"try\"","14":"CatchClause","15":"Identifier/\"catch\"","16":"FinallyClause","17":"Identifier/\"finally\"","18":"ForStatement","19":"Identifier/\"for\"","20":"ForBinding<e,pe>","21":"TupleExpression<e,pe>","22":"NamedField<e,pe>","23":"TypedExpression<pe>","24":"InterpolationExpression<pe>","25":"FieldExpression<pe>","26":"QuoteExpression<pe>","27":"SubscriptExpression<pe>","28":"GeneratorExpression","29":"PrimitiveDefinition","30":"Identifier/\"primitive\"","31":"Identifier/\"type\"","32":"Number","33":"AbstractDefinition","34":"Identifier/\"abstract\"","35":"StructDefinition","36":"Identifier/\"mutable\"","37":"Identifier/\"struct\"","38":"ModuleDefinition","39":"Identifier/\"module\"","40":"BareModuleDefinition","41":"Identifier/\"baremodule\"","42":"MacroDefinition","43":"Identifier/\"macro\"","44":"InterpolationExpression<definitionHead>","45":"FieldExpression<definitionHead>","46":"QuoteExpression<definitionHead>","47":"SubscriptExpression<definitionHead>","48":"GeneratorExpression-1","49":"ForClause<s_e,s_pe>","50":"ForBinding<s_e,s_pe>","51":"TupleExpression<s_e,s_pe>","52":"NamedField<s_e,s_pe>","53":"TypedExpression<s_pe>","54":"InterpolationExpression<s_pe>","55":"FieldExpression<s_pe>","56":"QuoteExpression<s_pe>","57":"SubscriptExpression<s_pe>","58":"GeneratorExpression-2","59":"AssignmentExpression","60":"AssignmentExpression-1","61":"CallExpression<s_e,s_pe>","62":"ArgumentList<s_e,s_pe>","63":"NamedArgument","64":"DoClause","65":"Identifier/\"do\"","66":"Character","67":"Symbol","68":"String","69":"TripleString","70":"CommandString","71":"PrefixedString","72":"ParenthesizedExpression<s_e>","73":"AssignmentExpression-2","74":"AssignmentExpression-3","75":"ArrayExpression<s_e>","76":"ArrayComprehensionExpression<s_e,s_pe>","77":"MatrixExpression<s_e>","78":"MatrixRow<s_e>","79":"GeneratorExpression<s_e,s_pe>","80":"ParameterizedIdentifier<s_e,s_pe>","81":"TypeArgumentList<s_e>","82":"Operator","83":"Identifier/\"in\"","84":"IfClause<s_e,s_pe>","85":"AssignmentExpression-4","86":"ParameterizedIdentifier<e,definitionHead>","87":"TypeArgumentList<e>","88":"ParenthesizedExpression<definitionHead>","89":"AssignmentExpression-5","90":"AssignmentExpression-6","91":"ArgumentList<e,pe>","92":"NamedArgument-1","93":"FunctionDefinition","94":"Identifier/\"function\"","95":"ReturnType","96":"CompoundExpression","97":"Identifier/\"begin\"","98":"PairExpression<s_e>","99":"MacroExpression<s_e,s_pe>","100":"MacroIdentifier","101":"Operator-1","102":"MacroFieldExpression<s_pe>","103":"MacroArgumentList<s_e>","104":"AssignmentExpression<s_e>","105":"BareTupleExpression<s_e>","106":"UnaryExpression<s_e>","107":"BinaryExpression<s_e>","108":"Identifier/\"isa\"","109":"TernaryExpression<s_e>","110":"FunctionExpression<s_e,s_pe>","111":"CoefficientExpression<s_e>","112":"RangeExpression<s_e>","113":"SpreadExpression<s_e>","114":"Operator-2","115":"AssignmentExpression-7","116":"CallExpression<e,pe>","117":"ParenthesizedExpression<e>","118":"AssignmentExpression-8","119":"AssignmentExpression-9","120":"ArrayExpression<e>","121":"ArrayComprehensionExpression<e,pe>","122":"ForClause<e,pe>","123":"IfClause<e,pe>","124":"MatrixExpression<e>","125":"MatrixRow<e>","126":"GeneratorExpression<e,pe>","127":"ParameterizedIdentifier<e,pe>","128":"WhileStatement","129":"Identifier/\"while\"","130":"LetStatement","131":"Identifier/\"let\"","132":"VariableDeclaration","133":"ConstStatement","134":"Identifier/\"const\"","135":"GlobalStatement","136":"Identifier/\"global\"","137":"LocalStatement","138":"Identifier/\"local\"","139":"QuoteStatement","140":"Identifier/\"quote\"","141":"BreakStatement","142":"Identifier/\"break\"","143":"ContinueStatement","144":"Identifier/\"continue\"","145":"ReturnStatement","146":"Identifier/\"return\"","147":"BareTupleExpression<e>","148":"ImportStatement","149":"Identifier/\"using\"","150":"Identifier/\"import\"","151":"Import","152":"ScopedIdentifier","153":"SelectedImport","154":"ExportStatement","155":"Identifier/\"export\"","156":"PairExpression<e>","157":"MacroExpression<e,pe>","158":"MacroFieldExpression<pe>","159":"MacroArgumentList<e>","160":"AssignmentExpression<e>","161":"UnaryExpression<e>","162":"BinaryExpression<e>","163":"TernaryExpression<e>","164":"FunctionExpression<e,pe>","165":"FunctionExpression","166":"CoefficientExpression<e>","167":"RangeExpression<e>","168":"SpreadExpression<e>","169":"Operator-3","170":"FunctionAssignmentExpression","171":"Identifier/\"where\"","172":"ElseifClause+","173":"(\",\" (s_e | AssignmentExpression { s_e (assignOperator | \"=\") s_e }))+","174":"(\",\" arg<s_e,s_pe>)+","175":"(\",\" arg<s_e,s_pe>)+-1","176":"(stringContent | stringInterpolation)+","177":"(tripleStringContent | stringInterpolation)+","178":"(commandStringContent | stringInterpolation)+","179":"(terminator (s_e | AssignmentExpression { simpleAssignmentExpression<s_e> }))+","180":"(\",\" s_e)+","181":"(s_e)+","182":"(\";\" MatrixRow<s_e>)+","183":"(\",\" tupleelem<s_e,s_pe>)+","184":"(\",\" ForBinding<s_e,s_pe>)+","185":"(ForClause<s_e,s_pe> | IfClause<s_e,s_pe>)+","186":"(\",\" e)+","187":"(terminator (definitionHead | AssignmentExpression { simpleAssignmentExpression<definitionHead> }))+","188":"(\",\" arg<e,pe>)+","189":"(\",\" arg<e,pe>)+-1","190":"((s_e | AssignmentExpression<s_e>))+","191":"(\",\" s_e)+-1","192":"(terminator (e | AssignmentExpression { simpleAssignmentExpression<e> }))+","193":"(\",\" ForBinding<e,pe>)+","194":"(ForClause<e,pe> | IfClause<e,pe>)+","195":"(e)+","196":"(\";\" MatrixRow<e>)+","197":"(\",\" tupleelem<e,pe>)+","198":"(\",\" ForBinding<e,pe>)+-1","199":"(\",\" VariableDeclaration)+","200":"(\",\" VariableDeclaration)+-1","201":"(\",\" e)+-1","202":"(\",\" (Identifier | ScopedIdentifier))+","203":"(\",\" (Identifier | MacroIdentifier | Operator))+","204":"(\",\" Identifier)+","205":"((e | AssignmentExpression<e>))+","206":"(terminator (e | BareTupleExpression<e> | AssignmentExpression<e> | FunctionAssignmentExpression))+","207":"␄","208":"terminator","209":"tripleStringContent","210":"stringContent","211":"commandStringContent","212":"immediateParen","213":"immediateColon","214":"immediateBrace","215":"immediateBracket","216":"immediateDoubleQuote","217":"immediateBackquote","218":"immediateDot","219":"nowhitespace","220":"%mainskip","221":"whitespace","222":"expressionList<e,pe>","223":"e","224":"statement","225":"\"(\"","226":"tupleelem<e,pe>","227":"name","228":"pe","229":"\"$\"","230":"\".\"","231":"\":\"","232":"\"[\"","233":"s_e","234":"definition","235":"definitionHead","236":"comprehensionClause<s_e,s_pe>","237":"tupleelem<s_e,s_pe>","238":"name-1","239":"s_pe","240":"assignOperator","241":"\"=\"","242":"\",\"","243":"\"]\"","244":"args","245":"arg<s_e,s_pe>","246":"\";\"","247":"\")\"","248":"\"\\\"\"","249":"stringInterpolation","250":"\"\\\"\\\"\\\"\"","251":"\"`\"","252":"simpleExpressionList<s_e>","253":"simpleAssignmentExpression<s_e>","254":"\"{\"","255":"\"}\"","256":"plusOperator","257":"plusOperatorExtra","258":"plusminus","259":"timesOperator","260":"powerOperator","261":"comparisonOperator","262":"\"::\"","263":"\"<:\"","264":"\"∈\"","265":"simpleExpressionList<definitionHead>","266":"simpleAssignmentExpression<definitionHead>","267":"arg<e,pe>","268":"params","269":"\"=>\"","270":"\"@\"","271":"args-1","272":"unaryOperatorExtra","273":"\"'\"","274":"\".'\"","275":"bitshiftOperator","276":"arrowOperator","277":"\"<|\"","278":"\"|>\"","279":"\"||\"","280":"\"&&\"","281":"ternary1","282":"ternary2","283":"\"->\"","284":"\"...\"","285":"args-2","286":"simpleExpressionList<e>","287":"simpleAssignmentExpression<e>","288":"comprehensionClause<e,pe>","289":"list","290":"args-3","291":"verboseFunctionExpression"}
 });
 
+var _a;
 const ios = typeof navigator != "undefined" &&
     !/*@__PURE__*//Edge\/(\d+)/.exec(navigator.userAgent) && /*@__PURE__*//Apple Computer/.test(navigator.vendor) &&
     (/*@__PURE__*//Mobile\/\w+/.test(navigator.userAgent) || navigator.maxTouchPoints > 2);
@@ -17546,6 +17547,7 @@ const tooltipPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
         this.position = view.state.facet(tooltipPositioning);
         this.measureReq = { read: this.readMeasure.bind(this), write: this.writeMeasure.bind(this), key: this };
         this.manager = new TooltipViewManager(view, showTooltip, t => this.createTooltip(t));
+        this.maybeMeasure();
     }
     update(update) {
         let { shouldMeasure } = this.manager.update(update);
@@ -17562,6 +17564,8 @@ const tooltipPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
     createTooltip(tooltip) {
         let tooltipView = tooltip.create(this.view);
         tooltipView.dom.classList.add("cm-tooltip");
+        if (tooltip.arrow)
+            tooltipView.dom.classList.add("cm-tooltip-arrow");
         tooltipView.dom.style.position = this.position;
         tooltipView.dom.style.top = Outside;
         this.view.dom.appendChild(tooltipView.dom);
@@ -17593,14 +17597,15 @@ const tooltipPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
                 dom.style.top = Outside;
                 continue;
             }
-            let width = size.right - size.left, height = size.bottom - size.top;
-            let left = this.view.textDirection == Direction.LTR ? Math.min(pos.left, measured.innerWidth - width)
-                : Math.max(0, pos.left - width);
-            let above = !!tooltip.above;
+            let arrow = !!tooltip.arrow, above = !!tooltip.above;
+            let width = size.right - size.left, height = size.bottom - size.top + (arrow ? 7 /* Size */ : 0);
+            let left = this.view.textDirection == Direction.LTR
+                ? Math.min(pos.left - (arrow ? 14 /* Offset */ : 0), measured.innerWidth - width)
+                : Math.max(0, pos.left - width + (arrow ? 14 /* Offset */ : 0));
             if (!tooltip.strictSide &&
                 (above ? pos.top - (size.bottom - size.top) < 0 : pos.bottom + (size.bottom - size.top) > measured.innerHeight))
                 above = !above;
-            let top = above ? pos.top - height : pos.bottom, right = left + width;
+            let top = above ? pos.top - height : pos.bottom + (arrow ? 7 /* Size */ : 0), right = left + width;
             for (let r of others)
                 if (r.left < right && r.right > left && r.top < top + height && r.bottom > top)
                     top = above ? r.top - height : r.bottom;
@@ -17636,20 +17641,58 @@ const tooltipPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
         scroll() { this.maybeMeasure(); }
     }
 });
+const insetInlineStart = typeof document == 'undefined' || ((_a = document.body) === null || _a === void 0 ? void 0 : _a.style.insetInlineStart) != null
+    ? 'insetInlineStart' : 'left';
 const baseTheme$7 = /*@__PURE__*/EditorView.baseTheme({
     ".cm-tooltip": {
         zIndex: 100
     },
     "&light .cm-tooltip": {
-        border: "1px solid #ddd",
+        border: "1px solid #bbb",
         backgroundColor: "#f5f5f5"
     },
     "&light .cm-tooltip-section:not(:first-child)": {
-        borderTop: "1px solid #ddd",
+        borderTop: "1px solid #bbb",
     },
     "&dark .cm-tooltip": {
         backgroundColor: "#333338",
         color: "white"
+    },
+    ".cm-tooltip.cm-tooltip-arrow:before, .cm-tooltip.cm-tooltip-arrow:after": {
+        position: "absolute",
+        content: "''",
+        [insetInlineStart]: `${14 /* Offset */ - 7 /* Size */}px`,
+        width: 0,
+        height: 0,
+        borderLeft: `${7 /* Size */}px solid transparent`,
+        borderRight: `${7 /* Size */}px solid transparent`,
+        zIndex: -1
+    },
+    ".cm-tooltip-above.cm-tooltip-arrow:before": {
+        borderTop: `${7 /* Size */}px solid #f5f5f5`,
+        bottom: `-${7 /* Size */ - 1}px`
+    },
+    ".cm-tooltip-below.cm-tooltip-arrow:before": {
+        borderBottom: `${7 /* Size */}px solid #f5f5f5`,
+        top: `-${7 /* Size */ - 1}px`
+    },
+    ".cm-tooltip-above.cm-tooltip-arrow:after": {
+        borderTop: `${7 /* Size */}px solid #bbb`,
+        bottom: `-${7 /* Size */}px`,
+        zIndex: -2
+    },
+    ".cm-tooltip-below.cm-tooltip-arrow:after": {
+        borderBottom: `${7 /* Size */}px solid #bbb`,
+        top: `-${7 /* Size */}px`,
+        zIndex: -2
+    },
+    "&dark .cm-tooltip.cm-tooltip-arrow:before": {
+        borderTopColor: "#333338",
+        borderBottomColor: "#333338"
+    },
+    "&dark .cm-tooltip.cm-tooltip-arrow:after": {
+        borderTopColor: "transparent",
+        borderBottomColor: "transparent"
     }
 });
 /**
@@ -23381,7 +23424,7 @@ class BlockContext {
             if (line.pos == line.text.length)
                 break;
             if (line.indent < line.baseIndent + 4) {
-                for (let stop of parser$5.endLeafBlock)
+                for (let stop of this.parser.endLeafBlock)
                     if (stop(this, line))
                         break lines;
             }
@@ -25304,7 +25347,7 @@ const javascriptLanguage = /*@__PURE__*/LRLanguage.define({
         props: [
             /*@__PURE__*/indentNodeProp.add({
                 IfStatement: /*@__PURE__*/continuedIndent({ except: /^\s*({|else\b)/ }),
-                TryStatement: /*@__PURE__*/continuedIndent({ except: /^\s*({|catch\b|finally\b)/ }),
+                TryStatement: /*@__PURE__*/continuedIndent({ except: /^\s*({|catch|finally)\b/ }),
                 LabeledStatement: flatIndent,
                 SwitchBody: context => {
                     let after = context.textAfter, closed = /^\s*\}/.test(after), isCase = /^\s*(case|default)\b/.test(after);
@@ -25371,13 +25414,13 @@ const javascriptLanguage = /*@__PURE__*/LRLanguage.define({
                 TypeName: tags$1.typeName,
                 TypeDefinition: /*@__PURE__*/tags$1.definition(tags$1.typeName),
                 "type enum interface implements namespace module declare": tags$1.definitionKeyword,
-                "abstract global privacy readonly override": tags$1.modifier,
+                "abstract global privacy readonly": tags$1.modifier,
                 "is keyof unique infer": tags$1.operatorKeyword,
-                JSXAttributeValue: tags$1.attributeValue,
+                JSXAttributeValue: tags$1.string,
                 JSXText: tags$1.content,
                 "JSXStartTag JSXStartCloseTag JSXSelfCloseEndTag JSXEndTag": tags$1.angleBracket,
                 "JSXIdentifier JSXNameSpacedName": tags$1.tagName,
-                "JSXAttribute/JSXIdentifier JSXAttribute/JSXNameSpacedName": tags$1.attributeName
+                "JSXAttribute/JSXIdentifier JSXAttribute/JSXNameSpacedName": tags$1.propertyName
             })
         ]
     }),
