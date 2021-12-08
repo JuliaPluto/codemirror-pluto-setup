@@ -40,9 +40,8 @@ import { rectangularSelection } from "@codemirror/rectangular-selection";
 import { foldGutter, foldKeymap } from "@codemirror/fold";
 import { bracketMatching } from "@codemirror/matchbrackets";
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/closebrackets";
-import { autocompletion } from "@codemirror/autocomplete";
 import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
-import { completionKeymap } from "@codemirror/autocomplete";
+import * as autocomplete from "@codemirror/autocomplete";
 import { commentKeymap } from "@codemirror/comment";
 import { TreeCursor, NodeProp, parseMixed } from "@lezer/common";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
@@ -75,7 +74,6 @@ export {
   tags,
   HighlightStyle,
   syntaxTree,
-  autocompletion,
   lineNumbers,
   highlightSpecialChars,
   foldGutter,
@@ -90,7 +88,7 @@ export {
   searchKeymap,
   foldKeymap,
   commentKeymap,
-  completionKeymap,
+  autocomplete,
   Decoration,
   ViewUpdate,
   ViewPlugin,
