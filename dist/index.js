@@ -3,7 +3,7 @@ export { StreamLanguage } from '@codemirror/stream-parser';
 export { julia as julia_legacy } from '@codemirror/legacy-modes/mode/julia';
 export { julia as julia_andrey } from 'lang-julia';
 export { lineNumbers } from '@codemirror/gutter';
-export { Decoration, EditorView, ViewPlugin, ViewUpdate, WidgetType, drawSelection, highlightSpecialChars, keymap, placeholder } from '@codemirror/view';
+export { Decoration, EditorView, PluginField, ViewPlugin, ViewUpdate, WidgetType, drawSelection, highlightSpecialChars, keymap, placeholder } from '@codemirror/view';
 export { history, historyKeymap } from '@codemirror/history';
 export { defaultKeymap, indentLess, indentMore } from '@codemirror/commands';
 export { HighlightStyle, defaultHighlightStyle, tags } from '@codemirror/highlight';

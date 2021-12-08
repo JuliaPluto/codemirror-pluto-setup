@@ -92,6 +92,10 @@ Object.defineProperty(exports, 'EditorView', {
 	enumerable: true,
 	get: function () { return view.EditorView; }
 });
+Object.defineProperty(exports, 'PluginField', {
+	enumerable: true,
+	get: function () { return view.PluginField; }
+});
 Object.defineProperty(exports, 'ViewPlugin', {
 	enumerable: true,
 	get: function () { return view.ViewPlugin; }

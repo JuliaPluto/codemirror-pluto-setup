@@ -639,6 +639,36 @@ declare type Extension = {
     extension: Extension;
 } | readonly Extension[];
 /**
+By default extensions are registered in the order they are found
+in the flattened form of nested array that was provided.
+Individual extension values can be assigned a precedence to
+override this. Extensions that do not have a precedence set get
+the precedence of the nearest parent with a precedence, or
+[`default`](https://codemirror.net/6/docs/ref/#state.Prec.default) if there is no such parent. The
+final ordering of extensions is determined by first sorting by
+precedence and then by order within each precedence.
+*/
+declare const Prec: {
+    /**
+    A precedence below the default precedence, which will cause
+    default-precedence extensions to override it even if they are
+    specified later in the extension ordering.
+    */
+    fallback: (ext: Extension) => Extension;
+    /**
+    The regular default precedence.
+    */
+    default: (ext: Extension) => Extension;
+    /**
+    A higher-than-default precedence.
+    */
+    extend: (ext: Extension) => Extension;
+    /**
+    Precedence above the `default` and `extend` precedences.
+    */
+    override: (ext: Extension) => Extension;
+};
+/**
 Extension compartments can be used to make a configuration
 dynamic. By [wrapping](https://codemirror.net/6/docs/ref/#state.Compartment.of) part of your
 configuration in a compartment, you can later
@@ -4841,4 +4871,4 @@ Python language support.
 */
 declare function python(): LanguageSupport;
 
-export { Compartment, Decoration, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, NodeProp, PostgreSQL, SelectionRange, StateEffect, StateField, StreamLanguage, Text, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, autocompletion, bracketMatching, closeBrackets, closeBracketsKeymap, combineConfig, commentKeymap, completionKeymap, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, javascript, javascriptLanguage, julia as julia_andrey, julia$1 as julia_legacy, keymap, lineNumbers, markdown, markdownLanguage, parseMixed, placeholder, python, pythonLanguage, rectangularSelection, searchKeymap, sql, syntaxTree, tags };
+export { Compartment, Decoration, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, NodeProp, PluginField, PostgreSQL, Prec, SelectionRange, StateEffect, StateField, StreamLanguage, Text, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, autocompletion, bracketMatching, closeBrackets, closeBracketsKeymap, combineConfig, commentKeymap, completionKeymap, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, javascript, javascriptLanguage, julia as julia_andrey, julia$1 as julia_legacy, keymap, lineNumbers, markdown, markdownLanguage, parseMixed, placeholder, python, pythonLanguage, rectangularSelection, searchKeymap, sql, syntaxTree, tags };
