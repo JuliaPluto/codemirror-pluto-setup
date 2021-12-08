@@ -1650,21 +1650,23 @@ class FacetProvider {
                 depAddrs.push(addresses[dep.id]);
         }
         return (state, tr) => {
-            if (!tr || tr.reconfigured) {
+            let oldVal = state.values[idx];
+            if (oldVal === Uninitialized) {
                 state.values[idx] = getter(state);
                 return 1 /* Changed */;
             }
-            else {
+            if (tr) {
                 let depChanged = (depDoc && tr.docChanged) || (depSel && (tr.docChanged || tr.selection)) ||
                     depAddrs.some(addr => (ensureAddr(state, addr) & 1 /* Changed */) > 0);
-                if (!depChanged)
-                    return 0;
-                let newVal = getter(state), oldVal = tr.startState.values[idx];
-                if (multi ? compareArray(newVal, oldVal, compare) : compare(newVal, oldVal))
-                    return 0;
-                state.values[idx] = newVal;
-                return 1 /* Changed */;
+                if (depChanged) {
+                    let newVal = getter(state);
+                    if (multi ? !compareArray(newVal, oldVal, compare) : !compare(newVal, oldVal)) {
+                        state.values[idx] = newVal;
+                        return 1 /* Changed */;
+                    }
+                }
             }
+            return 0;
         };
     }
 }
@@ -1682,8 +1684,7 @@ function dynamicFacetSlot(addresses, facet, providers) {
     let dynamic = providerAddrs.filter(p => !(p & 1));
     let idx = addresses[facet.id] >> 1;
     return (state, tr) => {
-        let oldAddr = !tr ? null : tr.reconfigured ? tr.startState.config.address[facet.id] : idx << 1;
-        let changed = oldAddr == null;
+        let oldVal = state.values[idx], changed = oldVal === Uninitialized || !tr;
         for (let dynAddr of dynamic) {
             if (ensureAddr(state, dynAddr) & 1 /* Changed */)
                 changed = true;
@@ -1699,16 +1700,12 @@ function dynamicFacetSlot(addresses, facet, providers) {
             else
                 values.push(value);
         }
-        let newVal = facet.combine(values);
-        if (oldAddr != null && facet.compare(newVal, getAddr(tr.startState, oldAddr)))
+        let value = facet.combine(values);
+        if (oldVal !== Uninitialized && facet.compare(value, oldVal))
             return 0;
-        state.values[idx] = newVal;
+        state.values[idx] = value;
         return 1 /* Changed */;
     };
-}
-function maybeIndex(state, id) {
-    let found = state.config.address[id];
-    return found == null ? null : found >> 1;
 }
 const initField = /*@__PURE__*/Facet.define({ static: true });
 /**
@@ -1754,24 +1751,19 @@ class StateField {
     slot(addresses) {
         let idx = addresses[this.id] >> 1;
         return (state, tr) => {
-            if (!tr || (tr.reconfigured && maybeIndex(tr.startState, this.id) == null)) {
+            let oldVal = state.values[idx];
+            if (oldVal === Uninitialized) {
                 state.values[idx] = this.create(state);
                 return 1 /* Changed */;
             }
-            let oldVal, changed = 0;
-            if (tr.reconfigured) {
-                oldVal = tr.startState.values[maybeIndex(tr.startState, this.id)];
-                changed = 1 /* Changed */;
+            if (tr) {
+                let value = this.updateF(oldVal, tr);
+                if (!this.compareF(oldVal, value)) {
+                    state.values[idx] = value;
+                    return 1 /* Changed */;
+                }
             }
-            else {
-                oldVal = tr.startState.values[idx];
-            }
-            let value = this.updateF(oldVal, tr);
-            if (!changed && !this.compareF(oldVal, value))
-                changed = 1 /* Changed */;
-            if (changed)
-                state.values[idx] = value;
-            return changed;
+            return 0;
         };
     }
     /**
@@ -1789,7 +1781,7 @@ class StateField {
     */
     get extension() { return this; }
 }
-const Prec_ = { fallback: 3, default: 2, extend: 1, override: 0 };
+const Prec_ = { lowest: 4, low: 3, default: 2, high: 1, highest: 0 };
 function prec(value) {
     return (ext) => new PrecExtension(ext, value);
 }
@@ -1805,23 +1797,42 @@ precedence and then by order within each precedence.
 */
 const Prec = {
     /**
-    A precedence below the default precedence, which will cause
-    default-precedence extensions to override it even if they are
-    specified later in the extension ordering.
+    The lowest precedence level. Meant for things that should end up
+    near the end of the extension order.
     */
-    fallback: /*@__PURE__*/prec(Prec_.fallback),
+    lowest: /*@__PURE__*/prec(Prec_.lowest),
     /**
-    The regular default precedence.
+    A lower-than-default precedence, for extensions.
+    */
+    low: /*@__PURE__*/prec(Prec_.low),
+    /**
+    The default precedence, which is also used for extensions
+    without an explicit precedence.
     */
     default: /*@__PURE__*/prec(Prec_.default),
     /**
-    A higher-than-default precedence.
+    A higher-than-default precedence, for extensions that should
+    come before those with default precedence.
     */
-    extend: /*@__PURE__*/prec(Prec_.extend),
+    high: /*@__PURE__*/prec(Prec_.high),
     /**
-    Precedence above the `default` and `extend` precedences.
+    The highest precedence level, for extensions that should end up
+    near the start of the precedence ordering.
     */
-    override: /*@__PURE__*/prec(Prec_.override)
+    highest: /*@__PURE__*/prec(Prec_.highest),
+    // FIXME Drop these in some future breaking version
+    /**
+    Backwards-compatible synonym for `Prec.lowest`.
+    */
+    fallback: /*@__PURE__*/prec(Prec_.lowest),
+    /**
+    Backwards-compatible synonym for `Prec.high`.
+    */
+    extend: /*@__PURE__*/prec(Prec_.high),
+    /**
+    Backwards-compatible synonym for `Prec.highest`.
+    */
+    override: /*@__PURE__*/prec(Prec_.highest)
 };
 class PrecExtension {
     constructor(inner, prec) {
@@ -1872,7 +1883,7 @@ class Configuration {
         this.staticValues = staticValues;
         this.statusTemplate = [];
         while (this.statusTemplate.length < dynamicSlots.length)
-            this.statusTemplate.push(0 /* Uninitialized */);
+            this.statusTemplate.push(0 /* Unresolved */);
     }
     staticFacet(facet) {
         let addr = this.address[facet.id];
@@ -1891,9 +1902,11 @@ class Configuration {
         let address = Object.create(null);
         let staticValues = [];
         let dynamicSlots = [];
+        let dynamicDeps = [];
         for (let field of fields) {
             address[field.id] = dynamicSlots.length << 1;
             dynamicSlots.push(a => field.slot(a));
+            dynamicDeps.push([]);
         }
         for (let id in facets) {
             let providers = facets[id], facet = providers[0].facet;
@@ -1917,17 +1930,41 @@ class Configuration {
                     else {
                         address[p.id] = dynamicSlots.length << 1;
                         dynamicSlots.push(a => p.dynamicSlot(a));
+                        dynamicDeps.push(p.dependencies.filter(d => typeof d != "string").map(d => d.id));
                     }
                 }
                 address[facet.id] = dynamicSlots.length << 1;
                 dynamicSlots.push(a => dynamicFacetSlot(a, facet, providers));
+                dynamicDeps.push(providers.filter(p => p.type != 0 /* Static */).map(d => d.id));
             }
         }
-        return new Configuration(base, newCompartments, dynamicSlots.map(f => f(address)), address, staticValues);
+        let dynamicValues = dynamicSlots.map(_ => Uninitialized);
+        if (oldState) {
+            let canReuse = (id, depth) => {
+                if (depth > 7)
+                    return false;
+                let addr = address[id];
+                if (!(addr & 1))
+                    return dynamicDeps[addr >> 1].every(id => canReuse(id, depth + 1));
+                let oldAddr = oldState.config.address[id];
+                return oldAddr != null && getAddr(oldState, oldAddr) == staticValues[addr >> 1];
+            };
+            // Copy over old values for shared facets/fields, if we can
+            // prove that they don't need to be recomputed.
+            for (let id in address) {
+                let cur = address[id], prev = oldState.config.address[id];
+                if (prev != null && (cur & 1) == 0 && canReuse(+id, 0))
+                    dynamicValues[cur >> 1] = getAddr(oldState, prev);
+            }
+        }
+        return {
+            configuration: new Configuration(base, newCompartments, dynamicSlots.map(f => f(address)), address, staticValues),
+            values: dynamicValues
+        };
     }
 }
 function flatten(extension, compartments, newCompartments) {
-    let result = [[], [], [], []];
+    let result = [[], [], [], [], []];
     let seen = new Map();
     function inner(ext, prec) {
         let known = seen.get(ext);
@@ -1975,6 +2012,7 @@ function flatten(extension, compartments, newCompartments) {
     inner(extension, Prec_.default);
     return result.reduce((a, b) => a.concat(b));
 }
+const Uninitialized = {};
 function ensureAddr(state, addr) {
     if (addr & 1)
         return 2 /* Computed */;
@@ -2259,7 +2297,7 @@ class Transaction {
     */
     isUserEvent(event) {
         let e = this.annotation(Transaction.userEvent);
-        return e && (e == event || e.length > event.length && e.slice(0, event.length) == event && e[event.length] == ".");
+        return !!(e && (e == event || e.length > event.length && e.slice(0, event.length) == event && e[event.length] == "."));
     }
 }
 /**
@@ -2499,28 +2537,20 @@ class EditorState {
     /**
     The current selection.
     */
-    selection, tr = null) {
+    selection, 
+    /**
+    @internal
+    */
+    values, tr = null) {
         this.config = config;
         this.doc = doc;
         this.selection = selection;
+        this.values = values;
         /**
         @internal
         */
         this.applying = null;
         this.status = config.statusTemplate.slice();
-        if (tr && tr.startState.config == config) {
-            this.values = tr.startState.values.slice();
-        }
-        else {
-            this.values = config.dynamicSlots.map(_ => null);
-            // Copy over old values for shared facets/fields if this is a reconfigure
-            if (tr)
-                for (let id in config.address) {
-                    let cur = config.address[id], prev = tr.startState.config.address[id];
-                    if (prev != null && (cur & 1) == 0)
-                        this.values[cur >> 1] = getAddr(tr.startState, prev);
-                }
-        }
         this.applying = tr;
         // Fill in the computed state immediately, so that further queries
         // for it made during the update return this state
@@ -2581,7 +2611,17 @@ class EditorState {
                 base = asArray$1(base).concat(effect.value);
             }
         }
-        new EditorState(conf || Configuration.resolve(base, compartments, this), tr.newDoc, tr.newSelection, tr);
+        let startValues;
+        if (!conf) {
+            let resolved = Configuration.resolve(base, compartments, this);
+            conf = resolved.configuration;
+            let intermediateState = new EditorState(conf, this.doc, this.selection, resolved.values, null);
+            startValues = intermediateState.values;
+        }
+        else {
+            startValues = tr.startState.values.slice();
+        }
+        new EditorState(conf, tr.newDoc, tr.newSelection, startValues, tr);
     }
     /**
     Create a [transaction spec](https://codemirror.net/6/docs/ref/#state.TransactionSpec) that
@@ -2705,7 +2745,7 @@ class EditorState {
     transactions.
     */
     static create(config = {}) {
-        let configuration = Configuration.resolve(config.extensions || [], new Map);
+        let { configuration, values } = Configuration.resolve(config.extensions || [], new Map);
         let doc = config.doc instanceof Text ? config.doc
             : Text.of((config.doc || "").split(configuration.staticFacet(EditorState.lineSeparator) || DefaultSplit));
         let selection = !config.selection ? EditorSelection.single(0)
@@ -2714,7 +2754,7 @@ class EditorState {
         checkSelection(selection, doc.length);
         if (!configuration.staticFacet(allowMultipleSelections))
             selection = selection.asSingle();
-        return new EditorState(configuration, doc, selection);
+        return new EditorState(configuration, doc, selection, values);
     }
     /**
     The size (in columns) of a tab in the document, determined by
@@ -17800,6 +17840,11 @@ function ensureAnchor(expr, start) {
         return expr;
     return new RegExp(`${addStart ? "^" : ""}(?:${source})${addEnd ? "$" : ""}`, (_a = expr.flags) !== null && _a !== void 0 ? _a : (expr.ignoreCase ? "i" : ""));
 }
+/**
+This annotation is added to transactions that are produced by
+picking a completion.
+*/
+const pickedCompletion = /*@__PURE__*/Annotation.define();
 function applyCompletion(view, option) {
     let apply = option.completion.apply || option.completion.label;
     let result = option.source;
@@ -17807,7 +17852,8 @@ function applyCompletion(view, option) {
         view.dispatch({
             changes: { from: result.from, to: result.to, insert: apply },
             selection: { anchor: result.from + apply.length },
-            userEvent: "input.complete"
+            userEvent: "input.complete",
+            annotations: pickedCompletion.of(option.completion)
         });
     }
     else {
@@ -17901,7 +17947,7 @@ class FuzzyMatcher {
                     if (next == chars[adjacentTo] || next == folded[adjacentTo]) {
                         if (adjacentTo == 0)
                             adjacentStart = i;
-                        adjacentEnd = i;
+                        adjacentEnd = i + 1;
                         adjacentTo++;
                     }
                     else {
@@ -17953,6 +17999,7 @@ const completionConfig = /*@__PURE__*/Facet.define({
             maxRenderedOptions: 100,
             defaultKeymap: true,
             optionClass: () => "",
+            aboveCursor: false,
             icons: true,
             addToOptions: []
         }, {
@@ -17966,105 +18013,6 @@ const completionConfig = /*@__PURE__*/Facet.define({
 function joinClass(a, b) {
     return a ? b ? a + " " + b : a : b;
 }
-
-const MaxInfoWidth = 300;
-const baseTheme$6 = /*@__PURE__*/EditorView.baseTheme({
-    ".cm-tooltip.cm-tooltip-autocomplete": {
-        "& > ul": {
-            fontFamily: "monospace",
-            whiteSpace: "nowrap",
-            overflow: "auto",
-            maxWidth_fallback: "700px",
-            maxWidth: "min(700px, 95vw)",
-            maxHeight: "10em",
-            listStyle: "none",
-            margin: 0,
-            padding: 0,
-            "& > li": {
-                cursor: "pointer",
-                padding: "1px 1em 1px 3px",
-                lineHeight: 1.2
-            },
-            "& > li[aria-selected]": {
-                background_fallback: "#bdf",
-                backgroundColor: "Highlight",
-                color_fallback: "white",
-                color: "HighlightText"
-            }
-        }
-    },
-    ".cm-completionListIncompleteTop:before, .cm-completionListIncompleteBottom:after": {
-        content: '"···"',
-        opacity: 0.5,
-        display: "block",
-        textAlign: "center"
-    },
-    ".cm-tooltip.cm-completionInfo": {
-        position: "absolute",
-        padding: "3px 9px",
-        width: "max-content",
-        maxWidth: MaxInfoWidth + "px",
-    },
-    ".cm-completionInfo.cm-completionInfo-left": { right: "100%" },
-    ".cm-completionInfo.cm-completionInfo-right": { left: "100%" },
-    "&light .cm-snippetField": { backgroundColor: "#00000022" },
-    "&dark .cm-snippetField": { backgroundColor: "#ffffff22" },
-    ".cm-snippetFieldPosition": {
-        verticalAlign: "text-top",
-        width: 0,
-        height: "1.15em",
-        margin: "0 -0.7px -.7em",
-        borderLeft: "1.4px dotted #888"
-    },
-    ".cm-completionMatchedText": {
-        textDecoration: "underline"
-    },
-    ".cm-completionDetail": {
-        marginLeft: "0.5em",
-        fontStyle: "italic"
-    },
-    ".cm-completionIcon": {
-        fontSize: "90%",
-        width: ".8em",
-        display: "inline-block",
-        textAlign: "center",
-        paddingRight: ".6em",
-        opacity: "0.6"
-    },
-    ".cm-completionIcon-function, .cm-completionIcon-method": {
-        "&:after": { content: "'ƒ'" }
-    },
-    ".cm-completionIcon-class": {
-        "&:after": { content: "'○'" }
-    },
-    ".cm-completionIcon-interface": {
-        "&:after": { content: "'◌'" }
-    },
-    ".cm-completionIcon-variable": {
-        "&:after": { content: "'𝑥'" }
-    },
-    ".cm-completionIcon-constant": {
-        "&:after": { content: "'𝐶'" }
-    },
-    ".cm-completionIcon-type": {
-        "&:after": { content: "'𝑡'" }
-    },
-    ".cm-completionIcon-enum": {
-        "&:after": { content: "'∪'" }
-    },
-    ".cm-completionIcon-property": {
-        "&:after": { content: "'□'" }
-    },
-    ".cm-completionIcon-keyword": {
-        "&:after": { content: "'🔑\uFE0E'" } // Disable emoji rendering
-    },
-    ".cm-completionIcon-namespace": {
-        "&:after": { content: "'▢'" }
-    },
-    ".cm-completionIcon-text": {
-        "&:after": { content: "'abc'", fontSize: "50%", verticalAlign: "middle" }
-    }
-});
 
 function optionContent(config) {
     let content = config.addToOptions.slice();
@@ -18223,25 +18171,27 @@ class CompletionTooltip {
     }
     measureInfo() {
         let sel = this.dom.querySelector("[aria-selected]");
-        if (!sel)
+        if (!sel || !this.info)
             return null;
-        let rect = this.dom.getBoundingClientRect();
-        let top = sel.getBoundingClientRect().top - rect.top;
-        if (top < 0 || top > this.list.clientHeight - 10)
+        let rect = this.dom.getBoundingClientRect(), infoRect = this.info.getBoundingClientRect();
+        if (rect.top > innerHeight - 10 || rect.bottom < 10)
             return null;
+        let top = Math.max(0, Math.min(sel.getBoundingClientRect().top, innerHeight - infoRect.height)) - rect.top;
         let left = this.view.textDirection == Direction.RTL;
         let spaceLeft = rect.left, spaceRight = innerWidth - rect.right;
-        if (left && spaceLeft < Math.min(MaxInfoWidth, spaceRight))
+        if (left && spaceLeft < Math.min(infoRect.width, spaceRight))
             left = false;
-        else if (!left && spaceRight < Math.min(MaxInfoWidth, spaceLeft))
+        else if (!left && spaceRight < Math.min(infoRect.width, spaceLeft))
             left = true;
         return { top, left };
     }
     positionInfo(pos) {
-        if (this.info && pos) {
-            this.info.style.top = pos.top + "px";
-            this.info.classList.toggle("cm-completionInfo-left", pos.left);
-            this.info.classList.toggle("cm-completionInfo-right", !pos.left);
+        if (this.info) {
+            this.info.style.top = (pos ? pos.top : -1e6) + "px";
+            if (pos) {
+                this.info.classList.toggle("cm-completionInfo-left", pos.left);
+                this.info.classList.toggle("cm-completionInfo-right", !pos.left);
+            }
         }
     }
     createListBox(options, id, range) {
@@ -18313,7 +18263,8 @@ function sortOptions(active, state) {
     for (let opt of options.sort(cmpOption)) {
         if (result.length == MaxOptions)
             break;
-        if (!prev || prev.label != opt.completion.label || prev.detail != opt.completion.detail)
+        if (!prev || prev.label != opt.completion.label || prev.detail != opt.completion.detail ||
+            prev.type != opt.completion.type || prev.apply != opt.completion.apply)
             result.push(opt);
         else if (score(opt.completion) > score(prev))
             result[result.length - 1] = opt;
@@ -18333,7 +18284,7 @@ class CompletionDialog {
         return selected == this.selected || selected >= this.options.length ? this
             : new CompletionDialog(this.options, makeAttrs(id, selected), this.tooltip, this.timestamp, selected);
     }
-    static build(active, state, id, prev) {
+    static build(active, state, id, prev, conf) {
         let options = sortOptions(active, state);
         if (!options.length)
             return null;
@@ -18347,7 +18298,8 @@ class CompletionDialog {
         }
         return new CompletionDialog(options, makeAttrs(id, selected), {
             pos: active.reduce((a, b) => b.hasResult() ? Math.min(a, b.from) : a, 1e8),
-            create: completionTooltip(completionState)
+            create: completionTooltip(completionState),
+            above: conf.aboveCursor,
         }, prev ? prev.timestamp : Date.now(), selected);
     }
     map(changes) {
@@ -18375,7 +18327,7 @@ class CompletionState {
         if (active.length == this.active.length && active.every((a, i) => a == this.active[i]))
             active = this.active;
         let open = tr.selection || active.some(a => a.hasResult() && tr.changes.touchesRange(a.from, a.to)) ||
-            !sameResults(active, this.active) ? CompletionDialog.build(active, state, this.id, this.open)
+            !sameResults(active, this.active) ? CompletionDialog.build(active, state, this.id, this.open, conf)
             : this.open && tr.docChanged ? this.open.map(tr.changes) : this.open;
         if (!open && active.every(a => a.state != 1 /* Pending */) && active.some(a => a.hasResult()))
             active = active.map(a => a.hasResult() ? new ActiveSource(a.source, 0 /* Inactive */) : a);
@@ -18530,7 +18482,7 @@ Accept the current completion.
 */
 const acceptCompletion = (view) => {
     let cState = view.state.field(completionState, false);
-    if (!cState || !cState.open || Date.now() - cState.open.timestamp < CompletionInteractMargin)
+    if (view.state.readOnly || !cState || !cState.open || Date.now() - cState.open.timestamp < CompletionInteractMargin)
         return false;
     applyCompletion(view, cState.open.options[cState.open.selected]);
     return true;
@@ -18706,6 +18658,109 @@ const completionPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
     }
 });
 
+const baseTheme$6 = /*@__PURE__*/EditorView.baseTheme({
+    ".cm-tooltip.cm-tooltip-autocomplete": {
+        "& > ul": {
+            fontFamily: "monospace",
+            whiteSpace: "nowrap",
+            overflow: "hidden auto",
+            maxWidth_fallback: "700px",
+            maxWidth: "min(700px, 95vw)",
+            minWidth: "250px",
+            maxHeight: "10em",
+            listStyle: "none",
+            margin: 0,
+            padding: 0,
+            "& > li": {
+                overflowX: "hidden",
+                textOverflow: "ellipsis",
+                cursor: "pointer",
+                padding: "1px 3px",
+                lineHeight: 1.2
+            },
+        }
+    },
+    "&light .cm-tooltip-autocomplete ul li[aria-selected]": {
+        background: "#39e",
+        color: "white",
+    },
+    "&dark .cm-tooltip-autocomplete ul li[aria-selected]": {
+        background: "#347",
+        color: "white",
+    },
+    ".cm-completionListIncompleteTop:before, .cm-completionListIncompleteBottom:after": {
+        content: '"···"',
+        opacity: 0.5,
+        display: "block",
+        textAlign: "center"
+    },
+    ".cm-tooltip.cm-completionInfo": {
+        position: "absolute",
+        padding: "3px 9px",
+        width: "max-content",
+        maxWidth: "300px",
+    },
+    ".cm-completionInfo.cm-completionInfo-left": { right: "100%" },
+    ".cm-completionInfo.cm-completionInfo-right": { left: "100%" },
+    "&light .cm-snippetField": { backgroundColor: "#00000022" },
+    "&dark .cm-snippetField": { backgroundColor: "#ffffff22" },
+    ".cm-snippetFieldPosition": {
+        verticalAlign: "text-top",
+        width: 0,
+        height: "1.15em",
+        margin: "0 -0.7px -.7em",
+        borderLeft: "1.4px dotted #888"
+    },
+    ".cm-completionMatchedText": {
+        textDecoration: "underline"
+    },
+    ".cm-completionDetail": {
+        marginLeft: "0.5em",
+        fontStyle: "italic"
+    },
+    ".cm-completionIcon": {
+        fontSize: "90%",
+        width: ".8em",
+        display: "inline-block",
+        textAlign: "center",
+        paddingRight: ".6em",
+        opacity: "0.6"
+    },
+    ".cm-completionIcon-function, .cm-completionIcon-method": {
+        "&:after": { content: "'ƒ'" }
+    },
+    ".cm-completionIcon-class": {
+        "&:after": { content: "'○'" }
+    },
+    ".cm-completionIcon-interface": {
+        "&:after": { content: "'◌'" }
+    },
+    ".cm-completionIcon-variable": {
+        "&:after": { content: "'𝑥'" }
+    },
+    ".cm-completionIcon-constant": {
+        "&:after": { content: "'𝐶'" }
+    },
+    ".cm-completionIcon-type": {
+        "&:after": { content: "'𝑡'" }
+    },
+    ".cm-completionIcon-enum": {
+        "&:after": { content: "'∪'" }
+    },
+    ".cm-completionIcon-property": {
+        "&:after": { content: "'□'" }
+    },
+    ".cm-completionIcon-keyword": {
+        "&:after": { content: "'🔑\uFE0E'" } // Disable emoji rendering
+    },
+    ".cm-completionIcon-namespace": {
+        "&:after": { content: "'▢'" }
+    },
+    ".cm-completionIcon-text": {
+        "&:after": { content: "'abc'", fontSize: "50%", verticalAlign: "middle" }
+    }
+});
+
 class FieldPos {
     constructor(field, line, from, to) {
         this.field = field;
@@ -18751,7 +18806,7 @@ class Snippet {
         let lines = [], positions = [], m;
         for (let line of template.split(/\r\n?|\n/)) {
             while (m = /[#$]\{(?:(\d+)(?::([^}]*))?|([^}]*))\}/.exec(line)) {
-                let seq = m[1] ? +m[1] : null, name = m[2] || m[3], found = -1;
+                let seq = m[1] ? +m[1] : null, name = m[2] || m[3] || "", found = -1;
                 for (let i = 0; i < fields.length; i++) {
                     if (seq != null ? fields[i].seq == seq : name ? fields[i].name == name : false)
                         found = i;
@@ -18760,7 +18815,7 @@ class Snippet {
                     let i = 0;
                     while (i < fields.length && (seq == null || (fields[i].seq != null && fields[i].seq < seq)))
                         i++;
-                    fields.splice(i, 0, { seq, name: name || null });
+                    fields.splice(i, 0, { seq, name });
                     found = i;
                     for (let pos of positions)
                         if (pos.field >= found)
@@ -18856,8 +18911,7 @@ function snippet(template) {
             let active = new ActiveSnippet(ranges, 0);
             let effects = spec.effects = [setActive.of(active)];
             if (editor.state.field(snippetState, false) === undefined)
-                effects.push(StateEffect.appendConfig.of([snippetState.init(() => active), addSnippetKeymap,
-                    snippetPointerHandler, baseTheme$6]));
+                effects.push(StateEffect.appendConfig.of([snippetState, addSnippetKeymap, snippetPointerHandler, baseTheme$6]));
         }
         editor.dispatch(editor.state.update(spec));
     };
@@ -18907,7 +18961,7 @@ to [`clearSnippet`](https://codemirror.net/6/docs/ref/#autocomplete.clearSnippet
 const snippetKeymap = /*@__PURE__*/Facet.define({
     combine(maps) { return maps.length ? maps[0] : defaultSnippetKeymap; }
 });
-const addSnippetKeymap = /*@__PURE__*/Prec.override(/*@__PURE__*/keymap.compute([snippetKeymap], state => state.facet(snippetKeymap)));
+const addSnippetKeymap = /*@__PURE__*/Prec.highest(/*@__PURE__*/keymap.compute([snippetKeymap], state => state.facet(snippetKeymap)));
 /**
 Create a completion from a snippet. Returns an object with the
 properties from `completion`, plus an `apply` function that
@@ -19041,7 +19095,7 @@ const completionKeymap$1 = [
     { key: "PageUp", run: /*@__PURE__*/moveCompletionSelection(false, "page") },
     { key: "Enter", run: acceptCompletion }
 ];
-const completionKeymapExt = /*@__PURE__*/Prec.override(/*@__PURE__*/keymap.computeN([completionConfig], state => state.facet(completionConfig).defaultKeymap ? [completionKeymap$1] : []));
+const completionKeymapExt = /*@__PURE__*/Prec.highest(/*@__PURE__*/keymap.computeN([completionConfig], state => state.facet(completionConfig).defaultKeymap ? [completionKeymap$1] : []));
 /**
 Get the current completion status. When completions are available,
 this will return `"active"`. When completions are pending (in the
@@ -19061,6 +19115,14 @@ function currentCompletions(state) {
     let open = (_a = state.field(completionState, false)) === null || _a === void 0 ? void 0 : _a.open;
     return open ? open.options.map(o => o.completion) : [];
 }
+/**
+Return the currently selected completion, if any.
+*/
+function selectedCompletion(state) {
+    var _a;
+    let open = (_a = state.field(completionState, false)) === null || _a === void 0 ? void 0 : _a.open;
+    return open ? open.options[open.selected].completion : null;
+}
 
 var index = /*#__PURE__*/Object.freeze({
     __proto__: null,
@@ -19078,7 +19140,9 @@ var index = /*#__PURE__*/Object.freeze({
     ifNotIn: ifNotIn,
     moveCompletionSelection: moveCompletionSelection,
     nextSnippetField: nextSnippetField,
+    pickedCompletion: pickedCompletion,
     prevSnippetField: prevSnippetField,
+    selectedCompletion: selectedCompletion,
     snippet: snippet,
     snippetCompletion: snippetCompletion,
     snippetKeymap: snippetKeymap,

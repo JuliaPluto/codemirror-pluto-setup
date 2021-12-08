@@ -650,21 +650,39 @@ precedence and then by order within each precedence.
 */
 declare const Prec: {
     /**
-    A precedence below the default precedence, which will cause
-    default-precedence extensions to override it even if they are
-    specified later in the extension ordering.
+    The lowest precedence level. Meant for things that should end up
+    near the end of the extension order.
     */
-    fallback: (ext: Extension) => Extension;
+    lowest: (ext: Extension) => Extension;
     /**
-    The regular default precedence.
+    A lower-than-default precedence, for extensions.
+    */
+    low: (ext: Extension) => Extension;
+    /**
+    The default precedence, which is also used for extensions
+    without an explicit precedence.
     */
     default: (ext: Extension) => Extension;
     /**
-    A higher-than-default precedence.
+    A higher-than-default precedence, for extensions that should
+    come before those with default precedence.
+    */
+    high: (ext: Extension) => Extension;
+    /**
+    The highest precedence level, for extensions that should end up
+    near the start of the precedence ordering.
+    */
+    highest: (ext: Extension) => Extension;
+    /**
+    Backwards-compatible synonym for `Prec.lowest`.
+    */
+    fallback: (ext: Extension) => Extension;
+    /**
+    Backwards-compatible synonym for `Prec.high`.
     */
     extend: (ext: Extension) => Extension;
     /**
-    Precedence above the `default` and `extend` precedences.
+    Backwards-compatible synonym for `Prec.highest`.
     */
     override: (ext: Extension) => Extension;
 };
@@ -924,7 +942,7 @@ declare class Transaction {
     has `"select.pointer"` as user event, `"select"` and
     `"select.pointer"` will match it.
     */
-    isUserEvent(event: string): boolean | "" | undefined;
+    isUserEvent(event: string): boolean;
     /**
     Annotation used to store transaction timestamps.
     */
@@ -4321,7 +4339,8 @@ interface CompletionConfig {
     Override the completion sources used. By default, they will be
     taken from the `"autocomplete"` [language
     data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt) (which should hold
-    [completion sources](https://codemirror.net/6/docs/ref/#autocomplete.CompletionSource)).
+    [completion sources](https://codemirror.net/6/docs/ref/#autocomplete.CompletionSource) or arrays
+    of [completions](https://codemirror.net/6/docs/ref/#autocomplete.Completion)).
     */
     override?: readonly CompletionSource[] | null;
     /**
@@ -4336,6 +4355,12 @@ interface CompletionConfig {
     same keys.)
     */
     defaultKeymap?: boolean;
+    /**
+    By default, completions are shown below the cursor when there is
+    space. Setting this to true will make the extension put the
+    completions above the cursor when possible.
+    */
+    aboveCursor?: boolean;
     /**
     This can be used to add additional CSS classes to completion
     options.
@@ -4388,7 +4413,9 @@ interface Completion {
     its [label](https://codemirror.net/6/docs/ref/#autocomplete.Completion.label). When this holds a
     string, the completion range is replaced by that string. When it
     is a function, that function is called to perform the
-    completion.
+    completion. If it fires a transaction, it is responsible for
+    adding the [`pickedCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.pickedCompletion)
+    annotation to it.
     */
     apply?: string | ((view: EditorView, completion: Completion, from: number, to: number) => void);
     /**
@@ -4543,6 +4570,11 @@ interface CompletionResult {
     */
     filter?: boolean;
 }
+/**
+This annotation is added to transactions that are produced by
+picking a completion.
+*/
+declare const pickedCompletion: AnnotationType<Completion>;
 
 /**
 Convert a snippet template to a function that can apply it.
@@ -4652,6 +4684,10 @@ declare function completionStatus(state: EditorState): null | "active" | "pendin
 Returns the available completions as an array.
 */
 declare function currentCompletions(state: EditorState): readonly Completion[];
+/**
+Return the currently selected completion, if any.
+*/
+declare function selectedCompletion(state: EditorState): Completion | null;
 
 type index_Completion = Completion;
 type index_CompletionContext = CompletionContext;
@@ -4669,7 +4705,9 @@ declare const index_ifIn: typeof ifIn;
 declare const index_ifNotIn: typeof ifNotIn;
 declare const index_moveCompletionSelection: typeof moveCompletionSelection;
 declare const index_nextSnippetField: typeof nextSnippetField;
+declare const index_pickedCompletion: typeof pickedCompletion;
 declare const index_prevSnippetField: typeof prevSnippetField;
+declare const index_selectedCompletion: typeof selectedCompletion;
 declare const index_snippet: typeof snippet;
 declare const index_snippetCompletion: typeof snippetCompletion;
 declare const index_snippetKeymap: typeof snippetKeymap;
@@ -4693,7 +4731,9 @@ declare namespace index {
     index_ifNotIn as ifNotIn,
     index_moveCompletionSelection as moveCompletionSelection,
     index_nextSnippetField as nextSnippetField,
+    index_pickedCompletion as pickedCompletion,
     index_prevSnippetField as prevSnippetField,
+    index_selectedCompletion as selectedCompletion,
     index_snippet as snippet,
     index_snippetCompletion as snippetCompletion,
     index_snippetKeymap as snippetKeymap,
