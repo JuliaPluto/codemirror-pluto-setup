@@ -1325,6 +1325,73 @@ combine?: {
     [P in keyof Config]?: (first: Config[P], second: Config[P]) => Config[P];
 }): Config;
 
+type index$6_Annotation<_0> = Annotation<_0>;
+declare const index$6_Annotation: typeof Annotation;
+type index$6_AnnotationType<_0> = AnnotationType<_0>;
+declare const index$6_AnnotationType: typeof AnnotationType;
+type index$6_ChangeDesc = ChangeDesc;
+declare const index$6_ChangeDesc: typeof ChangeDesc;
+type index$6_ChangeSet = ChangeSet;
+declare const index$6_ChangeSet: typeof ChangeSet;
+type index$6_ChangeSpec = ChangeSpec;
+type index$6_CharCategory = CharCategory;
+declare const index$6_CharCategory: typeof CharCategory;
+type index$6_Compartment = Compartment;
+declare const index$6_Compartment: typeof Compartment;
+type index$6_EditorSelection = EditorSelection;
+declare const index$6_EditorSelection: typeof EditorSelection;
+type index$6_EditorState = EditorState;
+declare const index$6_EditorState: typeof EditorState;
+type index$6_EditorStateConfig = EditorStateConfig;
+type index$6_Extension = Extension;
+type index$6_Facet<_0, _1> = Facet<_0, _1>;
+declare const index$6_Facet: typeof Facet;
+type index$6_MapMode = MapMode;
+declare const index$6_MapMode: typeof MapMode;
+declare const index$6_Prec: typeof Prec;
+type index$6_SelectionRange = SelectionRange;
+declare const index$6_SelectionRange: typeof SelectionRange;
+type index$6_StateCommand = StateCommand;
+type index$6_StateEffect<_0> = StateEffect<_0>;
+declare const index$6_StateEffect: typeof StateEffect;
+type index$6_StateEffectType<_0> = StateEffectType<_0>;
+declare const index$6_StateEffectType: typeof StateEffectType;
+type index$6_StateField<_0> = StateField<_0>;
+declare const index$6_StateField: typeof StateField;
+type index$6_Transaction = Transaction;
+declare const index$6_Transaction: typeof Transaction;
+type index$6_TransactionSpec = TransactionSpec;
+declare const index$6_combineConfig: typeof combineConfig;
+type index$6_Text = Text;
+declare const index$6_Text: typeof Text;
+declare namespace index$6 {
+  export {
+    index$6_Annotation as Annotation,
+    index$6_AnnotationType as AnnotationType,
+    index$6_ChangeDesc as ChangeDesc,
+    index$6_ChangeSet as ChangeSet,
+    index$6_ChangeSpec as ChangeSpec,
+    index$6_CharCategory as CharCategory,
+    index$6_Compartment as Compartment,
+    index$6_EditorSelection as EditorSelection,
+    index$6_EditorState as EditorState,
+    index$6_EditorStateConfig as EditorStateConfig,
+    index$6_Extension as Extension,
+    index$6_Facet as Facet,
+    index$6_MapMode as MapMode,
+    index$6_Prec as Prec,
+    index$6_SelectionRange as SelectionRange,
+    index$6_StateCommand as StateCommand,
+    index$6_StateEffect as StateEffect,
+    index$6_StateEffectType as StateEffectType,
+    index$6_StateField as StateField,
+    index$6_Transaction as Transaction,
+    index$6_TransactionSpec as TransactionSpec,
+    index$6_combineConfig as combineConfig,
+    index$6_Text as Text,
+  };
+}
+
 /**
 Each range is associated with a value, which must inherit from
 this class.
@@ -1829,6 +1896,19 @@ apply to the editor, and if it can, perform it as a side effect
 transaction) and return `true`.
 */
 declare type Command = (target: EditorView) => boolean;
+/**
+Log or report an unhandled exception in client code. Should
+probably only be used by extension code that allows client code to
+provide functions, and calls those functions in a context where an
+exception can't be propagated to calling code in a reasonable way
+(for example when in an event handler).
+
+Either calls a handler registered with
+[`EditorView.exceptionSink`](https://codemirror.net/6/docs/ref/#view.EditorView^exceptionSink),
+`window.onerror`, if defined, or `console.error` (in which case
+it'll pass `context`, when given, as first argument).
+*/
+declare function logException(state: EditorState, exception: any, context?: string): void;
 /**
 This is the interface plugin objects conform to.
 */
@@ -2734,6 +2814,12 @@ priority get checked first). When a handler has returned `true`
 for a given key, no further handlers are called.
 */
 declare const keymap: Facet<readonly KeyBinding[], readonly (readonly KeyBinding[])[]>;
+/**
+Run the key handlers registered for a given scope. The event
+object should be `"keydown"` event. Returns true if any of the
+handlers handled it.
+*/
+declare function runScopeHandlers(view: EditorView, event: KeyboardEvent, scope: string): boolean;
 
 declare type SelectionConfig = {
     /**
@@ -2806,10 +2892,153 @@ Configuration options.
 config?: SpecialCharConfig): Extension;
 
 /**
+Returns a plugin that makes sure the content has a bottom margin
+equivalent to the height of the editor, minus one line height, so
+that every line in the document can be scrolled to the top of the
+editor.
+
+This is only meaningful when the editor is scrollable, and should
+not be enabled in editors that take the size of their content.
+*/
+declare function scrollPastEnd(): Extension;
+
+/**
+Mark lines that have a cursor on them with the `"cm-activeLine"`
+DOM class.
+*/
+declare function highlightActiveLine(): Extension;
+
+/**
 Extension that enables a placeholder—a piece of example content
 to show when the editor is empty.
 */
 declare function placeholder(content: string | HTMLElement): Extension;
+
+/**
+Helper class used to make it easier to maintain decorations on
+visible code that matches a given regular expression. To be used
+in a [view plugin](https://codemirror.net/6/docs/ref/#view.ViewPlugin). Instances of this object
+represent a matching configuration.
+*/
+declare class MatchDecorator {
+    private regexp;
+    private getDeco;
+    private boundary;
+    /**
+    Create a decorator.
+    */
+    constructor(config: {
+        /**
+        The regular expression to match against the content. Will only
+        be matched inside lines (not across them). Should have its 'g'
+        flag set.
+        */
+        regexp: RegExp;
+        /**
+        The decoration to apply to matches, either directly or as a
+        function of the match.
+        */
+        decoration: Decoration | ((match: RegExpExecArray, view: EditorView, pos: number) => Decoration);
+        /**
+        By default, changed lines are re-matched entirely. You can
+        provide a boundary expression, which should match single
+        character strings that can never occur in `regexp`, to reduce
+        the amount of re-matching.
+        */
+        boundary?: RegExp;
+    });
+    /**
+    Compute the full set of decorations for matches in the given
+    view's viewport. You'll want to call this when initializing your
+    plugin.
+    */
+    createDeco(view: EditorView): RangeSet<Decoration>;
+    /**
+    Update a set of decorations for a view update. `deco` _must_ be
+    the set of decorations produced by _this_ `MatchDecorator` for
+    the view state before the update.
+    */
+    updateDeco(update: ViewUpdate, deco: DecorationSet): DecorationSet;
+    private updateRange;
+}
+
+type index$5_BidiSpan = BidiSpan;
+declare const index$5_BidiSpan: typeof BidiSpan;
+type index$5_BlockInfo = BlockInfo;
+declare const index$5_BlockInfo: typeof BlockInfo;
+type index$5_BlockType = BlockType;
+declare const index$5_BlockType: typeof BlockType;
+type index$5_Command = Command;
+type index$5_DOMEventHandlers<_0> = DOMEventHandlers<_0>;
+type index$5_DOMEventMap = DOMEventMap;
+type index$5_Decoration = Decoration;
+declare const index$5_Decoration: typeof Decoration;
+type index$5_DecorationSet = DecorationSet;
+type index$5_Direction = Direction;
+declare const index$5_Direction: typeof Direction;
+type index$5_EditorView = EditorView;
+declare const index$5_EditorView: typeof EditorView;
+type index$5_KeyBinding = KeyBinding;
+type index$5_MatchDecorator = MatchDecorator;
+declare const index$5_MatchDecorator: typeof MatchDecorator;
+type index$5_MouseSelectionStyle = MouseSelectionStyle;
+type index$5_PluginField<_0> = PluginField<_0>;
+declare const index$5_PluginField: typeof PluginField;
+type index$5_PluginFieldProvider<_0> = PluginFieldProvider<_0>;
+declare const index$5_PluginFieldProvider: typeof PluginFieldProvider;
+type index$5_PluginSpec<_0> = PluginSpec<_0>;
+type index$5_PluginValue = PluginValue;
+type index$5_Rect = Rect;
+type index$5_ViewPlugin<_0> = ViewPlugin<_0>;
+declare const index$5_ViewPlugin: typeof ViewPlugin;
+type index$5_ViewUpdate = ViewUpdate;
+declare const index$5_ViewUpdate: typeof ViewUpdate;
+type index$5_WidgetType = WidgetType;
+declare const index$5_WidgetType: typeof WidgetType;
+declare const index$5_drawSelection: typeof drawSelection;
+declare const index$5_highlightActiveLine: typeof highlightActiveLine;
+declare const index$5_highlightSpecialChars: typeof highlightSpecialChars;
+declare const index$5_keymap: typeof keymap;
+declare const index$5_logException: typeof logException;
+declare const index$5_placeholder: typeof placeholder;
+declare const index$5_runScopeHandlers: typeof runScopeHandlers;
+declare const index$5_scrollPastEnd: typeof scrollPastEnd;
+type index$5_Range<_0> = Range<_0>;
+declare const index$5_Range: typeof Range;
+declare namespace index$5 {
+  export {
+    index$5_BidiSpan as BidiSpan,
+    index$5_BlockInfo as BlockInfo,
+    index$5_BlockType as BlockType,
+    index$5_Command as Command,
+    index$5_DOMEventHandlers as DOMEventHandlers,
+    index$5_DOMEventMap as DOMEventMap,
+    index$5_Decoration as Decoration,
+    index$5_DecorationSet as DecorationSet,
+    index$5_Direction as Direction,
+    index$5_EditorView as EditorView,
+    index$5_KeyBinding as KeyBinding,
+    index$5_MatchDecorator as MatchDecorator,
+    index$5_MouseSelectionStyle as MouseSelectionStyle,
+    index$5_PluginField as PluginField,
+    index$5_PluginFieldProvider as PluginFieldProvider,
+    index$5_PluginSpec as PluginSpec,
+    index$5_PluginValue as PluginValue,
+    index$5_Rect as Rect,
+    index$5_ViewPlugin as ViewPlugin,
+    index$5_ViewUpdate as ViewUpdate,
+    index$5_WidgetType as WidgetType,
+    index$5_drawSelection as drawSelection,
+    index$5_highlightActiveLine as highlightActiveLine,
+    index$5_highlightSpecialChars as highlightSpecialChars,
+    index$5_keymap as keymap,
+    index$5_logException as logException,
+    index$5_placeholder as placeholder,
+    index$5_runScopeHandlers as runScopeHandlers,
+    index$5_scrollPastEnd as scrollPastEnd,
+    index$5_Range as Range,
+  };
+}
 
 interface ChangedRange {
     fromA: number;
@@ -2859,6 +3088,7 @@ declare type ParseWrapper = (inner: PartialParse, input: Input, fragments: reado
     to: number;
 }[]) => PartialParse;
 
+declare const DefaultBufferLength = 1024;
 declare class NodeProp<T> {
     perNode: boolean;
     deserialize: (str: string) => T;
@@ -3029,648 +3259,469 @@ interface NestedParse {
 }
 declare function parseMixed(nest: (node: TreeCursor, input: Input) => NestedParse | null): ParseWrapper;
 
-declare class Stack {
-    pos: number;
-    get context(): any;
-    canShift(term: number): boolean;
-    get parser(): LRParser;
-    dialectEnabled(dialectID: number): boolean;
-    private shiftContext;
-    private reduceContext;
-    private updateContext;
+declare const index$4_DefaultBufferLength: typeof DefaultBufferLength;
+type index$4_NodeProp<_0> = NodeProp<_0>;
+declare const index$4_NodeProp: typeof NodeProp;
+type index$4_MountedTree = MountedTree;
+declare const index$4_MountedTree: typeof MountedTree;
+type index$4_NodePropSource = NodePropSource;
+type index$4_NodeType = NodeType;
+declare const index$4_NodeType: typeof NodeType;
+type index$4_NodeSet = NodeSet;
+declare const index$4_NodeSet: typeof NodeSet;
+type index$4_Tree = Tree;
+declare const index$4_Tree: typeof Tree;
+type index$4_TreeBuffer = TreeBuffer;
+declare const index$4_TreeBuffer: typeof TreeBuffer;
+type index$4_SyntaxNode = SyntaxNode;
+type index$4_TreeCursor = TreeCursor;
+declare const index$4_TreeCursor: typeof TreeCursor;
+type index$4_BufferCursor = BufferCursor;
+type index$4_ChangedRange = ChangedRange;
+type index$4_TreeFragment = TreeFragment;
+declare const index$4_TreeFragment: typeof TreeFragment;
+type index$4_PartialParse = PartialParse;
+type index$4_Parser = Parser;
+declare const index$4_Parser: typeof Parser;
+type index$4_Input = Input;
+type index$4_ParseWrapper = ParseWrapper;
+type index$4_NestedParse = NestedParse;
+declare const index$4_parseMixed: typeof parseMixed;
+declare namespace index$4 {
+  export {
+    index$4_DefaultBufferLength as DefaultBufferLength,
+    index$4_NodeProp as NodeProp,
+    index$4_MountedTree as MountedTree,
+    index$4_NodePropSource as NodePropSource,
+    index$4_NodeType as NodeType,
+    index$4_NodeSet as NodeSet,
+    index$4_Tree as Tree,
+    index$4_TreeBuffer as TreeBuffer,
+    index$4_SyntaxNode as SyntaxNode,
+    index$4_TreeCursor as TreeCursor,
+    index$4_BufferCursor as BufferCursor,
+    index$4_ChangedRange as ChangedRange,
+    index$4_TreeFragment as TreeFragment,
+    index$4_PartialParse as PartialParse,
+    index$4_Parser as Parser,
+    index$4_Input as Input,
+    index$4_ParseWrapper as ParseWrapper,
+    index$4_NestedParse as NestedParse,
+    index$4_parseMixed as parseMixed,
+  };
 }
 
-declare class InputStream {
-    private chunk2;
-    private chunk2Pos;
-    next: number;
-    pos: number;
-    private rangeIndex;
-    private range;
-    resolveOffset(offset: number, assoc: -1 | 1): number;
-    peek(offset: number): any;
-    acceptToken(token: number, endOffset?: number): void;
-    private getChunk;
-    private readNext;
-    advance(n?: number): number;
-    private setDone;
-}
-interface Tokenizer {
-}
-interface ExternalOptions {
-    contextual?: boolean;
-    fallback?: boolean;
-    extend?: boolean;
-}
-declare class ExternalTokenizer implements Tokenizer {
-    constructor(token: (input: InputStream, stack: Stack) => void, options?: ExternalOptions);
-}
-
-declare class ContextTracker<T> {
-    constructor(spec: {
-        start: T;
-        shift?(context: T, term: number, stack: Stack, input: InputStream): T;
-        reduce?(context: T, term: number, stack: Stack, input: InputStream): T;
-        reuse?(context: T, node: Tree, stack: Stack, input: InputStream): T;
-        hash?(context: T): number;
-        strict?: boolean;
-    });
-}
-interface ParserConfig {
-    props?: readonly NodePropSource[];
-    top?: string;
-    dialect?: string;
-    tokenizers?: {
-        from: ExternalTokenizer;
-        to: ExternalTokenizer;
+interface CompletionConfig {
+    /**
+    When enabled (defaults to true), autocompletion will start
+    whenever the user types something that can be completed.
+    */
+    activateOnTyping?: boolean;
+    /**
+    Override the completion sources used. By default, they will be
+    taken from the `"autocomplete"` [language
+    data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt) (which should hold
+    [completion sources](https://codemirror.net/6/docs/ref/#autocomplete.CompletionSource) or arrays
+    of [completions](https://codemirror.net/6/docs/ref/#autocomplete.Completion)).
+    */
+    override?: readonly CompletionSource[] | null;
+    /**
+    The maximum number of options to render to the DOM.
+    */
+    maxRenderedOptions?: number;
+    /**
+    Set this to false to disable the [default completion
+    keymap](https://codemirror.net/6/docs/ref/#autocomplete.completionKeymap). (This requires you to
+    add bindings to control completion yourself. The bindings should
+    probably have a higher precedence than other bindings for the
+    same keys.)
+    */
+    defaultKeymap?: boolean;
+    /**
+    By default, completions are shown below the cursor when there is
+    space. Setting this to true will make the extension put the
+    completions above the cursor when possible.
+    */
+    aboveCursor?: boolean;
+    /**
+    This can be used to add additional CSS classes to completion
+    options.
+    */
+    optionClass?: (completion: Completion) => string;
+    /**
+    By default, the library will render icons based on the
+    completion's [type](https://codemirror.net/6/docs/ref/#autocomplete.Completion.type) in front of
+    each option. Set this to false to turn that off.
+    */
+    icons?: boolean;
+    /**
+    This option can be used to inject additional content into
+    options. The `render` function will be called for each visible
+    completion, and should produce a DOM node to show. `position`
+    determines where in the DOM the result appears, relative to
+    other added widgets and the standard content. The default icons
+    have position 20, the label position 50, and the detail position
+    70.
+    */
+    addToOptions?: {
+        render: (completion: Completion, state: EditorState) => Node | null;
+        position: number;
     }[];
-    contextTracker?: ContextTracker<any>;
-    strict?: boolean;
-    wrap?: ParseWrapper;
-    bufferLength?: number;
-}
-declare class LRParser extends Parser {
-    readonly nodeSet: NodeSet;
-    createParse(input: Input, fragments: readonly TreeFragment[], ranges: readonly {
-        from: number;
-        to: number;
-    }[]): PartialParse;
-    configure(config: ParserConfig): LRParser;
-    getName(term: number): string;
-    get topNode(): NodeType;
 }
 
 /**
-A language object manages parsing and per-language
-[metadata](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt). Parse data is
-managed as a [Lezer](https://lezer.codemirror.net) tree. You'll
-want to subclass this class for custom parsers, or use the
-[`LRLanguage`](https://codemirror.net/6/docs/ref/#language.LRLanguage) or
-[`StreamLanguage`](https://codemirror.net/6/docs/ref/#stream-parser.StreamLanguage) abstractions for
-[Lezer](https://lezer.codemirror.net/) or stream parsers.
+Objects type used to represent individual completions.
 */
-declare class Language {
+interface Completion {
     /**
-    The [language data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt) data
-    facet used for this language.
+    The label to show in the completion picker. This is what input
+    is matched agains to determine whether a completion matches (and
+    how well it matches).
     */
-    readonly data: Facet<{
-        [name: string]: any;
-    }>;
+    label: string;
     /**
-    The node type of the top node of trees produced by this parser.
+    An optional short piece of information to show (with a different
+    style) after the label.
     */
-    readonly topNode: NodeType;
+    detail?: string;
     /**
-    The extension value to install this provider.
+    Additional info to show when the completion is selected. Can be
+    a plain string or a function that'll render the DOM structure to
+    show when invoked.
     */
-    readonly extension: Extension;
+    info?: string | ((completion: Completion) => (Node | Promise<Node>));
     /**
-    The parser object. Can be useful when using this as a [nested
-    parser](https://lezer.codemirror.net/docs/ref#common.Parser).
+    How to apply the completion. The default is to replace it with
+    its [label](https://codemirror.net/6/docs/ref/#autocomplete.Completion.label). When this holds a
+    string, the completion range is replaced by that string. When it
+    is a function, that function is called to perform the
+    completion. If it fires a transaction, it is responsible for
+    adding the [`pickedCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.pickedCompletion)
+    annotation to it.
     */
-    parser: Parser;
+    apply?: string | ((view: EditorView, completion: Completion, from: number, to: number) => void);
     /**
-    Construct a language object. You usually don't need to invoke
-    this directly. But when you do, make sure you use
-    [`defineLanguageFacet`](https://codemirror.net/6/docs/ref/#language.defineLanguageFacet) to create
-    the first argument.
+    The type of the completion. This is used to pick an icon to show
+    for the completion. Icons are styled with a CSS class created by
+    appending the type name to `"cm-completionIcon-"`. You can
+    define or restyle icons by defining these selectors. The base
+    library defines simple icons for `class`, `constant`, `enum`,
+    `function`, `interface`, `keyword`, `method`, `namespace`,
+    `property`, `text`, `type`, and `variable`.
+    
+    Multiple types can be provided by separating them with spaces.
     */
-    constructor(
+    type?: string;
     /**
-    The [language data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt) data
-    facet used for this language.
+    When given, should be a number from -99 to 99 that adjusts how
+    this completion is ranked compared to other completions that
+    match the input as well as this one. A negative number moves it
+    down the list, a positive number moves it up.
     */
-    data: Facet<{
-        [name: string]: any;
-    }>, parser: Parser, 
-    /**
-    The node type of the top node of trees produced by this parser.
-    */
-    topNode: NodeType, extraExtensions?: Extension[]);
-    /**
-    Query whether this language is active at the given position.
-    */
-    isActiveAt(state: EditorState, pos: number, side?: -1 | 0 | 1): boolean;
-    /**
-    Find the document regions that were parsed using this language.
-    The returned regions will _include_ any nested languages rooted
-    in this language, when those exist.
-    */
-    findRegions(state: EditorState): {
-        from: number;
-        to: number;
-    }[];
-    /**
-    Indicates whether this language allows nested languages. The
-    default implementation returns true.
-    */
-    get allowsNesting(): boolean;
+    boost?: number;
 }
 /**
-A subclass of [`Language`](https://codemirror.net/6/docs/ref/#language.Language) for use with Lezer
-[LR parsers](https://lezer.codemirror.net/docs/ref#lr.LRParser)
-parsers.
+An instance of this is passed to completion source functions.
 */
-declare class LRLanguage extends Language {
-    readonly parser: LRParser;
-    private constructor();
+declare class CompletionContext {
     /**
-    Define a language from a parser.
-    */
-    static define(spec: {
-        /**
-        The parser to use. Should already have added editor-relevant
-        node props (and optionally things like dialect and top rule)
-        configured.
-        */
-        parser: LRParser;
-        /**
-        [Language data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt)
-        to register for this language.
-        */
-        languageData?: {
-            [name: string]: any;
-        };
-    }): LRLanguage;
-    /**
-    Create a new instance of this language with a reconfigured
-    version of its parser.
-    */
-    configure(options: ParserConfig): LRLanguage;
-    get allowsNesting(): boolean;
-}
-/**
-Get the syntax tree for a state, which is the current (possibly
-incomplete) parse tree of active [language](https://codemirror.net/6/docs/ref/#language.Language),
-or the empty tree if there is no language available.
-*/
-declare function syntaxTree(state: EditorState): Tree;
-/**
-This class bundles a [language object](https://codemirror.net/6/docs/ref/#language.Language) with an
-optional set of supporting extensions. Language packages are
-encouraged to export a function that optionally takes a
-configuration object and returns a `LanguageSupport` instance, as
-the main way for client code to use the package.
-*/
-declare class LanguageSupport {
-    /**
-    The language object.
-    */
-    readonly language: Language;
-    /**
-    An optional set of supporting extensions. When nesting a
-    language in another language, the outer language is encouraged
-    to include the supporting extensions for its inner languages
-    in its own set of support extensions.
-    */
-    readonly support: Extension;
-    /**
-    An extension including both the language and its support
-    extensions. (Allowing the object to be used as an extension
-    value itself.)
-    */
-    extension: Extension;
-    /**
-    Create a support object.
-    */
-    constructor(
-    /**
-    The language object.
-    */
-    language: Language, 
-    /**
-    An optional set of supporting extensions. When nesting a
-    language in another language, the outer language is encouraged
-    to include the supporting extensions for its inner languages
-    in its own set of support extensions.
-    */
-    support?: Extension);
-}
-/**
-Language descriptions are used to store metadata about languages
-and to dynamically load them. Their main role is finding the
-appropriate language for a filename or dynamically loading nested
-parsers.
-*/
-declare class LanguageDescription {
-    /**
-    The name of this language.
-    */
-    readonly name: string;
-    /**
-    Alternative names for the mode (lowercased, includes `this.name`).
-    */
-    readonly alias: readonly string[];
-    /**
-    File extensions associated with this language.
-    */
-    readonly extensions: readonly string[];
-    /**
-    Optional filename pattern that should be associated with this
-    language.
-    */
-    readonly filename: RegExp | undefined;
-    private loadFunc;
-    /**
-    If the language has been loaded, this will hold its value.
-    */
-    support: LanguageSupport | undefined;
-    private loading;
-    private constructor();
-    /**
-    Start loading the the language. Will return a promise that
-    resolves to a [`LanguageSupport`](https://codemirror.net/6/docs/ref/#language.LanguageSupport)
-    object when the language successfully loads.
-    */
-    load(): Promise<LanguageSupport>;
-    /**
-    Create a language description.
-    */
-    static of(spec: {
-        /**
-        The language's name.
-        */
-        name: string;
-        /**
-        An optional array of alternative names.
-        */
-        alias?: readonly string[];
-        /**
-        An optional array of extensions associated with this language.
-        */
-        extensions?: readonly string[];
-        /**
-        An optional filename pattern associated with this language.
-        */
-        filename?: RegExp;
-        /**
-        A function that will asynchronously load the language.
-        */
-        load: () => Promise<LanguageSupport>;
-    }): LanguageDescription;
-    /**
-    Look for a language in the given array of descriptions that
-    matches the filename. Will first match
-    [`filename`](https://codemirror.net/6/docs/ref/#language.LanguageDescription.filename) patterns,
-    and then [extensions](https://codemirror.net/6/docs/ref/#language.LanguageDescription.extensions),
-    and return the first language that matches.
-    */
-    static matchFilename(descs: readonly LanguageDescription[], filename: string): LanguageDescription | null;
-    /**
-    Look for a language whose name or alias matches the the given
-    name (case-insensitively). If `fuzzy` is true, and no direct
-    matchs is found, this'll also search for a language whose name
-    or alias occurs in the string (for names shorter than three
-    characters, only when surrounded by non-word characters).
-    */
-    static matchLanguageName(descs: readonly LanguageDescription[], name: string, fuzzy?: boolean): LanguageDescription | null;
-}
-/**
-Facet for overriding the unit by which indentation happens.
-Should be a string consisting either entirely of spaces or
-entirely of tabs. When not set, this defaults to 2 spaces.
-*/
-declare const indentUnit: Facet<string, string>;
-/**
-Indentation contexts are used when calling [indentation
-services](https://codemirror.net/6/docs/ref/#language.indentService). They provide helper utilities
-useful in indentation logic, and can selectively override the
-indentation reported for some lines.
-*/
-declare class IndentContext {
-    /**
-    The editor state.
+    The editor state that the completion happens in.
     */
     readonly state: EditorState;
     /**
-    The indent unit (number of columns per indentation level).
+    The position at which the completion is happening.
     */
-    unit: number;
+    readonly pos: number;
     /**
-    Create an indent context.
+    Indicates whether completion was activated explicitly, or
+    implicitly by typing. The usual way to respond to this is to
+    only return completions when either there is part of a
+    completable entity before the cursor, or `explicit` is true.
+    */
+    readonly explicit: boolean;
+    /**
+    Create a new completion context. (Mostly useful for testing
+    completion sources—in the editor, the extension will create
+    these for you.)
     */
     constructor(
     /**
-    The editor state.
+    The editor state that the completion happens in.
     */
     state: EditorState, 
     /**
-    @internal
+    The position at which the completion is happening.
     */
-    options?: {
-        /**
-        Override line indentations provided to the indentation
-        helper function, which is useful when implementing region
-        indentation, where indentation for later lines needs to refer
-        to previous lines, which may have been reindented compared to
-        the original start state. If given, this function should
-        return -1 for lines (given by start position) that didn't
-        change, and an updated indentation otherwise.
-        */
-        overrideIndentation?: (pos: number) => number;
-        /**
-        Make it look, to the indent logic, like a line break was
-        added at the given position (which is mostly just useful for
-        implementing something like
-        [`insertNewlineAndIndent`](https://codemirror.net/6/docs/ref/#commands.insertNewlineAndIndent)).
-        */
-        simulateBreak?: number;
-        /**
-        When `simulateBreak` is given, this can be used to make the
-        simulate break behave like a double line break.
-        */
-        simulateDoubleBreak?: boolean;
-    });
+    pos: number, 
     /**
-    Get a description of the line at the given position, taking
-    [simulated line
-    breaks](https://codemirror.net/6/docs/ref/#language.IndentContext.constructor^options.simulateBreak)
-    into account. If there is such a break at `pos`, the `bias`
-    argument determines whether the part of the line line before or
-    after the break is used.
+    Indicates whether completion was activated explicitly, or
+    implicitly by typing. The usual way to respond to this is to
+    only return completions when either there is part of a
+    completable entity before the cursor, or `explicit` is true.
     */
-    lineAt(pos: number, bias?: -1 | 1): {
-        text: string;
+    explicit: boolean);
+    /**
+    Get the extent, content, and (if there is a token) type of the
+    token before `this.pos`.
+    */
+    tokenBefore(types: readonly string[]): {
         from: number;
-    };
+        to: number;
+        text: string;
+        type: NodeType;
+    } | null;
     /**
-    Get the text directly after `pos`, either the entire line
-    or the next 100 characters, whichever is shorter.
+    Get the match of the given expression directly before the
+    cursor.
     */
-    textAfterPos(pos: number, bias?: -1 | 1): string;
+    matchBefore(expr: RegExp): {
+        from: number;
+        to: number;
+        text: string;
+    } | null;
     /**
-    Find the column for the given position.
+    Yields true when the query has been aborted. Can be useful in
+    asynchronous queries to avoid doing work that will be ignored.
     */
-    column(pos: number, bias?: -1 | 1): number;
+    get aborted(): boolean;
     /**
-    Find the column position (taking tabs into account) of the given
-    position in the given string.
+    Allows you to register abort handlers, which will be called when
+    the query is
+    [aborted](https://codemirror.net/6/docs/ref/#autocomplete.CompletionContext.aborted).
     */
-    countColumn(line: string, pos?: number): number;
-    /**
-    Find the indentation column of the line at the given point.
-    */
-    lineIndent(pos: number, bias?: -1 | 1): number;
-    /**
-    Returns the [simulated line
-    break](https://codemirror.net/6/docs/ref/#language.IndentContext.constructor^options.simulateBreak)
-    for this context, if any.
-    */
-    get simulatedBreak(): number | null;
+    addEventListener(type: "abort", listener: () => void): void;
 }
 /**
-Enables reindentation on input. When a language defines an
-`indentOnInput` field in its [language
-data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt), which must hold a regular
-expression, the line at the cursor will be reindented whenever new
-text is typed and the input from the start of the line up to the
-cursor matches that regexp.
-
-To avoid unneccesary reindents, it is recommended to start the
-regexp with `^` (usually followed by `\s*`), and end it with `$`.
-For example, `/^\s*\}$/` will reindent when a closing brace is
-added at the start of a line.
+Given a a fixed array of options, return an autocompleter that
+completes them.
 */
-declare function indentOnInput(): Extension;
-
+declare function completeFromList(list: readonly (string | Completion)[]): CompletionSource;
 /**
-Encapsulates a single line of input. Given to stream syntax code,
-which uses it to tokenize the content.
+Wrap the given completion source so that it will only fire when the
+cursor is in a syntax node with one of the given names.
 */
-declare class StringStream {
-    /**
-    The line.
-    */
-    string: string;
-    private tabSize;
-    /**
-    The current indent unit size.
-    */
-    indentUnit: number;
-    /**
-    The current position on the line.
-    */
-    pos: number;
-    /**
-    The start position of the current token.
-    */
-    start: number;
-    private lastColumnPos;
-    private lastColumnValue;
-    /**
-    True if we are at the end of the line.
-    */
-    eol(): boolean;
-    /**
-    True if we are at the start of the line.
-    */
-    sol(): boolean;
-    /**
-    Get the next code unit after the current position, or undefined
-    if we're at the end of the line.
-    */
-    peek(): string | undefined;
-    /**
-    Read the next code unit and advance `this.pos`.
-    */
-    next(): string | void;
-    /**
-    Match the next character against the given string, regular
-    expression, or predicate. Consume and return it if it matches.
-    */
-    eat(match: string | RegExp | ((ch: string) => boolean)): string | void;
-    /**
-    Continue matching characters that match the given string,
-    regular expression, or predicate function. Return true if any
-    characters were consumed.
-    */
-    eatWhile(match: string | RegExp | ((ch: string) => boolean)): boolean;
-    /**
-    Consume whitespace ahead of `this.pos`. Return true if any was
-    found.
-    */
-    eatSpace(): boolean;
-    /**
-    Move to the end of the line.
-    */
-    skipToEnd(): void;
-    /**
-    Move to directly before the given character, if found on the
-    current line.
-    */
-    skipTo(ch: string): boolean | void;
-    /**
-    Move back `n` characters.
-    */
-    backUp(n: number): void;
-    /**
-    Get the column position at `this.pos`.
-    */
-    column(): number;
-    /**
-    Get the indentation column of the current line.
-    */
-    indentation(): number;
-    /**
-    Match the input against the given string or regular expression
-    (which should start with a `^`). Return true or the regexp match
-    if it matches.
-    
-    Unless `consume` is set to `false`, this will move `this.pos`
-    past the matched text.
-    
-    When matching a string `caseInsensitive` can be set to true to
-    make the match case-insensitive.
-    */
-    match(pattern: string | RegExp, consume?: boolean, caseInsensitive?: boolean): boolean | RegExpMatchArray | null;
-    /**
-    Get the current token.
-    */
-    current(): string;
-}
-
+declare function ifIn(nodes: readonly string[], source: CompletionSource): CompletionSource;
 /**
-A stream parser parses or tokenizes content from start to end,
-emitting tokens as it goes over it. It keeps a mutable (but
-copyable) object with state, in which it can store information
-about the current context.
+Wrap the given completion source so that it will not fire when the
+cursor is in a syntax node with one of the given names.
 */
-interface StreamParser<State> {
+declare function ifNotIn(nodes: readonly string[], source: CompletionSource): CompletionSource;
+/**
+The function signature for a completion source. Such a function
+may return its [result](https://codemirror.net/6/docs/ref/#autocomplete.CompletionResult)
+synchronously or as a promise. Returning null indicates no
+completions are available.
+*/
+declare type CompletionSource = (context: CompletionContext) => CompletionResult | null | Promise<CompletionResult | null>;
+/**
+Interface for objects returned by completion sources.
+*/
+interface CompletionResult {
     /**
-    Read one token, advancing the stream past it, and returning a
-    string indicating the token's style tag—either the name of one
-    of the tags in [`tags`](https://codemirror.net/6/docs/ref/#highlight.tags), or such a name
-    suffixed by one or more tag
-    [modifier](https://codemirror.net/6/docs/ref/#highlight.Tag^defineModifier) names, separated by
-    spaces. For example `"keyword"` or "`variableName.constant"`.
-    
-    It is okay to return a zero-length token, but only if that
-    updates the state so that the next call will return a non-empty
-    token again.
+    The start of the range that is being completed.
     */
-    token(stream: StringStream, state: State): string | null;
+    from: number;
     /**
-    This notifies the parser of a blank line in the input. It can
-    update its state here if it needs to.
+    The end of the range that is being completed. Defaults to the
+    main cursor position.
     */
-    blankLine?(state: State, indentUnit: number): void;
+    to?: number;
     /**
-    Produce a start state for the parser.
+    The completions returned. These don't have to be compared with
+    the input by the source—the autocompletion system will do its
+    own matching (against the text between `from` and `to`) and
+    sorting.
     */
-    startState?(indentUnit: number): State;
+    options: readonly Completion[];
     /**
-    Copy a given state. By default, a shallow object copy is done
-    which also copies arrays held at the top level of the object.
+    When given, further input that causes the part of the document
+    between ([mapped](https://codemirror.net/6/docs/ref/#state.ChangeDesc.mapPos)) `from` and `to` to
+    match this regular expression will not query the completion
+    source again, but continue with this list of options. This can
+    help a lot with responsiveness, since it allows the completion
+    list to be updated synchronously.
     */
-    copyState?(state: State): State;
+    span?: RegExp;
     /**
-    Compute automatic indentation for the line that starts with the
-    given state and text.
+    By default, the library filters and scores completions. Set
+    `filter` to `false` to disable this, and cause your completions
+    to all be included, in the order they were given. When there are
+    other sources, unfiltered completions appear at the top of the
+    list of completions. `span` must not be given when `filter` is
+    `false`, because it only works when filtering.
     */
-    indent?(state: State, textAfter: string, context: IndentContext): number | null;
-    /**
-    Default [language data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt) to
-    attach to this language.
-    */
-    languageData?: {
-        [name: string]: any;
-    };
+    filter?: boolean;
 }
 /**
-A [language](https://codemirror.net/6/docs/ref/#language.Language) class based on a streaming
-parser.
+This annotation is added to transactions that are produced by
+picking a completion.
 */
-declare class StreamLanguage<State> extends Language {
-    private constructor();
-    static define<State>(spec: StreamParser<State>): StreamLanguage<State>;
-    private getIndent;
-    get allowsNesting(): boolean;
+declare const pickedCompletion: AnnotationType<Completion>;
+
+/**
+Convert a snippet template to a function that can apply it.
+Snippets are written using syntax like this:
+
+    "for (let ${index} = 0; ${index} < ${end}; ${index}++) {\n\t${}\n}"
+
+Each `${}` placeholder (you may also use `#{}`) indicates a field
+that the user can fill in. Its name, if any, will be the default
+content for the field.
+
+When the snippet is activated by calling the returned function,
+the code is inserted at the given position. Newlines in the
+template are indented by the indentation of the start line, plus
+one [indent unit](https://codemirror.net/6/docs/ref/#language.indentUnit) per tab character after
+the newline.
+
+On activation, (all instances of) the first field are selected.
+The user can move between fields with Tab and Shift-Tab as long as
+the fields are active. Moving to the last field or moving the
+cursor out of the current field deactivates the fields.
+
+The order of fields defaults to textual order, but you can add
+numbers to placeholders (`${1}` or `${1:defaultText}`) to provide
+a custom order.
+*/
+declare function snippet(template: string): (editor: {
+    state: EditorState;
+    dispatch: (tr: Transaction) => void;
+}, _completion: Completion, from: number, to: number) => void;
+/**
+A command that clears the active snippet, if any.
+*/
+declare const clearSnippet: StateCommand;
+/**
+Move to the next snippet field, if available.
+*/
+declare const nextSnippetField: StateCommand;
+/**
+Move to the previous snippet field, if available.
+*/
+declare const prevSnippetField: StateCommand;
+/**
+A facet that can be used to configure the key bindings used by
+snippets. The default binds Tab to
+[`nextSnippetField`](https://codemirror.net/6/docs/ref/#autocomplete.nextSnippetField), Shift-Tab to
+[`prevSnippetField`](https://codemirror.net/6/docs/ref/#autocomplete.prevSnippetField), and Escape
+to [`clearSnippet`](https://codemirror.net/6/docs/ref/#autocomplete.clearSnippet).
+*/
+declare const snippetKeymap: Facet<readonly KeyBinding[], readonly KeyBinding[]>;
+/**
+Create a completion from a snippet. Returns an object with the
+properties from `completion`, plus an `apply` function that
+applies the snippet.
+*/
+declare function snippetCompletion(template: string, completion: Completion): Completion;
+
+/**
+Returns a command that moves the completion selection forward or
+backward by the given amount.
+*/
+declare function moveCompletionSelection(forward: boolean, by?: "option" | "page"): Command;
+/**
+Accept the current completion.
+*/
+declare const acceptCompletion: Command;
+/**
+Explicitly start autocompletion.
+*/
+declare const startCompletion: Command;
+/**
+Close the currently active completion.
+*/
+declare const closeCompletion: Command;
+
+/**
+A completion source that will scan the document for words (using a
+[character categorizer](https://codemirror.net/6/docs/ref/#state.EditorState.charCategorizer)), and
+return those as completions.
+*/
+declare const completeAnyWord: CompletionSource;
+
+/**
+Returns an extension that enables autocompletion.
+*/
+declare function autocompletion$1(config?: CompletionConfig): Extension;
+/**
+Basic keybindings for autocompletion.
+
+ - Ctrl-Space: [`startCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.startCompletion)
+ - Escape: [`closeCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.closeCompletion)
+ - ArrowDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true)`
+ - ArrowUp: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(false)`
+ - PageDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true, "page")`
+ - PageDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true, "page")`
+ - Enter: [`acceptCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.acceptCompletion)
+*/
+declare const completionKeymap$1: readonly KeyBinding[];
+/**
+Get the current completion status. When completions are available,
+this will return `"active"`. When completions are pending (in the
+process of being queried), this returns `"pending"`. Otherwise, it
+returns `null`.
+*/
+declare function completionStatus(state: EditorState): null | "active" | "pending";
+/**
+Returns the available completions as an array.
+*/
+declare function currentCompletions(state: EditorState): readonly Completion[];
+/**
+Return the currently selected completion, if any.
+*/
+declare function selectedCompletion(state: EditorState): Completion | null;
+
+type index$3_Completion = Completion;
+type index$3_CompletionContext = CompletionContext;
+declare const index$3_CompletionContext: typeof CompletionContext;
+type index$3_CompletionResult = CompletionResult;
+type index$3_CompletionSource = CompletionSource;
+declare const index$3_acceptCompletion: typeof acceptCompletion;
+declare const index$3_clearSnippet: typeof clearSnippet;
+declare const index$3_closeCompletion: typeof closeCompletion;
+declare const index$3_completeAnyWord: typeof completeAnyWord;
+declare const index$3_completeFromList: typeof completeFromList;
+declare const index$3_completionStatus: typeof completionStatus;
+declare const index$3_currentCompletions: typeof currentCompletions;
+declare const index$3_ifIn: typeof ifIn;
+declare const index$3_ifNotIn: typeof ifNotIn;
+declare const index$3_moveCompletionSelection: typeof moveCompletionSelection;
+declare const index$3_nextSnippetField: typeof nextSnippetField;
+declare const index$3_pickedCompletion: typeof pickedCompletion;
+declare const index$3_prevSnippetField: typeof prevSnippetField;
+declare const index$3_selectedCompletion: typeof selectedCompletion;
+declare const index$3_snippet: typeof snippet;
+declare const index$3_snippetCompletion: typeof snippetCompletion;
+declare const index$3_snippetKeymap: typeof snippetKeymap;
+declare const index$3_startCompletion: typeof startCompletion;
+declare namespace index$3 {
+  export {
+    index$3_Completion as Completion,
+    index$3_CompletionContext as CompletionContext,
+    index$3_CompletionResult as CompletionResult,
+    index$3_CompletionSource as CompletionSource,
+    index$3_acceptCompletion as acceptCompletion,
+    autocompletion$1 as autocompletion,
+    index$3_clearSnippet as clearSnippet,
+    index$3_closeCompletion as closeCompletion,
+    index$3_completeAnyWord as completeAnyWord,
+    index$3_completeFromList as completeFromList,
+    completionKeymap$1 as completionKeymap,
+    index$3_completionStatus as completionStatus,
+    index$3_currentCompletions as currentCompletions,
+    index$3_ifIn as ifIn,
+    index$3_ifNotIn as ifNotIn,
+    index$3_moveCompletionSelection as moveCompletionSelection,
+    index$3_nextSnippetField as nextSnippetField,
+    index$3_pickedCompletion as pickedCompletion,
+    index$3_prevSnippetField as prevSnippetField,
+    index$3_selectedCompletion as selectedCompletion,
+    index$3_snippet as snippet,
+    index$3_snippetCompletion as snippetCompletion,
+    index$3_snippetKeymap as snippetKeymap,
+    index$3_startCompletion as startCompletion,
+  };
 }
-
-declare const julia$1: StreamParser<unknown>
-
-declare type JuliaLanguageConfig = {
-    /** Enable keyword completion */
-    enableKeywordCompletion?: boolean;
-};
-declare function julia(config?: JuliaLanguageConfig): LanguageSupport;
-
-declare type Handlers = {
-    [event: string]: (view: EditorView, line: BlockInfo, event: Event) => boolean;
-};
-interface LineNumberConfig {
-    /**
-    How to display line numbers. Defaults to simply converting them
-    to string.
-    */
-    formatNumber?: (lineNo: number, state: EditorState) => string;
-    /**
-    Supply event handlers for DOM events on this gutter.
-    */
-    domEventHandlers?: Handlers;
-}
-/**
-Create a line number gutter extension.
-*/
-declare function lineNumbers(config?: LineNumberConfig): Extension;
-
-interface HistoryConfig {
-    /**
-    The minimum depth (amount of events) to store. Defaults to 100.
-    */
-    minDepth?: number;
-    /**
-    The maximum time (in milliseconds) that adjacent events can be
-    apart and still be grouped together. Defaults to 500.
-    */
-    newGroupDelay?: number;
-}
-/**
-Create a history extension with the given configuration.
-*/
-declare function history(config?: HistoryConfig): Extension;
-/**
-Default key bindings for the undo history.
-
-- Mod-z: [`undo`](https://codemirror.net/6/docs/ref/#history.undo).
-- Mod-y (Mod-Shift-z on macOS): [`redo`](https://codemirror.net/6/docs/ref/#history.redo).
-- Mod-u: [`undoSelection`](https://codemirror.net/6/docs/ref/#history.undoSelection).
-- Alt-u (Mod-Shift-u on macOS): [`redoSelection`](https://codemirror.net/6/docs/ref/#history.redoSelection).
-*/
-declare const historyKeymap: readonly KeyBinding[];
-
-/**
-Add a [unit](https://codemirror.net/6/docs/ref/#language.indentUnit) of indentation to all selected
-lines.
-*/
-declare const indentMore: StateCommand;
-/**
-Remove a [unit](https://codemirror.net/6/docs/ref/#language.indentUnit) of indentation from all
-selected lines.
-*/
-declare const indentLess: StateCommand;
-/**
-The default keymap. Includes all bindings from
-[`standardKeymap`](https://codemirror.net/6/docs/ref/#commands.standardKeymap) plus the following:
-
-- Alt-ArrowLeft (Ctrl-ArrowLeft on macOS): [`cursorSyntaxLeft`](https://codemirror.net/6/docs/ref/#commands.cursorSyntaxLeft) ([`selectSyntaxLeft`](https://codemirror.net/6/docs/ref/#commands.selectSyntaxLeft) with Shift)
-- Alt-ArrowRight (Ctrl-ArrowRight on macOS): [`cursorSyntaxRight`](https://codemirror.net/6/docs/ref/#commands.cursorSyntaxRight) ([`selectSyntaxRight`](https://codemirror.net/6/docs/ref/#commands.selectSyntaxRight) with Shift)
-- Alt-ArrowUp: [`moveLineUp`](https://codemirror.net/6/docs/ref/#commands.moveLineUp)
-- Alt-ArrowDown: [`moveLineDown`](https://codemirror.net/6/docs/ref/#commands.moveLineDown)
-- Shift-Alt-ArrowUp: [`copyLineUp`](https://codemirror.net/6/docs/ref/#commands.copyLineUp)
-- Shift-Alt-ArrowDown: [`copyLineDown`](https://codemirror.net/6/docs/ref/#commands.copyLineDown)
-- Escape: [`simplifySelection`](https://codemirror.net/6/docs/ref/#commands.simplifySelection)
-- Ctrl-Enter (Comd-Enter on macOS): [`insertBlankLine`](https://codemirror.net/6/docs/ref/#commands.insertBlankLine)
-- Alt-l (Ctrl-l on macOS): [`selectLine`](https://codemirror.net/6/docs/ref/#commands.selectLine)
-- Ctrl-i (Cmd-i on macOS): [`selectParentSyntax`](https://codemirror.net/6/docs/ref/#commands.selectParentSyntax)
-- Ctrl-[ (Cmd-[ on macOS): [`indentLess`](https://codemirror.net/6/docs/ref/#commands.indentLess)
-- Ctrl-] (Cmd-] on macOS): [`indentMore`](https://codemirror.net/6/docs/ref/#commands.indentMore)
-- Ctrl-Alt-\\ (Cmd-Alt-\\ on macOS): [`indentSelection`](https://codemirror.net/6/docs/ref/#commands.indentSelection)
-- Shift-Ctrl-k (Shift-Cmd-k on macOS): [`deleteLine`](https://codemirror.net/6/docs/ref/#commands.deleteLine)
-- Shift-Ctrl-\\ (Shift-Cmd-\\ on macOS): [`cursorMatchingBracket`](https://codemirror.net/6/docs/ref/#commands.cursorMatchingBracket)
-*/
-declare const defaultKeymap: readonly KeyBinding[];
 
 /**
 Highlighting tags are markers that denote a highlighting category.
@@ -3714,6 +3765,61 @@ declare class Tag {
     */
     static defineModifier(): (tag: Tag) => Tag;
 }
+/**
+This function is used to add a set of tags to a language syntax
+via
+[`LRParser.configure`](https://lezer.codemirror.net/docs/ref#lr.LRParser.configure).
+
+The argument object maps node selectors to [highlighting
+tags](https://codemirror.net/6/docs/ref/#highlight.Tag) or arrays of tags.
+
+Node selectors may hold one or more (space-separated) node paths.
+Such a path can be a [node
+name](https://lezer.codemirror.net/docs/ref#common.NodeType.name),
+or multiple node names (or `*` wildcards) separated by slash
+characters, as in `"Block/Declaration/VariableName"`. Such a path
+matches the final node but only if its direct parent nodes are the
+other nodes mentioned. A `*` in such a path matches any parent,
+but only a single level—wildcards that match multiple parents
+aren't supported, both for efficiency reasons and because Lezer
+trees make it rather hard to reason about what they would match.)
+
+A path can be ended with `/...` to indicate that the tag assigned
+to the node should also apply to all child nodes, even if they
+match their own style (by default, only the innermost style is
+used).
+
+When a path ends in `!`, as in `Attribute!`, no further matching
+happens for the node's child nodes, and the entire node gets the
+given style.
+
+In this notation, node names that contain `/`, `!`, `*`, or `...`
+must be quoted as JSON strings.
+
+For example:
+
+```javascript
+parser.withProps(
+  styleTags({
+    // Style Number and BigNumber nodes
+    "Number BigNumber": tags.number,
+    // Style Escape nodes whose parent is String
+    "String/Escape": tags.escape,
+    // Style anything inside Attributes nodes
+    "Attributes!": tags.meta,
+    // Add a style to all content inside Italic nodes
+    "Italic/...": tags.emphasis,
+    // Style InvalidString nodes as both `string` and `invalid`
+    "InvalidString": [tags.string, tags.invalid],
+    // Style the node named "/" as punctuation
+    '"/"': tags.punctuation
+  })
+)
+```
+*/
+declare function styleTags(spec: {
+    [selector: string]: Tag | readonly Tag[];
+}): NodePropSource;
 /**
 A highlight style associates CSS styles with higlighting
 [tags](https://codemirror.net/6/docs/ref/#highlight.Tag).
@@ -3814,6 +3920,31 @@ interface TagStyle {
     */
     [styleProperty: string]: any;
 }
+/**
+Run the tree highlighter over the given tree.
+*/
+declare function highlightTree(tree: Tree, 
+/**
+Get the CSS classes used to style a given [tag](https://codemirror.net/6/docs/ref/#highlight.Tag),
+or `null` if it isn't styled. (You'll often want to pass a
+highlight style's [`match`](https://codemirror.net/6/docs/ref/#highlight.HighlightStyle.match)
+method here.)
+*/
+getStyle: (tag: Tag, scope: NodeType) => string | null, 
+/**
+Assign styling to a region of the text. Will be called, in order
+of position, for any ranges where more than zero classes apply.
+`classes` is a space separated string of CSS classes.
+*/
+putStyle: (from: number, to: number, classes: string) => void, 
+/**
+The start of the range to highlight.
+*/
+from?: number, 
+/**
+The end of the range.
+*/
+to?: number): void;
 /**
 The default set of highlighting [tags](https://codemirror.net/6/docs/ref/#highlight.Tag^define) used
 by regular language packages and themes.
@@ -4200,6 +4331,1555 @@ declare const tags: {
 A default highlight style (works well with light themes).
 */
 declare const defaultHighlightStyle: HighlightStyle;
+/**
+This is a highlight style that adds stable, predictable classes to
+tokens, for styling with external CSS.
+
+These tags are mapped to their name prefixed with `"cmt-"` (for
+example `"cmt-comment"`):
+
+* [`link`](https://codemirror.net/6/docs/ref/#highlight.tags.link)
+* [`heading`](https://codemirror.net/6/docs/ref/#highlight.tags.heading)
+* [`emphasis`](https://codemirror.net/6/docs/ref/#highlight.tags.emphasis)
+* [`strong`](https://codemirror.net/6/docs/ref/#highlight.tags.strong)
+* [`keyword`](https://codemirror.net/6/docs/ref/#highlight.tags.keyword)
+* [`atom`](https://codemirror.net/6/docs/ref/#highlight.tags.atom) [`bool`](https://codemirror.net/6/docs/ref/#highlight.tags.bool)
+* [`url`](https://codemirror.net/6/docs/ref/#highlight.tags.url)
+* [`labelName`](https://codemirror.net/6/docs/ref/#highlight.tags.labelName)
+* [`inserted`](https://codemirror.net/6/docs/ref/#highlight.tags.inserted)
+* [`deleted`](https://codemirror.net/6/docs/ref/#highlight.tags.deleted)
+* [`literal`](https://codemirror.net/6/docs/ref/#highlight.tags.literal)
+* [`string`](https://codemirror.net/6/docs/ref/#highlight.tags.string)
+* [`number`](https://codemirror.net/6/docs/ref/#highlight.tags.number)
+* [`variableName`](https://codemirror.net/6/docs/ref/#highlight.tags.variableName)
+* [`typeName`](https://codemirror.net/6/docs/ref/#highlight.tags.typeName)
+* [`namespace`](https://codemirror.net/6/docs/ref/#highlight.tags.namespace)
+* [`macroName`](https://codemirror.net/6/docs/ref/#highlight.tags.macroName)
+* [`propertyName`](https://codemirror.net/6/docs/ref/#highlight.tags.propertyName)
+* [`operator`](https://codemirror.net/6/docs/ref/#highlight.tags.operator)
+* [`comment`](https://codemirror.net/6/docs/ref/#highlight.tags.comment)
+* [`meta`](https://codemirror.net/6/docs/ref/#highlight.tags.meta)
+* [`punctuation`](https://codemirror.net/6/docs/ref/#highlight.tags.puncutation)
+* [`invalid`](https://codemirror.net/6/docs/ref/#highlight.tags.invalid)
+
+In addition, these mappings are provided:
+
+* [`regexp`](https://codemirror.net/6/docs/ref/#highlight.tags.regexp),
+  [`escape`](https://codemirror.net/6/docs/ref/#highlight.tags.escape), and
+  [`special`](https://codemirror.net/6/docs/ref/#highlight.tags.special)[`(string)`](https://codemirror.net/6/docs/ref/#highlight.tags.string)
+  are mapped to `"cmt-string2"`
+* [`special`](https://codemirror.net/6/docs/ref/#highlight.tags.special)[`(variableName)`](https://codemirror.net/6/docs/ref/#highlight.tags.variableName)
+  to `"cmt-variableName2"`
+* [`local`](https://codemirror.net/6/docs/ref/#highlight.tags.local)[`(variableName)`](https://codemirror.net/6/docs/ref/#highlight.tags.variableName)
+  to `"cmt-variableName cmt-local"`
+* [`definition`](https://codemirror.net/6/docs/ref/#highlight.tags.definition)[`(variableName)`](https://codemirror.net/6/docs/ref/#highlight.tags.variableName)
+  to `"cmt-variableName cmt-definition"`
+*/
+declare const classHighlightStyle: HighlightStyle;
+
+type index$2_HighlightStyle = HighlightStyle;
+declare const index$2_HighlightStyle: typeof HighlightStyle;
+type index$2_Tag = Tag;
+declare const index$2_Tag: typeof Tag;
+type index$2_TagStyle = TagStyle;
+declare const index$2_classHighlightStyle: typeof classHighlightStyle;
+declare const index$2_defaultHighlightStyle: typeof defaultHighlightStyle;
+declare const index$2_highlightTree: typeof highlightTree;
+declare const index$2_styleTags: typeof styleTags;
+declare const index$2_tags: typeof tags;
+declare namespace index$2 {
+  export {
+    index$2_HighlightStyle as HighlightStyle,
+    index$2_Tag as Tag,
+    index$2_TagStyle as TagStyle,
+    index$2_classHighlightStyle as classHighlightStyle,
+    index$2_defaultHighlightStyle as defaultHighlightStyle,
+    index$2_highlightTree as highlightTree,
+    index$2_styleTags as styleTags,
+    index$2_tags as tags,
+  };
+}
+
+declare class Stack {
+    pos: number;
+    get context(): any;
+    canShift(term: number): boolean;
+    get parser(): LRParser;
+    dialectEnabled(dialectID: number): boolean;
+    private shiftContext;
+    private reduceContext;
+    private updateContext;
+}
+
+declare class InputStream {
+    private chunk2;
+    private chunk2Pos;
+    next: number;
+    pos: number;
+    private rangeIndex;
+    private range;
+    resolveOffset(offset: number, assoc: -1 | 1): number;
+    peek(offset: number): any;
+    acceptToken(token: number, endOffset?: number): void;
+    private getChunk;
+    private readNext;
+    advance(n?: number): number;
+    private setDone;
+}
+interface Tokenizer {
+}
+interface ExternalOptions {
+    contextual?: boolean;
+    fallback?: boolean;
+    extend?: boolean;
+}
+declare class ExternalTokenizer implements Tokenizer {
+    constructor(token: (input: InputStream, stack: Stack) => void, options?: ExternalOptions);
+}
+
+declare class ContextTracker<T> {
+    constructor(spec: {
+        start: T;
+        shift?(context: T, term: number, stack: Stack, input: InputStream): T;
+        reduce?(context: T, term: number, stack: Stack, input: InputStream): T;
+        reuse?(context: T, node: Tree, stack: Stack, input: InputStream): T;
+        hash?(context: T): number;
+        strict?: boolean;
+    });
+}
+interface ParserConfig {
+    props?: readonly NodePropSource[];
+    top?: string;
+    dialect?: string;
+    tokenizers?: {
+        from: ExternalTokenizer;
+        to: ExternalTokenizer;
+    }[];
+    contextTracker?: ContextTracker<any>;
+    strict?: boolean;
+    wrap?: ParseWrapper;
+    bufferLength?: number;
+}
+declare class LRParser extends Parser {
+    readonly nodeSet: NodeSet;
+    createParse(input: Input, fragments: readonly TreeFragment[], ranges: readonly {
+        from: number;
+        to: number;
+    }[]): PartialParse;
+    configure(config: ParserConfig): LRParser;
+    getName(term: number): string;
+    get topNode(): NodeType;
+}
+
+/**
+Node prop stored in a grammar's top syntax node to provide the
+facet that stores language data for that language.
+*/
+declare const languageDataProp: NodeProp<Facet<{
+    [name: string]: any;
+}, readonly {
+    [name: string]: any;
+}[]>>;
+/**
+Helper function to define a facet (to be added to the top syntax
+node(s) for a language via
+[`languageDataProp`](https://codemirror.net/6/docs/ref/#language.languageDataProp)), that will be
+used to associate language data with the language. You
+probably only need this when subclassing
+[`Language`](https://codemirror.net/6/docs/ref/#language.Language).
+*/
+declare function defineLanguageFacet(baseData?: {
+    [name: string]: any;
+}): Facet<{
+    [name: string]: any;
+}, readonly {
+    [name: string]: any;
+}[]>;
+/**
+A language object manages parsing and per-language
+[metadata](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt). Parse data is
+managed as a [Lezer](https://lezer.codemirror.net) tree. You'll
+want to subclass this class for custom parsers, or use the
+[`LRLanguage`](https://codemirror.net/6/docs/ref/#language.LRLanguage) or
+[`StreamLanguage`](https://codemirror.net/6/docs/ref/#stream-parser.StreamLanguage) abstractions for
+[Lezer](https://lezer.codemirror.net/) or stream parsers.
+*/
+declare class Language {
+    /**
+    The [language data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt) data
+    facet used for this language.
+    */
+    readonly data: Facet<{
+        [name: string]: any;
+    }>;
+    /**
+    The node type of the top node of trees produced by this parser.
+    */
+    readonly topNode: NodeType;
+    /**
+    The extension value to install this provider.
+    */
+    readonly extension: Extension;
+    /**
+    The parser object. Can be useful when using this as a [nested
+    parser](https://lezer.codemirror.net/docs/ref#common.Parser).
+    */
+    parser: Parser;
+    /**
+    Construct a language object. You usually don't need to invoke
+    this directly. But when you do, make sure you use
+    [`defineLanguageFacet`](https://codemirror.net/6/docs/ref/#language.defineLanguageFacet) to create
+    the first argument.
+    */
+    constructor(
+    /**
+    The [language data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt) data
+    facet used for this language.
+    */
+    data: Facet<{
+        [name: string]: any;
+    }>, parser: Parser, 
+    /**
+    The node type of the top node of trees produced by this parser.
+    */
+    topNode: NodeType, extraExtensions?: Extension[]);
+    /**
+    Query whether this language is active at the given position.
+    */
+    isActiveAt(state: EditorState, pos: number, side?: -1 | 0 | 1): boolean;
+    /**
+    Find the document regions that were parsed using this language.
+    The returned regions will _include_ any nested languages rooted
+    in this language, when those exist.
+    */
+    findRegions(state: EditorState): {
+        from: number;
+        to: number;
+    }[];
+    /**
+    Indicates whether this language allows nested languages. The
+    default implementation returns true.
+    */
+    get allowsNesting(): boolean;
+}
+/**
+A subclass of [`Language`](https://codemirror.net/6/docs/ref/#language.Language) for use with Lezer
+[LR parsers](https://lezer.codemirror.net/docs/ref#lr.LRParser)
+parsers.
+*/
+declare class LRLanguage extends Language {
+    readonly parser: LRParser;
+    private constructor();
+    /**
+    Define a language from a parser.
+    */
+    static define(spec: {
+        /**
+        The parser to use. Should already have added editor-relevant
+        node props (and optionally things like dialect and top rule)
+        configured.
+        */
+        parser: LRParser;
+        /**
+        [Language data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt)
+        to register for this language.
+        */
+        languageData?: {
+            [name: string]: any;
+        };
+    }): LRLanguage;
+    /**
+    Create a new instance of this language with a reconfigured
+    version of its parser.
+    */
+    configure(options: ParserConfig): LRLanguage;
+    get allowsNesting(): boolean;
+}
+/**
+Get the syntax tree for a state, which is the current (possibly
+incomplete) parse tree of active [language](https://codemirror.net/6/docs/ref/#language.Language),
+or the empty tree if there is no language available.
+*/
+declare function syntaxTree(state: EditorState): Tree;
+/**
+Try to get a parse tree that spans at least up to `upto`. The
+method will do at most `timeout` milliseconds of work to parse
+up to that point if the tree isn't already available.
+*/
+declare function ensureSyntaxTree(state: EditorState, upto: number, timeout?: number): Tree | null;
+/**
+A parse context provided to parsers working on the editor content.
+*/
+declare class ParseContext {
+    private parser;
+    /**
+    The current editor state.
+    */
+    readonly state: EditorState;
+    /**
+    Tree fragments that can be reused by incremental re-parses.
+    */
+    fragments: readonly TreeFragment[];
+    treeLen: number;
+    /**
+    The current editor viewport (or some overapproximation
+    thereof). Intended to be used for opportunistically avoiding
+    work (in which case
+    [`skipUntilInView`](https://codemirror.net/6/docs/ref/#language.ParseContext.skipUntilInView)
+    should be called to make sure the parser is restarted when the
+    skipped region becomes visible).
+    */
+    viewport: {
+        from: number;
+        to: number;
+    };
+    private parse;
+    private startParse;
+    private withContext;
+    private withoutTempSkipped;
+    /**
+    Notify the parse scheduler that the given region was skipped
+    because it wasn't in view, and the parse should be restarted
+    when it comes into view.
+    */
+    skipUntilInView(from: number, to: number): void;
+    /**
+    Returns a parser intended to be used as placeholder when
+    asynchronously loading a nested parser. It'll skip its input and
+    mark it as not-really-parsed, so that the next update will parse
+    it again.
+    
+    When `until` is given, a reparse will be scheduled when that
+    promise resolves.
+    */
+    static getSkippingParser(until?: Promise<unknown>): {
+        createParse(input: Input, fragments: readonly TreeFragment[], ranges: readonly {
+            from: number;
+            to: number;
+        }[]): PartialParse;
+        startParse(input: string | Input, fragments?: readonly TreeFragment[] | undefined, ranges?: readonly {
+            from: number;
+            to: number;
+        }[] | undefined): PartialParse;
+        parse(input: string | Input, fragments?: readonly TreeFragment[] | undefined, ranges?: readonly {
+            from: number;
+            to: number;
+        }[] | undefined): Tree;
+    };
+    /**
+    Get the context for the current parse, or `null` if no editor
+    parse is in progress.
+    */
+    static get(): ParseContext | null;
+}
+/**
+The facet used to associate a language with an editor state.
+*/
+declare const language: Facet<Language, Language | null>;
+/**
+This class bundles a [language object](https://codemirror.net/6/docs/ref/#language.Language) with an
+optional set of supporting extensions. Language packages are
+encouraged to export a function that optionally takes a
+configuration object and returns a `LanguageSupport` instance, as
+the main way for client code to use the package.
+*/
+declare class LanguageSupport {
+    /**
+    The language object.
+    */
+    readonly language: Language;
+    /**
+    An optional set of supporting extensions. When nesting a
+    language in another language, the outer language is encouraged
+    to include the supporting extensions for its inner languages
+    in its own set of support extensions.
+    */
+    readonly support: Extension;
+    /**
+    An extension including both the language and its support
+    extensions. (Allowing the object to be used as an extension
+    value itself.)
+    */
+    extension: Extension;
+    /**
+    Create a support object.
+    */
+    constructor(
+    /**
+    The language object.
+    */
+    language: Language, 
+    /**
+    An optional set of supporting extensions. When nesting a
+    language in another language, the outer language is encouraged
+    to include the supporting extensions for its inner languages
+    in its own set of support extensions.
+    */
+    support?: Extension);
+}
+/**
+Language descriptions are used to store metadata about languages
+and to dynamically load them. Their main role is finding the
+appropriate language for a filename or dynamically loading nested
+parsers.
+*/
+declare class LanguageDescription {
+    /**
+    The name of this language.
+    */
+    readonly name: string;
+    /**
+    Alternative names for the mode (lowercased, includes `this.name`).
+    */
+    readonly alias: readonly string[];
+    /**
+    File extensions associated with this language.
+    */
+    readonly extensions: readonly string[];
+    /**
+    Optional filename pattern that should be associated with this
+    language.
+    */
+    readonly filename: RegExp | undefined;
+    private loadFunc;
+    /**
+    If the language has been loaded, this will hold its value.
+    */
+    support: LanguageSupport | undefined;
+    private loading;
+    private constructor();
+    /**
+    Start loading the the language. Will return a promise that
+    resolves to a [`LanguageSupport`](https://codemirror.net/6/docs/ref/#language.LanguageSupport)
+    object when the language successfully loads.
+    */
+    load(): Promise<LanguageSupport>;
+    /**
+    Create a language description.
+    */
+    static of(spec: {
+        /**
+        The language's name.
+        */
+        name: string;
+        /**
+        An optional array of alternative names.
+        */
+        alias?: readonly string[];
+        /**
+        An optional array of extensions associated with this language.
+        */
+        extensions?: readonly string[];
+        /**
+        An optional filename pattern associated with this language.
+        */
+        filename?: RegExp;
+        /**
+        A function that will asynchronously load the language.
+        */
+        load: () => Promise<LanguageSupport>;
+    }): LanguageDescription;
+    /**
+    Look for a language in the given array of descriptions that
+    matches the filename. Will first match
+    [`filename`](https://codemirror.net/6/docs/ref/#language.LanguageDescription.filename) patterns,
+    and then [extensions](https://codemirror.net/6/docs/ref/#language.LanguageDescription.extensions),
+    and return the first language that matches.
+    */
+    static matchFilename(descs: readonly LanguageDescription[], filename: string): LanguageDescription | null;
+    /**
+    Look for a language whose name or alias matches the the given
+    name (case-insensitively). If `fuzzy` is true, and no direct
+    matchs is found, this'll also search for a language whose name
+    or alias occurs in the string (for names shorter than three
+    characters, only when surrounded by non-word characters).
+    */
+    static matchLanguageName(descs: readonly LanguageDescription[], name: string, fuzzy?: boolean): LanguageDescription | null;
+}
+
+/**
+Facet that defines a way to provide a function that computes the
+appropriate indentation depth at the start of a given line, or
+`null` to indicate no appropriate indentation could be determined.
+*/
+declare const indentService: Facet<(context: IndentContext, pos: number) => number | null, readonly ((context: IndentContext, pos: number) => number | null)[]>;
+/**
+Facet for overriding the unit by which indentation happens.
+Should be a string consisting either entirely of spaces or
+entirely of tabs. When not set, this defaults to 2 spaces.
+*/
+declare const indentUnit: Facet<string, string>;
+/**
+Return the _column width_ of an indent unit in the state.
+Determined by the [`indentUnit`](https://codemirror.net/6/docs/ref/#language.indentUnit)
+facet, and [`tabSize`](https://codemirror.net/6/docs/ref/#state.EditorState^tabSize) when that
+contains tabs.
+*/
+declare function getIndentUnit(state: EditorState): number;
+/**
+Create an indentation string that covers columns 0 to `cols`.
+Will use tabs for as much of the columns as possible when the
+[`indentUnit`](https://codemirror.net/6/docs/ref/#language.indentUnit) facet contains
+tabs.
+*/
+declare function indentString(state: EditorState, cols: number): string;
+/**
+Get the indentation at the given position. Will first consult any
+[indent services](https://codemirror.net/6/docs/ref/#language.indentService) that are registered,
+and if none of those return an indentation, this will check the
+syntax tree for the [indent node prop](https://codemirror.net/6/docs/ref/#language.indentNodeProp)
+and use that if found. Returns a number when an indentation could
+be determined, and null otherwise.
+*/
+declare function getIndentation(context: IndentContext | EditorState, pos: number): number | null;
+/**
+Indentation contexts are used when calling [indentation
+services](https://codemirror.net/6/docs/ref/#language.indentService). They provide helper utilities
+useful in indentation logic, and can selectively override the
+indentation reported for some lines.
+*/
+declare class IndentContext {
+    /**
+    The editor state.
+    */
+    readonly state: EditorState;
+    /**
+    The indent unit (number of columns per indentation level).
+    */
+    unit: number;
+    /**
+    Create an indent context.
+    */
+    constructor(
+    /**
+    The editor state.
+    */
+    state: EditorState, 
+    /**
+    @internal
+    */
+    options?: {
+        /**
+        Override line indentations provided to the indentation
+        helper function, which is useful when implementing region
+        indentation, where indentation for later lines needs to refer
+        to previous lines, which may have been reindented compared to
+        the original start state. If given, this function should
+        return -1 for lines (given by start position) that didn't
+        change, and an updated indentation otherwise.
+        */
+        overrideIndentation?: (pos: number) => number;
+        /**
+        Make it look, to the indent logic, like a line break was
+        added at the given position (which is mostly just useful for
+        implementing something like
+        [`insertNewlineAndIndent`](https://codemirror.net/6/docs/ref/#commands.insertNewlineAndIndent)).
+        */
+        simulateBreak?: number;
+        /**
+        When `simulateBreak` is given, this can be used to make the
+        simulate break behave like a double line break.
+        */
+        simulateDoubleBreak?: boolean;
+    });
+    /**
+    Get a description of the line at the given position, taking
+    [simulated line
+    breaks](https://codemirror.net/6/docs/ref/#language.IndentContext.constructor^options.simulateBreak)
+    into account. If there is such a break at `pos`, the `bias`
+    argument determines whether the part of the line line before or
+    after the break is used.
+    */
+    lineAt(pos: number, bias?: -1 | 1): {
+        text: string;
+        from: number;
+    };
+    /**
+    Get the text directly after `pos`, either the entire line
+    or the next 100 characters, whichever is shorter.
+    */
+    textAfterPos(pos: number, bias?: -1 | 1): string;
+    /**
+    Find the column for the given position.
+    */
+    column(pos: number, bias?: -1 | 1): number;
+    /**
+    Find the column position (taking tabs into account) of the given
+    position in the given string.
+    */
+    countColumn(line: string, pos?: number): number;
+    /**
+    Find the indentation column of the line at the given point.
+    */
+    lineIndent(pos: number, bias?: -1 | 1): number;
+    /**
+    Returns the [simulated line
+    break](https://codemirror.net/6/docs/ref/#language.IndentContext.constructor^options.simulateBreak)
+    for this context, if any.
+    */
+    get simulatedBreak(): number | null;
+}
+/**
+A syntax tree node prop used to associate indentation strategies
+with node types. Such a strategy is a function from an indentation
+context to a column number or null, where null indicates that no
+definitive indentation can be determined.
+*/
+declare const indentNodeProp: NodeProp<(context: TreeIndentContext) => number | null>;
+/**
+Objects of this type provide context information and helper
+methods to indentation functions.
+*/
+declare class TreeIndentContext extends IndentContext {
+    private base;
+    /**
+    The position at which indentation is being computed.
+    */
+    readonly pos: number;
+    /**
+    The syntax tree node to which the indentation strategy
+    applies.
+    */
+    readonly node: SyntaxNode;
+    /**
+    Get the text directly after `this.pos`, either the entire line
+    or the next 100 characters, whichever is shorter.
+    */
+    get textAfter(): string;
+    /**
+    Get the indentation at the reference line for `this.node`, which
+    is the line on which it starts, unless there is a node that is
+    _not_ a parent of this node covering the start of that line. If
+    so, the line at the start of that node is tried, again skipping
+    on if it is covered by another such node.
+    */
+    get baseIndent(): number;
+    /**
+    Continue looking for indentations in the node's parent nodes,
+    and return the result of that.
+    */
+    continue(): number | null;
+}
+/**
+An indentation strategy for delimited (usually bracketed) nodes.
+Will, by default, indent one unit more than the parent's base
+indent unless the line starts with a closing token. When `align`
+is true and there are non-skipped nodes on the node's opening
+line, the content of the node will be aligned with the end of the
+opening node, like this:
+
+    foo(bar,
+        baz)
+*/
+declare function delimitedIndent({ closing, align, units }: {
+    closing: string;
+    align?: boolean;
+    units?: number;
+}): (context: TreeIndentContext) => number;
+/**
+An indentation strategy that aligns a node's content to its base
+indentation.
+*/
+declare const flatIndent: (context: TreeIndentContext) => number;
+/**
+Creates an indentation strategy that, by default, indents
+continued lines one unit more than the node's base indentation.
+You can provide `except` to prevent indentation of lines that
+match a pattern (for example `/^else\b/` in `if`/`else`
+constructs), and you can change the amount of units used with the
+`units` option.
+*/
+declare function continuedIndent({ except, units }?: {
+    except?: RegExp;
+    units?: number;
+}): (context: TreeIndentContext) => number;
+/**
+Enables reindentation on input. When a language defines an
+`indentOnInput` field in its [language
+data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt), which must hold a regular
+expression, the line at the cursor will be reindented whenever new
+text is typed and the input from the start of the line up to the
+cursor matches that regexp.
+
+To avoid unneccesary reindents, it is recommended to start the
+regexp with `^` (usually followed by `\s*`), and end it with `$`.
+For example, `/^\s*\}$/` will reindent when a closing brace is
+added at the start of a line.
+*/
+declare function indentOnInput(): Extension;
+
+/**
+A facet that registers a code folding service. When called with
+the extent of a line, such a function should return a foldable
+range that starts on that line (but continues beyond it), if one
+can be found.
+*/
+declare const foldService: Facet<(state: EditorState, lineStart: number, lineEnd: number) => ({
+    from: number;
+    to: number;
+} | null), readonly ((state: EditorState, lineStart: number, lineEnd: number) => ({
+    from: number;
+    to: number;
+} | null))[]>;
+/**
+This node prop is used to associate folding information with
+syntax node types. Given a syntax node, it should check whether
+that tree is foldable and return the range that can be collapsed
+when it is.
+*/
+declare const foldNodeProp: NodeProp<(node: SyntaxNode, state: EditorState) => ({
+    from: number;
+    to: number;
+} | null)>;
+/**
+[Fold](https://codemirror.net/6/docs/ref/#language.foldNodeProp) function that folds everything but
+the first and the last child of a syntax node. Useful for nodes
+that start and end with delimiters.
+*/
+declare function foldInside(node: SyntaxNode): {
+    from: number;
+    to: number;
+} | null;
+/**
+Check whether the given line is foldable. First asks any fold
+services registered through
+[`foldService`](https://codemirror.net/6/docs/ref/#language.foldService), and if none of them return
+a result, tries to query the [fold node
+prop](https://codemirror.net/6/docs/ref/#language.foldNodeProp) of syntax nodes that cover the end
+of the line.
+*/
+declare function foldable(state: EditorState, lineStart: number, lineEnd: number): {
+    from: number;
+    to: number;
+} | null;
+
+type index$1_IndentContext = IndentContext;
+declare const index$1_IndentContext: typeof IndentContext;
+type index$1_LRLanguage = LRLanguage;
+declare const index$1_LRLanguage: typeof LRLanguage;
+type index$1_Language = Language;
+declare const index$1_Language: typeof Language;
+type index$1_LanguageDescription = LanguageDescription;
+declare const index$1_LanguageDescription: typeof LanguageDescription;
+type index$1_LanguageSupport = LanguageSupport;
+declare const index$1_LanguageSupport: typeof LanguageSupport;
+type index$1_ParseContext = ParseContext;
+declare const index$1_ParseContext: typeof ParseContext;
+type index$1_TreeIndentContext = TreeIndentContext;
+declare const index$1_TreeIndentContext: typeof TreeIndentContext;
+declare const index$1_continuedIndent: typeof continuedIndent;
+declare const index$1_defineLanguageFacet: typeof defineLanguageFacet;
+declare const index$1_delimitedIndent: typeof delimitedIndent;
+declare const index$1_ensureSyntaxTree: typeof ensureSyntaxTree;
+declare const index$1_flatIndent: typeof flatIndent;
+declare const index$1_foldInside: typeof foldInside;
+declare const index$1_foldNodeProp: typeof foldNodeProp;
+declare const index$1_foldService: typeof foldService;
+declare const index$1_foldable: typeof foldable;
+declare const index$1_getIndentUnit: typeof getIndentUnit;
+declare const index$1_getIndentation: typeof getIndentation;
+declare const index$1_indentNodeProp: typeof indentNodeProp;
+declare const index$1_indentOnInput: typeof indentOnInput;
+declare const index$1_indentService: typeof indentService;
+declare const index$1_indentString: typeof indentString;
+declare const index$1_indentUnit: typeof indentUnit;
+declare const index$1_language: typeof language;
+declare const index$1_languageDataProp: typeof languageDataProp;
+declare const index$1_syntaxTree: typeof syntaxTree;
+declare namespace index$1 {
+  export {
+    index$1_IndentContext as IndentContext,
+    index$1_LRLanguage as LRLanguage,
+    index$1_Language as Language,
+    index$1_LanguageDescription as LanguageDescription,
+    index$1_LanguageSupport as LanguageSupport,
+    index$1_ParseContext as ParseContext,
+    index$1_TreeIndentContext as TreeIndentContext,
+    index$1_continuedIndent as continuedIndent,
+    index$1_defineLanguageFacet as defineLanguageFacet,
+    index$1_delimitedIndent as delimitedIndent,
+    index$1_ensureSyntaxTree as ensureSyntaxTree,
+    index$1_flatIndent as flatIndent,
+    index$1_foldInside as foldInside,
+    index$1_foldNodeProp as foldNodeProp,
+    index$1_foldService as foldService,
+    index$1_foldable as foldable,
+    index$1_getIndentUnit as getIndentUnit,
+    index$1_getIndentation as getIndentation,
+    index$1_indentNodeProp as indentNodeProp,
+    index$1_indentOnInput as indentOnInput,
+    index$1_indentService as indentService,
+    index$1_indentString as indentString,
+    index$1_indentUnit as indentUnit,
+    index$1_language as language,
+    index$1_languageDataProp as languageDataProp,
+    index$1_syntaxTree as syntaxTree,
+  };
+}
+
+/**
+Move the selection one character to the left (which is backward in
+left-to-right text, forward in right-to-left text).
+*/
+declare const cursorCharLeft: Command;
+/**
+Move the selection one character to the right.
+*/
+declare const cursorCharRight: Command;
+/**
+Move the selection one character forward.
+*/
+declare const cursorCharForward: Command;
+/**
+Move the selection one character backward.
+*/
+declare const cursorCharBackward: Command;
+/**
+Move the selection to the left across one group of word or
+non-word (but also non-space) characters.
+*/
+declare const cursorGroupLeft: Command;
+/**
+Move the selection one group to the right.
+*/
+declare const cursorGroupRight: Command;
+/**
+Move the selection one group forward.
+*/
+declare const cursorGroupForward: Command;
+/**
+Move the selection one group backward.
+*/
+declare const cursorGroupBackward: Command;
+/**
+Move the selection one group or camel-case subword forward.
+*/
+declare const cursorSubwordForward: Command;
+/**
+Move the selection one group or camel-case subword backward.
+*/
+declare const cursorSubwordBackward: Command;
+/**
+Move the cursor over the next syntactic element to the left.
+*/
+declare const cursorSyntaxLeft: Command;
+/**
+Move the cursor over the next syntactic element to the right.
+*/
+declare const cursorSyntaxRight: Command;
+/**
+Move the selection one line up.
+*/
+declare const cursorLineUp: Command;
+/**
+Move the selection one line down.
+*/
+declare const cursorLineDown: Command;
+/**
+Move the selection one page up.
+*/
+declare const cursorPageUp: Command;
+/**
+Move the selection one page down.
+*/
+declare const cursorPageDown: Command;
+/**
+Move the selection to the next line wrap point, or to the end of
+the line if there isn't one left on this line.
+*/
+declare const cursorLineBoundaryForward: Command;
+/**
+Move the selection to previous line wrap point, or failing that to
+the start of the line. If the line is indented, and the cursor
+isn't already at the end of the indentation, this will move to the
+end of the indentation instead of the start of the line.
+*/
+declare const cursorLineBoundaryBackward: Command;
+/**
+Move the selection to the start of the line.
+*/
+declare const cursorLineStart: Command;
+/**
+Move the selection to the end of the line.
+*/
+declare const cursorLineEnd: Command;
+/**
+Move the selection to the bracket matching the one it is currently
+on, if any.
+*/
+declare const cursorMatchingBracket: StateCommand;
+/**
+Extend the selection to the bracket matching the one the selection
+head is currently on, if any.
+*/
+declare const selectMatchingBracket: StateCommand;
+/**
+Move the selection head one character to the left, while leaving
+the anchor in place.
+*/
+declare const selectCharLeft: Command;
+/**
+Move the selection head one character to the right.
+*/
+declare const selectCharRight: Command;
+/**
+Move the selection head one character forward.
+*/
+declare const selectCharForward: Command;
+/**
+Move the selection head one character backward.
+*/
+declare const selectCharBackward: Command;
+/**
+Move the selection head one [group](https://codemirror.net/6/docs/ref/#commands.cursorGroupLeft) to
+the left.
+*/
+declare const selectGroupLeft: Command;
+/**
+Move the selection head one group to the right.
+*/
+declare const selectGroupRight: Command;
+/**
+Move the selection head one group forward.
+*/
+declare const selectGroupForward: Command;
+/**
+Move the selection head one group backward.
+*/
+declare const selectGroupBackward: Command;
+/**
+Move the selection head one group or camel-case subword forward.
+*/
+declare const selectSubwordForward: Command;
+/**
+Move the selection head one group or subword backward.
+*/
+declare const selectSubwordBackward: Command;
+/**
+Move the selection head over the next syntactic element to the left.
+*/
+declare const selectSyntaxLeft: Command;
+/**
+Move the selection head over the next syntactic element to the right.
+*/
+declare const selectSyntaxRight: Command;
+/**
+Move the selection head one line up.
+*/
+declare const selectLineUp: Command;
+/**
+Move the selection head one line down.
+*/
+declare const selectLineDown: Command;
+/**
+Move the selection head one page up.
+*/
+declare const selectPageUp: Command;
+/**
+Move the selection head one page down.
+*/
+declare const selectPageDown: Command;
+/**
+Move the selection head to the next line boundary.
+*/
+declare const selectLineBoundaryForward: Command;
+/**
+Move the selection head to the previous line boundary.
+*/
+declare const selectLineBoundaryBackward: Command;
+/**
+Move the selection head to the start of the line.
+*/
+declare const selectLineStart: Command;
+/**
+Move the selection head to the end of the line.
+*/
+declare const selectLineEnd: Command;
+/**
+Move the selection to the start of the document.
+*/
+declare const cursorDocStart: StateCommand;
+/**
+Move the selection to the end of the document.
+*/
+declare const cursorDocEnd: StateCommand;
+/**
+Move the selection head to the start of the document.
+*/
+declare const selectDocStart: StateCommand;
+/**
+Move the selection head to the end of the document.
+*/
+declare const selectDocEnd: StateCommand;
+/**
+Select the entire document.
+*/
+declare const selectAll: StateCommand;
+/**
+Expand the selection to cover entire lines.
+*/
+declare const selectLine: StateCommand;
+/**
+Select the next syntactic construct that is larger than the
+selection. Note that this will only work insofar as the language
+[provider](https://codemirror.net/6/docs/ref/#language.language) you use builds up a full
+syntax tree.
+*/
+declare const selectParentSyntax: StateCommand;
+/**
+Simplify the current selection. When multiple ranges are selected,
+reduce it to its main range. Otherwise, if the selection is
+non-empty, convert it to a cursor selection.
+*/
+declare const simplifySelection: StateCommand;
+/**
+Delete the selection, or, for cursor selections, the character
+before the cursor.
+*/
+declare const deleteCharBackward: Command;
+/**
+Delete the selection or the character after the cursor.
+*/
+declare const deleteCharForward: Command;
+/**
+Delete the selection or backward until the end of the next
+[group](https://codemirror.net/6/docs/ref/#view.EditorView.moveByGroup), only skipping groups of
+whitespace when they consist of a single space.
+*/
+declare const deleteGroupBackward: StateCommand;
+/**
+Delete the selection or forward until the end of the next group.
+*/
+declare const deleteGroupForward: StateCommand;
+/**
+Delete the selection, or, if it is a cursor selection, delete to
+the end of the line. If the cursor is directly at the end of the
+line, delete the line break after it.
+*/
+declare const deleteToLineEnd: Command;
+/**
+Delete the selection, or, if it is a cursor selection, delete to
+the start of the line. If the cursor is directly at the start of the
+line, delete the line break before it.
+*/
+declare const deleteToLineStart: Command;
+/**
+Delete all whitespace directly before a line end from the
+document.
+*/
+declare const deleteTrailingWhitespace: StateCommand;
+/**
+Replace each selection range with a line break, leaving the cursor
+on the line before the break.
+*/
+declare const splitLine: StateCommand;
+/**
+Flip the characters before and after the cursor(s).
+*/
+declare const transposeChars: StateCommand;
+/**
+Move the selected lines up one line.
+*/
+declare const moveLineUp: StateCommand;
+/**
+Move the selected lines down one line.
+*/
+declare const moveLineDown: StateCommand;
+/**
+Create a copy of the selected lines. Keep the selection in the top copy.
+*/
+declare const copyLineUp: StateCommand;
+/**
+Create a copy of the selected lines. Keep the selection in the bottom copy.
+*/
+declare const copyLineDown: StateCommand;
+/**
+Delete selected lines.
+*/
+declare const deleteLine: Command;
+/**
+Replace the selection with a newline.
+*/
+declare const insertNewline: StateCommand;
+/**
+Replace the selection with a newline and indent the newly created
+line(s). If the current line consists only of whitespace, this
+will also delete that whitespace. When the cursor is between
+matching brackets, an additional newline will be inserted after
+the cursor.
+*/
+declare const insertNewlineAndIndent: StateCommand;
+/**
+Create a blank, indented line below the current line.
+*/
+declare const insertBlankLine: StateCommand;
+/**
+Auto-indent the selected lines. This uses the [indentation service
+facet](https://codemirror.net/6/docs/ref/#language.indentService) as source for auto-indent
+information.
+*/
+declare const indentSelection: StateCommand;
+/**
+Add a [unit](https://codemirror.net/6/docs/ref/#language.indentUnit) of indentation to all selected
+lines.
+*/
+declare const indentMore: StateCommand;
+/**
+Remove a [unit](https://codemirror.net/6/docs/ref/#language.indentUnit) of indentation from all
+selected lines.
+*/
+declare const indentLess: StateCommand;
+/**
+Insert a tab character at the cursor or, if something is selected,
+use [`indentMore`](https://codemirror.net/6/docs/ref/#commands.indentMore) to indent the entire
+selection.
+*/
+declare const insertTab: StateCommand;
+/**
+Array of key bindings containing the Emacs-style bindings that are
+available on macOS by default.
+
+ - Ctrl-b: [`cursorCharLeft`](https://codemirror.net/6/docs/ref/#commands.cursorCharLeft) ([`selectCharLeft`](https://codemirror.net/6/docs/ref/#commands.selectCharLeft) with Shift)
+ - Ctrl-f: [`cursorCharRight`](https://codemirror.net/6/docs/ref/#commands.cursorCharRight) ([`selectCharRight`](https://codemirror.net/6/docs/ref/#commands.selectCharRight) with Shift)
+ - Ctrl-p: [`cursorLineUp`](https://codemirror.net/6/docs/ref/#commands.cursorLineUp) ([`selectLineUp`](https://codemirror.net/6/docs/ref/#commands.selectLineUp) with Shift)
+ - Ctrl-n: [`cursorLineDown`](https://codemirror.net/6/docs/ref/#commands.cursorLineDown) ([`selectLineDown`](https://codemirror.net/6/docs/ref/#commands.selectLineDown) with Shift)
+ - Ctrl-a: [`cursorLineStart`](https://codemirror.net/6/docs/ref/#commands.cursorLineStart) ([`selectLineStart`](https://codemirror.net/6/docs/ref/#commands.selectLineStart) with Shift)
+ - Ctrl-e: [`cursorLineEnd`](https://codemirror.net/6/docs/ref/#commands.cursorLineEnd) ([`selectLineEnd`](https://codemirror.net/6/docs/ref/#commands.selectLineEnd) with Shift)
+ - Ctrl-d: [`deleteCharForward`](https://codemirror.net/6/docs/ref/#commands.deleteCharForward)
+ - Ctrl-h: [`deleteCharBackward`](https://codemirror.net/6/docs/ref/#commands.deleteCharBackward)
+ - Ctrl-k: [`deleteToLineEnd`](https://codemirror.net/6/docs/ref/#commands.deleteToLineEnd)
+ - Ctrl-Alt-h: [`deleteGroupBackward`](https://codemirror.net/6/docs/ref/#commands.deleteGroupBackward)
+ - Ctrl-o: [`splitLine`](https://codemirror.net/6/docs/ref/#commands.splitLine)
+ - Ctrl-t: [`transposeChars`](https://codemirror.net/6/docs/ref/#commands.transposeChars)
+ - Alt-<: [`cursorDocStart`](https://codemirror.net/6/docs/ref/#commands.cursorDocStart)
+ - Alt->: [`cursorDocEnd`](https://codemirror.net/6/docs/ref/#commands.cursorDocEnd)
+ - Ctrl-v: [`cursorPageDown`](https://codemirror.net/6/docs/ref/#commands.cursorPageDown)
+ - Alt-v: [`cursorPageUp`](https://codemirror.net/6/docs/ref/#commands.cursorPageUp)
+*/
+declare const emacsStyleKeymap: readonly KeyBinding[];
+/**
+An array of key bindings closely sticking to platform-standard or
+widely used bindings. (This includes the bindings from
+[`emacsStyleKeymap`](https://codemirror.net/6/docs/ref/#commands.emacsStyleKeymap), with their `key`
+property changed to `mac`.)
+
+ - ArrowLeft: [`cursorCharLeft`](https://codemirror.net/6/docs/ref/#commands.cursorCharLeft) ([`selectCharLeft`](https://codemirror.net/6/docs/ref/#commands.selectCharLeft) with Shift)
+ - ArrowRight: [`cursorCharRight`](https://codemirror.net/6/docs/ref/#commands.cursorCharRight) ([`selectCharRight`](https://codemirror.net/6/docs/ref/#commands.selectCharRight) with Shift)
+ - Ctrl-ArrowLeft (Alt-ArrowLeft on macOS): [`cursorGroupLeft`](https://codemirror.net/6/docs/ref/#commands.cursorGroupLeft) ([`selectGroupLeft`](https://codemirror.net/6/docs/ref/#commands.selectGroupLeft) with Shift)
+ - Ctrl-ArrowRight (Alt-ArrowRight on macOS): [`cursorGroupRight`](https://codemirror.net/6/docs/ref/#commands.cursorGroupRight) ([`selectGroupRight`](https://codemirror.net/6/docs/ref/#commands.selectGroupRight) with Shift)
+ - Cmd-ArrowLeft (on macOS): [`cursorLineStart`](https://codemirror.net/6/docs/ref/#commands.cursorLineStart) ([`selectLineStart`](https://codemirror.net/6/docs/ref/#commands.selectLineStart) with Shift)
+ - Cmd-ArrowRight (on macOS): [`cursorLineEnd`](https://codemirror.net/6/docs/ref/#commands.cursorLineEnd) ([`selectLineEnd`](https://codemirror.net/6/docs/ref/#commands.selectLineEnd) with Shift)
+ - ArrowUp: [`cursorLineUp`](https://codemirror.net/6/docs/ref/#commands.cursorLineUp) ([`selectLineUp`](https://codemirror.net/6/docs/ref/#commands.selectLineUp) with Shift)
+ - ArrowDown: [`cursorLineDown`](https://codemirror.net/6/docs/ref/#commands.cursorLineDown) ([`selectLineDown`](https://codemirror.net/6/docs/ref/#commands.selectLineDown) with Shift)
+ - Cmd-ArrowUp (on macOS): [`cursorDocStart`](https://codemirror.net/6/docs/ref/#commands.cursorDocStart) ([`selectDocStart`](https://codemirror.net/6/docs/ref/#commands.selectDocStart) with Shift)
+ - Cmd-ArrowDown (on macOS): [`cursorDocEnd`](https://codemirror.net/6/docs/ref/#commands.cursorDocEnd) ([`selectDocEnd`](https://codemirror.net/6/docs/ref/#commands.selectDocEnd) with Shift)
+ - Ctrl-ArrowUp (on macOS): [`cursorPageUp`](https://codemirror.net/6/docs/ref/#commands.cursorPageUp) ([`selectPageUp`](https://codemirror.net/6/docs/ref/#commands.selectPageUp) with Shift)
+ - Ctrl-ArrowDown (on macOS): [`cursorPageDown`](https://codemirror.net/6/docs/ref/#commands.cursorPageDown) ([`selectPageDown`](https://codemirror.net/6/docs/ref/#commands.selectPageDown) with Shift)
+ - PageUp: [`cursorPageUp`](https://codemirror.net/6/docs/ref/#commands.cursorPageUp) ([`selectPageUp`](https://codemirror.net/6/docs/ref/#commands.selectPageUp) with Shift)
+ - PageDown: [`cursorPageDown`](https://codemirror.net/6/docs/ref/#commands.cursorPageDown) ([`selectPageDown`](https://codemirror.net/6/docs/ref/#commands.selectPageDown) with Shift)
+ - Home: [`cursorLineBoundaryBackward`](https://codemirror.net/6/docs/ref/#commands.cursorLineBoundaryBackward) ([`selectLineBoundaryBackward`](https://codemirror.net/6/docs/ref/#commands.selectLineBoundaryBackward) with Shift)
+ - End: [`cursorLineBoundaryForward`](https://codemirror.net/6/docs/ref/#commands.cursorLineBoundaryForward) ([`selectLineBoundaryForward`](https://codemirror.net/6/docs/ref/#commands.selectLineBoundaryForward) with Shift)
+ - Ctrl-Home (Cmd-Home on macOS): [`cursorDocStart`](https://codemirror.net/6/docs/ref/#commands.cursorDocStart) ([`selectDocStart`](https://codemirror.net/6/docs/ref/#commands.selectDocStart) with Shift)
+ - Ctrl-End (Cmd-Home on macOS): [`cursorDocEnd`](https://codemirror.net/6/docs/ref/#commands.cursorDocEnd) ([`selectDocEnd`](https://codemirror.net/6/docs/ref/#commands.selectDocEnd) with Shift)
+ - Enter: [`insertNewlineAndIndent`](https://codemirror.net/6/docs/ref/#commands.insertNewlineAndIndent)
+ - Ctrl-a (Cmd-a on macOS): [`selectAll`](https://codemirror.net/6/docs/ref/#commands.selectAll)
+ - Backspace: [`deleteCharBackward`](https://codemirror.net/6/docs/ref/#commands.deleteCharBackward)
+ - Delete: [`deleteCharForward`](https://codemirror.net/6/docs/ref/#commands.deleteCharForward)
+ - Ctrl-Backspace (Alt-Backspace on macOS): [`deleteGroupBackward`](https://codemirror.net/6/docs/ref/#commands.deleteGroupBackward)
+ - Ctrl-Delete (Alt-Delete on macOS): [`deleteGroupForward`](https://codemirror.net/6/docs/ref/#commands.deleteGroupForward)
+ - Cmd-Backspace (macOS): [`deleteToLineStart`](https://codemirror.net/6/docs/ref/#commands.deleteToLineStart).
+ - Cmd-Delete (macOS): [`deleteToLineEnd`](https://codemirror.net/6/docs/ref/#commands.deleteToLineEnd).
+*/
+declare const standardKeymap: readonly KeyBinding[];
+/**
+The default keymap. Includes all bindings from
+[`standardKeymap`](https://codemirror.net/6/docs/ref/#commands.standardKeymap) plus the following:
+
+- Alt-ArrowLeft (Ctrl-ArrowLeft on macOS): [`cursorSyntaxLeft`](https://codemirror.net/6/docs/ref/#commands.cursorSyntaxLeft) ([`selectSyntaxLeft`](https://codemirror.net/6/docs/ref/#commands.selectSyntaxLeft) with Shift)
+- Alt-ArrowRight (Ctrl-ArrowRight on macOS): [`cursorSyntaxRight`](https://codemirror.net/6/docs/ref/#commands.cursorSyntaxRight) ([`selectSyntaxRight`](https://codemirror.net/6/docs/ref/#commands.selectSyntaxRight) with Shift)
+- Alt-ArrowUp: [`moveLineUp`](https://codemirror.net/6/docs/ref/#commands.moveLineUp)
+- Alt-ArrowDown: [`moveLineDown`](https://codemirror.net/6/docs/ref/#commands.moveLineDown)
+- Shift-Alt-ArrowUp: [`copyLineUp`](https://codemirror.net/6/docs/ref/#commands.copyLineUp)
+- Shift-Alt-ArrowDown: [`copyLineDown`](https://codemirror.net/6/docs/ref/#commands.copyLineDown)
+- Escape: [`simplifySelection`](https://codemirror.net/6/docs/ref/#commands.simplifySelection)
+- Ctrl-Enter (Comd-Enter on macOS): [`insertBlankLine`](https://codemirror.net/6/docs/ref/#commands.insertBlankLine)
+- Alt-l (Ctrl-l on macOS): [`selectLine`](https://codemirror.net/6/docs/ref/#commands.selectLine)
+- Ctrl-i (Cmd-i on macOS): [`selectParentSyntax`](https://codemirror.net/6/docs/ref/#commands.selectParentSyntax)
+- Ctrl-[ (Cmd-[ on macOS): [`indentLess`](https://codemirror.net/6/docs/ref/#commands.indentLess)
+- Ctrl-] (Cmd-] on macOS): [`indentMore`](https://codemirror.net/6/docs/ref/#commands.indentMore)
+- Ctrl-Alt-\\ (Cmd-Alt-\\ on macOS): [`indentSelection`](https://codemirror.net/6/docs/ref/#commands.indentSelection)
+- Shift-Ctrl-k (Shift-Cmd-k on macOS): [`deleteLine`](https://codemirror.net/6/docs/ref/#commands.deleteLine)
+- Shift-Ctrl-\\ (Shift-Cmd-\\ on macOS): [`cursorMatchingBracket`](https://codemirror.net/6/docs/ref/#commands.cursorMatchingBracket)
+*/
+declare const defaultKeymap: readonly KeyBinding[];
+/**
+A binding that binds Tab to [`indentMore`](https://codemirror.net/6/docs/ref/#commands.indentMore) and
+Shift-Tab to [`indentLess`](https://codemirror.net/6/docs/ref/#commands.indentLess).
+Please see the [Tab example](../../examples/tab/) before using
+this.
+*/
+declare const indentWithTab: KeyBinding;
+
+declare const index_copyLineDown: typeof copyLineDown;
+declare const index_copyLineUp: typeof copyLineUp;
+declare const index_cursorCharBackward: typeof cursorCharBackward;
+declare const index_cursorCharForward: typeof cursorCharForward;
+declare const index_cursorCharLeft: typeof cursorCharLeft;
+declare const index_cursorCharRight: typeof cursorCharRight;
+declare const index_cursorDocEnd: typeof cursorDocEnd;
+declare const index_cursorDocStart: typeof cursorDocStart;
+declare const index_cursorGroupBackward: typeof cursorGroupBackward;
+declare const index_cursorGroupForward: typeof cursorGroupForward;
+declare const index_cursorGroupLeft: typeof cursorGroupLeft;
+declare const index_cursorGroupRight: typeof cursorGroupRight;
+declare const index_cursorLineBoundaryBackward: typeof cursorLineBoundaryBackward;
+declare const index_cursorLineBoundaryForward: typeof cursorLineBoundaryForward;
+declare const index_cursorLineDown: typeof cursorLineDown;
+declare const index_cursorLineEnd: typeof cursorLineEnd;
+declare const index_cursorLineStart: typeof cursorLineStart;
+declare const index_cursorLineUp: typeof cursorLineUp;
+declare const index_cursorMatchingBracket: typeof cursorMatchingBracket;
+declare const index_cursorPageDown: typeof cursorPageDown;
+declare const index_cursorPageUp: typeof cursorPageUp;
+declare const index_cursorSubwordBackward: typeof cursorSubwordBackward;
+declare const index_cursorSubwordForward: typeof cursorSubwordForward;
+declare const index_cursorSyntaxLeft: typeof cursorSyntaxLeft;
+declare const index_cursorSyntaxRight: typeof cursorSyntaxRight;
+declare const index_defaultKeymap: typeof defaultKeymap;
+declare const index_deleteCharBackward: typeof deleteCharBackward;
+declare const index_deleteCharForward: typeof deleteCharForward;
+declare const index_deleteGroupBackward: typeof deleteGroupBackward;
+declare const index_deleteGroupForward: typeof deleteGroupForward;
+declare const index_deleteLine: typeof deleteLine;
+declare const index_deleteToLineEnd: typeof deleteToLineEnd;
+declare const index_deleteToLineStart: typeof deleteToLineStart;
+declare const index_deleteTrailingWhitespace: typeof deleteTrailingWhitespace;
+declare const index_emacsStyleKeymap: typeof emacsStyleKeymap;
+declare const index_indentLess: typeof indentLess;
+declare const index_indentMore: typeof indentMore;
+declare const index_indentSelection: typeof indentSelection;
+declare const index_indentWithTab: typeof indentWithTab;
+declare const index_insertBlankLine: typeof insertBlankLine;
+declare const index_insertNewline: typeof insertNewline;
+declare const index_insertNewlineAndIndent: typeof insertNewlineAndIndent;
+declare const index_insertTab: typeof insertTab;
+declare const index_moveLineDown: typeof moveLineDown;
+declare const index_moveLineUp: typeof moveLineUp;
+declare const index_selectAll: typeof selectAll;
+declare const index_selectCharBackward: typeof selectCharBackward;
+declare const index_selectCharForward: typeof selectCharForward;
+declare const index_selectCharLeft: typeof selectCharLeft;
+declare const index_selectCharRight: typeof selectCharRight;
+declare const index_selectDocEnd: typeof selectDocEnd;
+declare const index_selectDocStart: typeof selectDocStart;
+declare const index_selectGroupBackward: typeof selectGroupBackward;
+declare const index_selectGroupForward: typeof selectGroupForward;
+declare const index_selectGroupLeft: typeof selectGroupLeft;
+declare const index_selectGroupRight: typeof selectGroupRight;
+declare const index_selectLine: typeof selectLine;
+declare const index_selectLineBoundaryBackward: typeof selectLineBoundaryBackward;
+declare const index_selectLineBoundaryForward: typeof selectLineBoundaryForward;
+declare const index_selectLineDown: typeof selectLineDown;
+declare const index_selectLineEnd: typeof selectLineEnd;
+declare const index_selectLineStart: typeof selectLineStart;
+declare const index_selectLineUp: typeof selectLineUp;
+declare const index_selectMatchingBracket: typeof selectMatchingBracket;
+declare const index_selectPageDown: typeof selectPageDown;
+declare const index_selectPageUp: typeof selectPageUp;
+declare const index_selectParentSyntax: typeof selectParentSyntax;
+declare const index_selectSubwordBackward: typeof selectSubwordBackward;
+declare const index_selectSubwordForward: typeof selectSubwordForward;
+declare const index_selectSyntaxLeft: typeof selectSyntaxLeft;
+declare const index_selectSyntaxRight: typeof selectSyntaxRight;
+declare const index_simplifySelection: typeof simplifySelection;
+declare const index_splitLine: typeof splitLine;
+declare const index_standardKeymap: typeof standardKeymap;
+declare const index_transposeChars: typeof transposeChars;
+declare namespace index {
+  export {
+    index_copyLineDown as copyLineDown,
+    index_copyLineUp as copyLineUp,
+    index_cursorCharBackward as cursorCharBackward,
+    index_cursorCharForward as cursorCharForward,
+    index_cursorCharLeft as cursorCharLeft,
+    index_cursorCharRight as cursorCharRight,
+    index_cursorDocEnd as cursorDocEnd,
+    index_cursorDocStart as cursorDocStart,
+    index_cursorGroupBackward as cursorGroupBackward,
+    index_cursorGroupForward as cursorGroupForward,
+    index_cursorGroupLeft as cursorGroupLeft,
+    index_cursorGroupRight as cursorGroupRight,
+    index_cursorLineBoundaryBackward as cursorLineBoundaryBackward,
+    index_cursorLineBoundaryForward as cursorLineBoundaryForward,
+    index_cursorLineDown as cursorLineDown,
+    index_cursorLineEnd as cursorLineEnd,
+    index_cursorLineStart as cursorLineStart,
+    index_cursorLineUp as cursorLineUp,
+    index_cursorMatchingBracket as cursorMatchingBracket,
+    index_cursorPageDown as cursorPageDown,
+    index_cursorPageUp as cursorPageUp,
+    index_cursorSubwordBackward as cursorSubwordBackward,
+    index_cursorSubwordForward as cursorSubwordForward,
+    index_cursorSyntaxLeft as cursorSyntaxLeft,
+    index_cursorSyntaxRight as cursorSyntaxRight,
+    index_defaultKeymap as defaultKeymap,
+    index_deleteCharBackward as deleteCharBackward,
+    index_deleteCharForward as deleteCharForward,
+    index_deleteGroupBackward as deleteGroupBackward,
+    index_deleteGroupForward as deleteGroupForward,
+    index_deleteLine as deleteLine,
+    index_deleteToLineEnd as deleteToLineEnd,
+    index_deleteToLineStart as deleteToLineStart,
+    index_deleteTrailingWhitespace as deleteTrailingWhitespace,
+    index_emacsStyleKeymap as emacsStyleKeymap,
+    index_indentLess as indentLess,
+    index_indentMore as indentMore,
+    index_indentSelection as indentSelection,
+    index_indentWithTab as indentWithTab,
+    index_insertBlankLine as insertBlankLine,
+    index_insertNewline as insertNewline,
+    index_insertNewlineAndIndent as insertNewlineAndIndent,
+    index_insertTab as insertTab,
+    index_moveLineDown as moveLineDown,
+    index_moveLineUp as moveLineUp,
+    index_selectAll as selectAll,
+    index_selectCharBackward as selectCharBackward,
+    index_selectCharForward as selectCharForward,
+    index_selectCharLeft as selectCharLeft,
+    index_selectCharRight as selectCharRight,
+    index_selectDocEnd as selectDocEnd,
+    index_selectDocStart as selectDocStart,
+    index_selectGroupBackward as selectGroupBackward,
+    index_selectGroupForward as selectGroupForward,
+    index_selectGroupLeft as selectGroupLeft,
+    index_selectGroupRight as selectGroupRight,
+    index_selectLine as selectLine,
+    index_selectLineBoundaryBackward as selectLineBoundaryBackward,
+    index_selectLineBoundaryForward as selectLineBoundaryForward,
+    index_selectLineDown as selectLineDown,
+    index_selectLineEnd as selectLineEnd,
+    index_selectLineStart as selectLineStart,
+    index_selectLineUp as selectLineUp,
+    index_selectMatchingBracket as selectMatchingBracket,
+    index_selectPageDown as selectPageDown,
+    index_selectPageUp as selectPageUp,
+    index_selectParentSyntax as selectParentSyntax,
+    index_selectSubwordBackward as selectSubwordBackward,
+    index_selectSubwordForward as selectSubwordForward,
+    index_selectSyntaxLeft as selectSyntaxLeft,
+    index_selectSyntaxRight as selectSyntaxRight,
+    index_simplifySelection as simplifySelection,
+    index_splitLine as splitLine,
+    index_standardKeymap as standardKeymap,
+    index_transposeChars as transposeChars,
+  };
+}
+
+/**
+Encapsulates a single line of input. Given to stream syntax code,
+which uses it to tokenize the content.
+*/
+declare class StringStream {
+    /**
+    The line.
+    */
+    string: string;
+    private tabSize;
+    /**
+    The current indent unit size.
+    */
+    indentUnit: number;
+    /**
+    The current position on the line.
+    */
+    pos: number;
+    /**
+    The start position of the current token.
+    */
+    start: number;
+    private lastColumnPos;
+    private lastColumnValue;
+    /**
+    True if we are at the end of the line.
+    */
+    eol(): boolean;
+    /**
+    True if we are at the start of the line.
+    */
+    sol(): boolean;
+    /**
+    Get the next code unit after the current position, or undefined
+    if we're at the end of the line.
+    */
+    peek(): string | undefined;
+    /**
+    Read the next code unit and advance `this.pos`.
+    */
+    next(): string | void;
+    /**
+    Match the next character against the given string, regular
+    expression, or predicate. Consume and return it if it matches.
+    */
+    eat(match: string | RegExp | ((ch: string) => boolean)): string | void;
+    /**
+    Continue matching characters that match the given string,
+    regular expression, or predicate function. Return true if any
+    characters were consumed.
+    */
+    eatWhile(match: string | RegExp | ((ch: string) => boolean)): boolean;
+    /**
+    Consume whitespace ahead of `this.pos`. Return true if any was
+    found.
+    */
+    eatSpace(): boolean;
+    /**
+    Move to the end of the line.
+    */
+    skipToEnd(): void;
+    /**
+    Move to directly before the given character, if found on the
+    current line.
+    */
+    skipTo(ch: string): boolean | void;
+    /**
+    Move back `n` characters.
+    */
+    backUp(n: number): void;
+    /**
+    Get the column position at `this.pos`.
+    */
+    column(): number;
+    /**
+    Get the indentation column of the current line.
+    */
+    indentation(): number;
+    /**
+    Match the input against the given string or regular expression
+    (which should start with a `^`). Return true or the regexp match
+    if it matches.
+    
+    Unless `consume` is set to `false`, this will move `this.pos`
+    past the matched text.
+    
+    When matching a string `caseInsensitive` can be set to true to
+    make the match case-insensitive.
+    */
+    match(pattern: string | RegExp, consume?: boolean, caseInsensitive?: boolean): boolean | RegExpMatchArray | null;
+    /**
+    Get the current token.
+    */
+    current(): string;
+}
+
+/**
+A stream parser parses or tokenizes content from start to end,
+emitting tokens as it goes over it. It keeps a mutable (but
+copyable) object with state, in which it can store information
+about the current context.
+*/
+interface StreamParser<State> {
+    /**
+    Read one token, advancing the stream past it, and returning a
+    string indicating the token's style tag—either the name of one
+    of the tags in [`tags`](https://codemirror.net/6/docs/ref/#highlight.tags), or such a name
+    suffixed by one or more tag
+    [modifier](https://codemirror.net/6/docs/ref/#highlight.Tag^defineModifier) names, separated by
+    spaces. For example `"keyword"` or "`variableName.constant"`.
+    
+    It is okay to return a zero-length token, but only if that
+    updates the state so that the next call will return a non-empty
+    token again.
+    */
+    token(stream: StringStream, state: State): string | null;
+    /**
+    This notifies the parser of a blank line in the input. It can
+    update its state here if it needs to.
+    */
+    blankLine?(state: State, indentUnit: number): void;
+    /**
+    Produce a start state for the parser.
+    */
+    startState?(indentUnit: number): State;
+    /**
+    Copy a given state. By default, a shallow object copy is done
+    which also copies arrays held at the top level of the object.
+    */
+    copyState?(state: State): State;
+    /**
+    Compute automatic indentation for the line that starts with the
+    given state and text.
+    */
+    indent?(state: State, textAfter: string, context: IndentContext): number | null;
+    /**
+    Default [language data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt) to
+    attach to this language.
+    */
+    languageData?: {
+        [name: string]: any;
+    };
+}
+/**
+A [language](https://codemirror.net/6/docs/ref/#language.Language) class based on a streaming
+parser.
+*/
+declare class StreamLanguage<State> extends Language {
+    private constructor();
+    static define<State>(spec: StreamParser<State>): StreamLanguage<State>;
+    private getIndent;
+    get allowsNesting(): boolean;
+}
+
+declare const julia$1: StreamParser<unknown>
+
+declare type JuliaLanguageConfig = {
+    /** Enable keyword completion */
+    enableKeywordCompletion?: boolean;
+};
+declare function julia(config?: JuliaLanguageConfig): LanguageSupport;
+
+declare type Handlers = {
+    [event: string]: (view: EditorView, line: BlockInfo, event: Event) => boolean;
+};
+interface LineNumberConfig {
+    /**
+    How to display line numbers. Defaults to simply converting them
+    to string.
+    */
+    formatNumber?: (lineNo: number, state: EditorState) => string;
+    /**
+    Supply event handlers for DOM events on this gutter.
+    */
+    domEventHandlers?: Handlers;
+}
+/**
+Create a line number gutter extension.
+*/
+declare function lineNumbers(config?: LineNumberConfig): Extension;
+
+interface HistoryConfig {
+    /**
+    The minimum depth (amount of events) to store. Defaults to 100.
+    */
+    minDepth?: number;
+    /**
+    The maximum time (in milliseconds) that adjacent events can be
+    apart and still be grouped together. Defaults to 500.
+    */
+    newGroupDelay?: number;
+}
+/**
+Create a history extension with the given configuration.
+*/
+declare function history(config?: HistoryConfig): Extension;
+/**
+Default key bindings for the undo history.
+
+- Mod-z: [`undo`](https://codemirror.net/6/docs/ref/#history.undo).
+- Mod-y (Mod-Shift-z on macOS): [`redo`](https://codemirror.net/6/docs/ref/#history.redo).
+- Mod-u: [`undoSelection`](https://codemirror.net/6/docs/ref/#history.undoSelection).
+- Alt-u (Mod-Shift-u on macOS): [`redoSelection`](https://codemirror.net/6/docs/ref/#history.redoSelection).
+*/
+declare const historyKeymap: readonly KeyBinding[];
 
 /**
 Create an extension that enables rectangular selections. By
@@ -4328,418 +6008,6 @@ Default search-related key bindings.
  - Mod-d: [`selectNextOccurrence`](https://codemirror.net/6/docs/ref/#search.selectNextOccurrence)
 */
 declare const searchKeymap: readonly KeyBinding[];
-
-interface CompletionConfig {
-    /**
-    When enabled (defaults to true), autocompletion will start
-    whenever the user types something that can be completed.
-    */
-    activateOnTyping?: boolean;
-    /**
-    Override the completion sources used. By default, they will be
-    taken from the `"autocomplete"` [language
-    data](https://codemirror.net/6/docs/ref/#state.EditorState.languageDataAt) (which should hold
-    [completion sources](https://codemirror.net/6/docs/ref/#autocomplete.CompletionSource) or arrays
-    of [completions](https://codemirror.net/6/docs/ref/#autocomplete.Completion)).
-    */
-    override?: readonly CompletionSource[] | null;
-    /**
-    The maximum number of options to render to the DOM.
-    */
-    maxRenderedOptions?: number;
-    /**
-    Set this to false to disable the [default completion
-    keymap](https://codemirror.net/6/docs/ref/#autocomplete.completionKeymap). (This requires you to
-    add bindings to control completion yourself. The bindings should
-    probably have a higher precedence than other bindings for the
-    same keys.)
-    */
-    defaultKeymap?: boolean;
-    /**
-    By default, completions are shown below the cursor when there is
-    space. Setting this to true will make the extension put the
-    completions above the cursor when possible.
-    */
-    aboveCursor?: boolean;
-    /**
-    This can be used to add additional CSS classes to completion
-    options.
-    */
-    optionClass?: (completion: Completion) => string;
-    /**
-    By default, the library will render icons based on the
-    completion's [type](https://codemirror.net/6/docs/ref/#autocomplete.Completion.type) in front of
-    each option. Set this to false to turn that off.
-    */
-    icons?: boolean;
-    /**
-    This option can be used to inject additional content into
-    options. The `render` function will be called for each visible
-    completion, and should produce a DOM node to show. `position`
-    determines where in the DOM the result appears, relative to
-    other added widgets and the standard content. The default icons
-    have position 20, the label position 50, and the detail position
-    70.
-    */
-    addToOptions?: {
-        render: (completion: Completion, state: EditorState) => Node | null;
-        position: number;
-    }[];
-}
-
-/**
-Objects type used to represent individual completions.
-*/
-interface Completion {
-    /**
-    The label to show in the completion picker. This is what input
-    is matched agains to determine whether a completion matches (and
-    how well it matches).
-    */
-    label: string;
-    /**
-    An optional short piece of information to show (with a different
-    style) after the label.
-    */
-    detail?: string;
-    /**
-    Additional info to show when the completion is selected. Can be
-    a plain string or a function that'll render the DOM structure to
-    show when invoked.
-    */
-    info?: string | ((completion: Completion) => (Node | Promise<Node>));
-    /**
-    How to apply the completion. The default is to replace it with
-    its [label](https://codemirror.net/6/docs/ref/#autocomplete.Completion.label). When this holds a
-    string, the completion range is replaced by that string. When it
-    is a function, that function is called to perform the
-    completion. If it fires a transaction, it is responsible for
-    adding the [`pickedCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.pickedCompletion)
-    annotation to it.
-    */
-    apply?: string | ((view: EditorView, completion: Completion, from: number, to: number) => void);
-    /**
-    The type of the completion. This is used to pick an icon to show
-    for the completion. Icons are styled with a CSS class created by
-    appending the type name to `"cm-completionIcon-"`. You can
-    define or restyle icons by defining these selectors. The base
-    library defines simple icons for `class`, `constant`, `enum`,
-    `function`, `interface`, `keyword`, `method`, `namespace`,
-    `property`, `text`, `type`, and `variable`.
-    
-    Multiple types can be provided by separating them with spaces.
-    */
-    type?: string;
-    /**
-    When given, should be a number from -99 to 99 that adjusts how
-    this completion is ranked compared to other completions that
-    match the input as well as this one. A negative number moves it
-    down the list, a positive number moves it up.
-    */
-    boost?: number;
-}
-/**
-An instance of this is passed to completion source functions.
-*/
-declare class CompletionContext {
-    /**
-    The editor state that the completion happens in.
-    */
-    readonly state: EditorState;
-    /**
-    The position at which the completion is happening.
-    */
-    readonly pos: number;
-    /**
-    Indicates whether completion was activated explicitly, or
-    implicitly by typing. The usual way to respond to this is to
-    only return completions when either there is part of a
-    completable entity before the cursor, or `explicit` is true.
-    */
-    readonly explicit: boolean;
-    /**
-    Create a new completion context. (Mostly useful for testing
-    completion sources—in the editor, the extension will create
-    these for you.)
-    */
-    constructor(
-    /**
-    The editor state that the completion happens in.
-    */
-    state: EditorState, 
-    /**
-    The position at which the completion is happening.
-    */
-    pos: number, 
-    /**
-    Indicates whether completion was activated explicitly, or
-    implicitly by typing. The usual way to respond to this is to
-    only return completions when either there is part of a
-    completable entity before the cursor, or `explicit` is true.
-    */
-    explicit: boolean);
-    /**
-    Get the extent, content, and (if there is a token) type of the
-    token before `this.pos`.
-    */
-    tokenBefore(types: readonly string[]): {
-        from: number;
-        to: number;
-        text: string;
-        type: NodeType;
-    } | null;
-    /**
-    Get the match of the given expression directly before the
-    cursor.
-    */
-    matchBefore(expr: RegExp): {
-        from: number;
-        to: number;
-        text: string;
-    } | null;
-    /**
-    Yields true when the query has been aborted. Can be useful in
-    asynchronous queries to avoid doing work that will be ignored.
-    */
-    get aborted(): boolean;
-    /**
-    Allows you to register abort handlers, which will be called when
-    the query is
-    [aborted](https://codemirror.net/6/docs/ref/#autocomplete.CompletionContext.aborted).
-    */
-    addEventListener(type: "abort", listener: () => void): void;
-}
-/**
-Given a a fixed array of options, return an autocompleter that
-completes them.
-*/
-declare function completeFromList(list: readonly (string | Completion)[]): CompletionSource;
-/**
-Wrap the given completion source so that it will only fire when the
-cursor is in a syntax node with one of the given names.
-*/
-declare function ifIn(nodes: readonly string[], source: CompletionSource): CompletionSource;
-/**
-Wrap the given completion source so that it will not fire when the
-cursor is in a syntax node with one of the given names.
-*/
-declare function ifNotIn(nodes: readonly string[], source: CompletionSource): CompletionSource;
-/**
-The function signature for a completion source. Such a function
-may return its [result](https://codemirror.net/6/docs/ref/#autocomplete.CompletionResult)
-synchronously or as a promise. Returning null indicates no
-completions are available.
-*/
-declare type CompletionSource = (context: CompletionContext) => CompletionResult | null | Promise<CompletionResult | null>;
-/**
-Interface for objects returned by completion sources.
-*/
-interface CompletionResult {
-    /**
-    The start of the range that is being completed.
-    */
-    from: number;
-    /**
-    The end of the range that is being completed. Defaults to the
-    main cursor position.
-    */
-    to?: number;
-    /**
-    The completions returned. These don't have to be compared with
-    the input by the source—the autocompletion system will do its
-    own matching (against the text between `from` and `to`) and
-    sorting.
-    */
-    options: readonly Completion[];
-    /**
-    When given, further input that causes the part of the document
-    between ([mapped](https://codemirror.net/6/docs/ref/#state.ChangeDesc.mapPos)) `from` and `to` to
-    match this regular expression will not query the completion
-    source again, but continue with this list of options. This can
-    help a lot with responsiveness, since it allows the completion
-    list to be updated synchronously.
-    */
-    span?: RegExp;
-    /**
-    By default, the library filters and scores completions. Set
-    `filter` to `false` to disable this, and cause your completions
-    to all be included, in the order they were given. When there are
-    other sources, unfiltered completions appear at the top of the
-    list of completions. `span` must not be given when `filter` is
-    `false`, because it only works when filtering.
-    */
-    filter?: boolean;
-}
-/**
-This annotation is added to transactions that are produced by
-picking a completion.
-*/
-declare const pickedCompletion: AnnotationType<Completion>;
-
-/**
-Convert a snippet template to a function that can apply it.
-Snippets are written using syntax like this:
-
-    "for (let ${index} = 0; ${index} < ${end}; ${index}++) {\n\t${}\n}"
-
-Each `${}` placeholder (you may also use `#{}`) indicates a field
-that the user can fill in. Its name, if any, will be the default
-content for the field.
-
-When the snippet is activated by calling the returned function,
-the code is inserted at the given position. Newlines in the
-template are indented by the indentation of the start line, plus
-one [indent unit](https://codemirror.net/6/docs/ref/#language.indentUnit) per tab character after
-the newline.
-
-On activation, (all instances of) the first field are selected.
-The user can move between fields with Tab and Shift-Tab as long as
-the fields are active. Moving to the last field or moving the
-cursor out of the current field deactivates the fields.
-
-The order of fields defaults to textual order, but you can add
-numbers to placeholders (`${1}` or `${1:defaultText}`) to provide
-a custom order.
-*/
-declare function snippet(template: string): (editor: {
-    state: EditorState;
-    dispatch: (tr: Transaction) => void;
-}, _completion: Completion, from: number, to: number) => void;
-/**
-A command that clears the active snippet, if any.
-*/
-declare const clearSnippet: StateCommand;
-/**
-Move to the next snippet field, if available.
-*/
-declare const nextSnippetField: StateCommand;
-/**
-Move to the previous snippet field, if available.
-*/
-declare const prevSnippetField: StateCommand;
-/**
-A facet that can be used to configure the key bindings used by
-snippets. The default binds Tab to
-[`nextSnippetField`](https://codemirror.net/6/docs/ref/#autocomplete.nextSnippetField), Shift-Tab to
-[`prevSnippetField`](https://codemirror.net/6/docs/ref/#autocomplete.prevSnippetField), and Escape
-to [`clearSnippet`](https://codemirror.net/6/docs/ref/#autocomplete.clearSnippet).
-*/
-declare const snippetKeymap: Facet<readonly KeyBinding[], readonly KeyBinding[]>;
-/**
-Create a completion from a snippet. Returns an object with the
-properties from `completion`, plus an `apply` function that
-applies the snippet.
-*/
-declare function snippetCompletion(template: string, completion: Completion): Completion;
-
-/**
-Returns a command that moves the completion selection forward or
-backward by the given amount.
-*/
-declare function moveCompletionSelection(forward: boolean, by?: "option" | "page"): Command;
-/**
-Accept the current completion.
-*/
-declare const acceptCompletion: Command;
-/**
-Explicitly start autocompletion.
-*/
-declare const startCompletion: Command;
-/**
-Close the currently active completion.
-*/
-declare const closeCompletion: Command;
-
-/**
-A completion source that will scan the document for words (using a
-[character categorizer](https://codemirror.net/6/docs/ref/#state.EditorState.charCategorizer)), and
-return those as completions.
-*/
-declare const completeAnyWord: CompletionSource;
-
-/**
-Returns an extension that enables autocompletion.
-*/
-declare function autocompletion$1(config?: CompletionConfig): Extension;
-/**
-Basic keybindings for autocompletion.
-
- - Ctrl-Space: [`startCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.startCompletion)
- - Escape: [`closeCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.closeCompletion)
- - ArrowDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true)`
- - ArrowUp: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(false)`
- - PageDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true, "page")`
- - PageDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true, "page")`
- - Enter: [`acceptCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.acceptCompletion)
-*/
-declare const completionKeymap$1: readonly KeyBinding[];
-/**
-Get the current completion status. When completions are available,
-this will return `"active"`. When completions are pending (in the
-process of being queried), this returns `"pending"`. Otherwise, it
-returns `null`.
-*/
-declare function completionStatus(state: EditorState): null | "active" | "pending";
-/**
-Returns the available completions as an array.
-*/
-declare function currentCompletions(state: EditorState): readonly Completion[];
-/**
-Return the currently selected completion, if any.
-*/
-declare function selectedCompletion(state: EditorState): Completion | null;
-
-type index_Completion = Completion;
-type index_CompletionContext = CompletionContext;
-declare const index_CompletionContext: typeof CompletionContext;
-type index_CompletionResult = CompletionResult;
-type index_CompletionSource = CompletionSource;
-declare const index_acceptCompletion: typeof acceptCompletion;
-declare const index_clearSnippet: typeof clearSnippet;
-declare const index_closeCompletion: typeof closeCompletion;
-declare const index_completeAnyWord: typeof completeAnyWord;
-declare const index_completeFromList: typeof completeFromList;
-declare const index_completionStatus: typeof completionStatus;
-declare const index_currentCompletions: typeof currentCompletions;
-declare const index_ifIn: typeof ifIn;
-declare const index_ifNotIn: typeof ifNotIn;
-declare const index_moveCompletionSelection: typeof moveCompletionSelection;
-declare const index_nextSnippetField: typeof nextSnippetField;
-declare const index_pickedCompletion: typeof pickedCompletion;
-declare const index_prevSnippetField: typeof prevSnippetField;
-declare const index_selectedCompletion: typeof selectedCompletion;
-declare const index_snippet: typeof snippet;
-declare const index_snippetCompletion: typeof snippetCompletion;
-declare const index_snippetKeymap: typeof snippetKeymap;
-declare const index_startCompletion: typeof startCompletion;
-declare namespace index {
-  export {
-    index_Completion as Completion,
-    index_CompletionContext as CompletionContext,
-    index_CompletionResult as CompletionResult,
-    index_CompletionSource as CompletionSource,
-    index_acceptCompletion as acceptCompletion,
-    autocompletion$1 as autocompletion,
-    index_clearSnippet as clearSnippet,
-    index_closeCompletion as closeCompletion,
-    index_completeAnyWord as completeAnyWord,
-    index_completeFromList as completeFromList,
-    completionKeymap$1 as completionKeymap,
-    index_completionStatus as completionStatus,
-    index_currentCompletions as currentCompletions,
-    index_ifIn as ifIn,
-    index_ifNotIn as ifNotIn,
-    index_moveCompletionSelection as moveCompletionSelection,
-    index_nextSnippetField as nextSnippetField,
-    index_pickedCompletion as pickedCompletion,
-    index_prevSnippetField as prevSnippetField,
-    index_selectedCompletion as selectedCompletion,
-    index_snippet as snippet,
-    index_snippetCompletion as snippetCompletion,
-    index_snippetKeymap as snippetKeymap,
-    index_startCompletion as startCompletion,
-  };
-}
 
 /**
 Default key bindings for this package.
@@ -5069,4 +6337,4 @@ declare function python(): LanguageSupport;
 declare let autocompletion: typeof autocompletion$1;
 declare let completionKeymap: readonly KeyBinding[];
 
-export { Compartment, Decoration, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, NodeProp, PluginField, PostgreSQL, Prec, SelectionRange, StateEffect, StateField, StreamLanguage, Text, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, index as autocomplete, autocompletion, bracketMatching, closeBrackets, closeBracketsKeymap, combineConfig, commentKeymap, completionKeymap, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, javascript, javascriptLanguage, julia as julia_andrey, julia$1 as julia_legacy, keymap, lineNumbers, markdown, markdownLanguage, parseMixed, placeholder, python, pythonLanguage, rectangularSelection, searchKeymap, sql, syntaxTree, tags };
+export { PostgreSQL, StreamLanguage, index$3 as autocomplete, autocompletion, bracketMatching, closeBrackets, closeBracketsKeymap, index as commands, commentKeymap, completionKeymap, foldGutter, foldKeymap, index$2 as highlight, highlightSelectionMatches, history, historyKeymap, html, htmlLanguage, javascript, javascriptLanguage, julia as julia_andrey, julia$1 as julia_legacy, index$1 as language, index$4 as lezer_common, lineNumbers, markdown, markdownLanguage, python, pythonLanguage, rectangularSelection, searchKeymap, sql, index$6 as state, index$5 as view };

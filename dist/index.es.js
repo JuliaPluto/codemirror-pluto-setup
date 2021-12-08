@@ -2965,1638 +2965,27 @@ combine = {}) {
     return result;
 }
 
-// FIXME profile adding a per-Tree TreeNode cache, validating it by
-// parent pointer
-/// The default maximum length of a `TreeBuffer` node (1024).
-const DefaultBufferLength = 1024;
-let nextPropID = 0;
-class Range$1 {
-    constructor(from, to) {
-        this.from = from;
-        this.to = to;
-    }
-}
-/// Each [node type](#common.NodeType) or [individual tree](#common.Tree)
-/// can have metadata associated with it in props. Instances of this
-/// class represent prop names.
-class NodeProp {
-    /// Create a new node prop type.
-    constructor(config = {}) {
-        this.id = nextPropID++;
-        this.perNode = !!config.perNode;
-        this.deserialize = config.deserialize || (() => {
-            throw new Error("This node type doesn't define a deserialize function");
-        });
-    }
-    /// This is meant to be used with
-    /// [`NodeSet.extend`](#common.NodeSet.extend) or
-    /// [`LRParser.configure`](#lr.ParserConfig.props) to compute
-    /// prop values for each node type in the set. Takes a [match
-    /// object](#common.NodeType^match) or function that returns undefined
-    /// if the node type doesn't get this prop, and the prop's value if
-    /// it does.
-    add(match) {
-        if (this.perNode)
-            throw new RangeError("Can't add per-node props to node types");
-        if (typeof match != "function")
-            match = NodeType.match(match);
-        return (type) => {
-            let result = match(type);
-            return result === undefined ? null : [this, result];
-        };
-    }
-}
-/// Prop that is used to describe matching delimiters. For opening
-/// delimiters, this holds an array of node names (written as a
-/// space-separated string when declaring this prop in a grammar)
-/// for the node types of closing delimiters that match it.
-NodeProp.closedBy = new NodeProp({ deserialize: str => str.split(" ") });
-/// The inverse of [`closedBy`](#common.NodeProp^closedBy). This is
-/// attached to closing delimiters, holding an array of node names
-/// of types of matching opening delimiters.
-NodeProp.openedBy = new NodeProp({ deserialize: str => str.split(" ") });
-/// Used to assign node types to groups (for example, all node
-/// types that represent an expression could be tagged with an
-/// `"Expression"` group).
-NodeProp.group = new NodeProp({ deserialize: str => str.split(" ") });
-/// The hash of the [context](#lr.ContextTracker.constructor)
-/// that the node was parsed in, if any. Used to limit reuse of
-/// contextual nodes.
-NodeProp.contextHash = new NodeProp({ perNode: true });
-/// The distance beyond the end of the node that the tokenizer
-/// looked ahead for any of the tokens inside the node. (The LR
-/// parser only stores this when it is larger than 25, for
-/// efficiency reasons.)
-NodeProp.lookAhead = new NodeProp({ perNode: true });
-/// This per-node prop is used to replace a given node, or part of a
-/// node, with another tree. This is useful to include trees from
-/// different languages.
-NodeProp.mounted = new NodeProp({ perNode: true });
-/// A mounted tree, which can be [stored](#common.NodeProp^mounted) on
-/// a tree node to indicate that parts of its content are
-/// represented by another tree.
-class MountedTree {
-    constructor(
-    /// The inner tree.
-    tree, 
-    /// If this is null, this tree replaces the entire node (it will
-    /// be included in the regular iteration instead of its host
-    /// node). If not, only the given ranges are considered to be
-    /// covered by this tree. This is used for trees that are mixed in
-    /// a way that isn't strictly hierarchical. Such mounted trees are
-    /// only entered by [`resolveInner`](#common.Tree.resolveInner)
-    /// and [`enter`](#common.SyntaxNode.enter).
-    overlay, 
-    /// The parser used to create this subtree.
-    parser) {
-        this.tree = tree;
-        this.overlay = overlay;
-        this.parser = parser;
-    }
-}
-const noProps = Object.create(null);
-/// Each node in a syntax tree has a node type associated with it.
-class NodeType {
-    /// @internal
-    constructor(
-    /// The name of the node type. Not necessarily unique, but if the
-    /// grammar was written properly, different node types with the
-    /// same name within a node set should play the same semantic
-    /// role.
-    name, 
-    /// @internal
-    props, 
-    /// The id of this node in its set. Corresponds to the term ids
-    /// used in the parser.
-    id, 
-    /// @internal
-    flags = 0) {
-        this.name = name;
-        this.props = props;
-        this.id = id;
-        this.flags = flags;
-    }
-    static define(spec) {
-        let props = spec.props && spec.props.length ? Object.create(null) : noProps;
-        let flags = (spec.top ? 1 /* Top */ : 0) | (spec.skipped ? 2 /* Skipped */ : 0) |
-            (spec.error ? 4 /* Error */ : 0) | (spec.name == null ? 8 /* Anonymous */ : 0);
-        let type = new NodeType(spec.name || "", props, spec.id, flags);
-        if (spec.props)
-            for (let src of spec.props) {
-                if (!Array.isArray(src))
-                    src = src(type);
-                if (src) {
-                    if (src[0].perNode)
-                        throw new RangeError("Can't store a per-node prop on a node type");
-                    props[src[0].id] = src[1];
-                }
-            }
-        return type;
-    }
-    /// Retrieves a node prop for this type. Will return `undefined` if
-    /// the prop isn't present on this node.
-    prop(prop) { return this.props[prop.id]; }
-    /// True when this is the top node of a grammar.
-    get isTop() { return (this.flags & 1 /* Top */) > 0; }
-    /// True when this node is produced by a skip rule.
-    get isSkipped() { return (this.flags & 2 /* Skipped */) > 0; }
-    /// Indicates whether this is an error node.
-    get isError() { return (this.flags & 4 /* Error */) > 0; }
-    /// When true, this node type doesn't correspond to a user-declared
-    /// named node, for example because it is used to cache repetition.
-    get isAnonymous() { return (this.flags & 8 /* Anonymous */) > 0; }
-    /// Returns true when this node's name or one of its
-    /// [groups](#common.NodeProp^group) matches the given string.
-    is(name) {
-        if (typeof name == 'string') {
-            if (this.name == name)
-                return true;
-            let group = this.prop(NodeProp.group);
-            return group ? group.indexOf(name) > -1 : false;
-        }
-        return this.id == name;
-    }
-    /// Create a function from node types to arbitrary values by
-    /// specifying an object whose property names are node or
-    /// [group](#common.NodeProp^group) names. Often useful with
-    /// [`NodeProp.add`](#common.NodeProp.add). You can put multiple
-    /// names, separated by spaces, in a single property name to map
-    /// multiple node names to a single value.
-    static match(map) {
-        let direct = Object.create(null);
-        for (let prop in map)
-            for (let name of prop.split(" "))
-                direct[name] = map[prop];
-        return (node) => {
-            for (let groups = node.prop(NodeProp.group), i = -1; i < (groups ? groups.length : 0); i++) {
-                let found = direct[i < 0 ? node.name : groups[i]];
-                if (found)
-                    return found;
-            }
-        };
-    }
-}
-/// An empty dummy node type to use when no actual type is available.
-NodeType.none = new NodeType("", Object.create(null), 0, 8 /* Anonymous */);
-/// A node set holds a collection of node types. It is used to
-/// compactly represent trees by storing their type ids, rather than a
-/// full pointer to the type object, in a numeric array. Each parser
-/// [has](#lr.LRParser.nodeSet) a node set, and [tree
-/// buffers](#common.TreeBuffer) can only store collections of nodes
-/// from the same set. A set can have a maximum of 2**16 (65536) node
-/// types in it, so that the ids fit into 16-bit typed array slots.
-class NodeSet {
-    /// Create a set with the given types. The `id` property of each
-    /// type should correspond to its position within the array.
-    constructor(
-    /// The node types in this set, by id.
-    types) {
-        this.types = types;
-        for (let i = 0; i < types.length; i++)
-            if (types[i].id != i)
-                throw new RangeError("Node type ids should correspond to array positions when creating a node set");
-    }
-    /// Create a copy of this set with some node properties added. The
-    /// arguments to this method should be created with
-    /// [`NodeProp.add`](#common.NodeProp.add).
-    extend(...props) {
-        let newTypes = [];
-        for (let type of this.types) {
-            let newProps = null;
-            for (let source of props) {
-                let add = source(type);
-                if (add) {
-                    if (!newProps)
-                        newProps = Object.assign({}, type.props);
-                    newProps[add[0].id] = add[1];
-                }
-            }
-            newTypes.push(newProps ? new NodeType(type.name, newProps, type.id, type.flags) : type);
-        }
-        return new NodeSet(newTypes);
-    }
-}
-const CachedNode = new WeakMap();
-/// A piece of syntax tree. There are two ways to approach these
-/// trees: the way they are actually stored in memory, and the
-/// convenient way.
-///
-/// Syntax trees are stored as a tree of `Tree` and `TreeBuffer`
-/// objects. By packing detail information into `TreeBuffer` leaf
-/// nodes, the representation is made a lot more memory-efficient.
-///
-/// However, when you want to actually work with tree nodes, this
-/// representation is very awkward, so most client code will want to
-/// use the [`TreeCursor`](#common.TreeCursor) or
-/// [`SyntaxNode`](#common.SyntaxNode) interface instead, which provides
-/// a view on some part of this data structure, and can be used to
-/// move around to adjacent nodes.
-class Tree {
-    /// Construct a new tree. See also [`Tree.build`](#common.Tree^build).
-    constructor(
-    /// The type of the top node.
-    type, 
-    /// This node's child nodes.
-    children, 
-    /// The positions (offsets relative to the start of this tree) of
-    /// the children.
-    positions, 
-    /// The total length of this tree
-    length, 
-    /// Per-node [node props](#common.NodeProp) to associate with this node.
-    props) {
-        this.type = type;
-        this.children = children;
-        this.positions = positions;
-        this.length = length;
-        /// @internal
-        this.props = null;
-        if (props && props.length) {
-            this.props = Object.create(null);
-            for (let [prop, value] of props)
-                this.props[typeof prop == "number" ? prop : prop.id] = value;
-        }
-    }
-    /// @internal
-    toString() {
-        let mounted = this.prop(NodeProp.mounted);
-        if (mounted && !mounted.overlay)
-            return mounted.tree.toString();
-        let children = "";
-        for (let ch of this.children) {
-            let str = ch.toString();
-            if (str) {
-                if (children)
-                    children += ",";
-                children += str;
-            }
-        }
-        return !this.type.name ? children :
-            (/\W/.test(this.type.name) && !this.type.isError ? JSON.stringify(this.type.name) : this.type.name) +
-                (children.length ? "(" + children + ")" : "");
-    }
-    /// Get a [tree cursor](#common.TreeCursor) rooted at this tree. When
-    /// `pos` is given, the cursor is [moved](#common.TreeCursor.moveTo)
-    /// to the given position and side.
-    cursor(pos, side = 0) {
-        let scope = (pos != null && CachedNode.get(this)) || this.topNode;
-        let cursor = new TreeCursor(scope);
-        if (pos != null) {
-            cursor.moveTo(pos, side);
-            CachedNode.set(this, cursor._tree);
-        }
-        return cursor;
-    }
-    /// Get a [tree cursor](#common.TreeCursor) that, unlike regular
-    /// cursors, doesn't skip through
-    /// [anonymous](#common.NodeType.isAnonymous) nodes.
-    fullCursor() {
-        return new TreeCursor(this.topNode, 1 /* Full */);
-    }
-    /// Get a [syntax node](#common.SyntaxNode) object for the top of the
-    /// tree.
-    get topNode() {
-        return new TreeNode(this, 0, 0, null);
-    }
-    /// Get the [syntax node](#common.SyntaxNode) at the given position.
-    /// If `side` is -1, this will move into nodes that end at the
-    /// position. If 1, it'll move into nodes that start at the
-    /// position. With 0, it'll only enter nodes that cover the position
-    /// from both sides.
-    resolve(pos, side = 0) {
-        return this.cursor(pos, side).node;
-    }
-    /// Like [`resolve`](#common.Tree.resolve), but will enter
-    /// [overlaid](#common.MountedTree.overlay) nodes, producing a syntax node
-    /// pointing into the innermost overlaid tree at the given position
-    /// (with parent links going through all parent structure, including
-    /// the host trees).
-    resolveInner(pos, side = 0) {
-        let result = this.topNode;
-        for (;;) {
-            let inner = result.enter(pos, side);
-            if (!inner)
-                return result;
-            result = inner;
-        }
-    }
-    /// Iterate over the tree and its children, calling `enter` for any
-    /// node that touches the `from`/`to` region (if given) before
-    /// running over such a node's children, and `leave` (if given) when
-    /// leaving the node. When `enter` returns `false`, that node will
-    /// not have its children iterated over (or `leave` called).
-    iterate(spec) {
-        let { enter, leave, from = 0, to = this.length } = spec;
-        for (let c = this.cursor(), get = () => c.node;;) {
-            let mustLeave = false;
-            if (c.from <= to && c.to >= from && (c.type.isAnonymous || enter(c.type, c.from, c.to, get) !== false)) {
-                if (c.firstChild())
-                    continue;
-                if (!c.type.isAnonymous)
-                    mustLeave = true;
-            }
-            for (;;) {
-                if (mustLeave && leave)
-                    leave(c.type, c.from, c.to, get);
-                mustLeave = c.type.isAnonymous;
-                if (c.nextSibling())
-                    break;
-                if (!c.parent())
-                    return;
-                mustLeave = true;
-            }
-        }
-    }
-    /// Get the value of the given [node prop](#common.NodeProp) for this
-    /// node. Works with both per-node and per-type props.
-    prop(prop) {
-        return !prop.perNode ? this.type.prop(prop) : this.props ? this.props[prop.id] : undefined;
-    }
-    /// Returns the node's [per-node props](#common.NodeProp.perNode) in a
-    /// format that can be passed to the [`Tree`](#common.Tree)
-    /// constructor.
-    get propValues() {
-        let result = [];
-        if (this.props)
-            for (let id in this.props)
-                result.push([+id, this.props[id]]);
-        return result;
-    }
-    /// Balance the direct children of this tree, producing a copy of
-    /// which may have children grouped into subtrees with type
-    /// [`NodeType.none`](#common.NodeType^none).
-    balance(config = {}) {
-        return this.children.length <= 8 /* BranchFactor */ ? this :
-            balanceRange(this.type, this.children, this.positions, 0, this.children.length, 0, this.length, (children, positions, length) => new Tree(this.type, children, positions, length, this.propValues), config.makeTree || ((children, positions, length) => new Tree(NodeType.none, children, positions, length)));
-    }
-    /// Build a tree from a postfix-ordered buffer of node information,
-    /// or a cursor over such a buffer.
-    static build(data) { return buildTree(data); }
-}
-/// The empty tree
-Tree.empty = new Tree(NodeType.none, [], [], 0);
-class FlatBufferCursor {
-    constructor(buffer, index) {
-        this.buffer = buffer;
-        this.index = index;
-    }
-    get id() { return this.buffer[this.index - 4]; }
-    get start() { return this.buffer[this.index - 3]; }
-    get end() { return this.buffer[this.index - 2]; }
-    get size() { return this.buffer[this.index - 1]; }
-    get pos() { return this.index; }
-    next() { this.index -= 4; }
-    fork() { return new FlatBufferCursor(this.buffer, this.index); }
-}
-/// Tree buffers contain (type, start, end, endIndex) quads for each
-/// node. In such a buffer, nodes are stored in prefix order (parents
-/// before children, with the endIndex of the parent indicating which
-/// children belong to it)
-class TreeBuffer {
-    /// Create a tree buffer.
-    constructor(
-    /// The buffer's content.
-    buffer, 
-    /// The total length of the group of nodes in the buffer.
-    length, 
-    /// The node set used in this buffer.
-    set) {
-        this.buffer = buffer;
-        this.length = length;
-        this.set = set;
-    }
-    /// @internal
-    get type() { return NodeType.none; }
-    /// @internal
-    toString() {
-        let result = [];
-        for (let index = 0; index < this.buffer.length;) {
-            result.push(this.childString(index));
-            index = this.buffer[index + 3];
-        }
-        return result.join(",");
-    }
-    /// @internal
-    childString(index) {
-        let id = this.buffer[index], endIndex = this.buffer[index + 3];
-        let type = this.set.types[id], result = type.name;
-        if (/\W/.test(result) && !type.isError)
-            result = JSON.stringify(result);
-        index += 4;
-        if (endIndex == index)
-            return result;
-        let children = [];
-        while (index < endIndex) {
-            children.push(this.childString(index));
-            index = this.buffer[index + 3];
-        }
-        return result + "(" + children.join(",") + ")";
-    }
-    /// @internal
-    findChild(startIndex, endIndex, dir, pos, side) {
-        let { buffer } = this, pick = -1;
-        for (let i = startIndex; i != endIndex; i = buffer[i + 3]) {
-            if (checkSide(side, pos, buffer[i + 1], buffer[i + 2])) {
-                pick = i;
-                if (dir > 0)
-                    break;
-            }
-        }
-        return pick;
-    }
-    /// @internal
-    slice(startI, endI, from, to) {
-        let b = this.buffer;
-        let copy = new Uint16Array(endI - startI);
-        for (let i = startI, j = 0; i < endI;) {
-            copy[j++] = b[i++];
-            copy[j++] = b[i++] - from;
-            copy[j++] = b[i++] - from;
-            copy[j++] = b[i++] - startI;
-        }
-        return new TreeBuffer(copy, to - from, this.set);
-    }
-}
-function checkSide(side, pos, from, to) {
-    switch (side) {
-        case -2 /* Before */: return from < pos;
-        case -1 /* AtOrBefore */: return to >= pos && from < pos;
-        case 0 /* Around */: return from < pos && to > pos;
-        case 1 /* AtOrAfter */: return from <= pos && to > pos;
-        case 2 /* After */: return to > pos;
-        case 4 /* DontCare */: return true;
-    }
-}
-function enterUnfinishedNodesBefore(node, pos) {
-    let scan = node.childBefore(pos);
-    while (scan) {
-        let last = scan.lastChild;
-        if (!last || last.to != scan.to)
-            break;
-        if (last.type.isError && last.from == last.to) {
-            node = scan;
-            scan = last.prevSibling;
-        }
-        else {
-            scan = last;
-        }
-    }
-    return node;
-}
-class TreeNode {
-    constructor(node, _from, 
-    // Index in parent node, set to -1 if the node is not a direct child of _parent.node (overlay)
-    index, _parent) {
-        this.node = node;
-        this._from = _from;
-        this.index = index;
-        this._parent = _parent;
-    }
-    get type() { return this.node.type; }
-    get name() { return this.node.type.name; }
-    get from() { return this._from; }
-    get to() { return this._from + this.node.length; }
-    nextChild(i, dir, pos, side, mode = 0) {
-        for (let parent = this;;) {
-            for (let { children, positions } = parent.node, e = dir > 0 ? children.length : -1; i != e; i += dir) {
-                let next = children[i], start = positions[i] + parent._from;
-                if (!checkSide(side, pos, start, start + next.length))
-                    continue;
-                if (next instanceof TreeBuffer) {
-                    if (mode & 2 /* NoEnterBuffer */)
-                        continue;
-                    let index = next.findChild(0, next.buffer.length, dir, pos - start, side);
-                    if (index > -1)
-                        return new BufferNode(new BufferContext(parent, next, i, start), null, index);
-                }
-                else if ((mode & 1 /* Full */) || (!next.type.isAnonymous || hasChild(next))) {
-                    let mounted;
-                    if (next.props && (mounted = next.prop(NodeProp.mounted)) && !mounted.overlay)
-                        return new TreeNode(mounted.tree, start, i, parent);
-                    let inner = new TreeNode(next, start, i, parent);
-                    return (mode & 1 /* Full */) || !inner.type.isAnonymous ? inner
-                        : inner.nextChild(dir < 0 ? next.children.length - 1 : 0, dir, pos, side);
-                }
-            }
-            if ((mode & 1 /* Full */) || !parent.type.isAnonymous)
-                return null;
-            if (parent.index >= 0)
-                i = parent.index + dir;
-            else
-                i = dir < 0 ? -1 : parent._parent.node.children.length;
-            parent = parent._parent;
-            if (!parent)
-                return null;
-        }
-    }
-    get firstChild() { return this.nextChild(0, 1, 0, 4 /* DontCare */); }
-    get lastChild() { return this.nextChild(this.node.children.length - 1, -1, 0, 4 /* DontCare */); }
-    childAfter(pos) { return this.nextChild(0, 1, pos, 2 /* After */); }
-    childBefore(pos) { return this.nextChild(this.node.children.length - 1, -1, pos, -2 /* Before */); }
-    enter(pos, side, overlays = true, buffers = true) {
-        let mounted;
-        if (overlays && (mounted = this.node.prop(NodeProp.mounted)) && mounted.overlay) {
-            let rPos = pos - this.from;
-            for (let { from, to } of mounted.overlay) {
-                if ((side > 0 ? from <= rPos : from < rPos) &&
-                    (side < 0 ? to >= rPos : to > rPos))
-                    return new TreeNode(mounted.tree, mounted.overlay[0].from + this.from, -1, this);
-            }
-        }
-        return this.nextChild(0, 1, pos, side, buffers ? 0 : 2 /* NoEnterBuffer */);
-    }
-    nextSignificantParent() {
-        let val = this;
-        while (val.type.isAnonymous && val._parent)
-            val = val._parent;
-        return val;
-    }
-    get parent() {
-        return this._parent ? this._parent.nextSignificantParent() : null;
-    }
-    get nextSibling() {
-        return this._parent && this.index >= 0 ? this._parent.nextChild(this.index + 1, 1, 0, 4 /* DontCare */) : null;
-    }
-    get prevSibling() {
-        return this._parent && this.index >= 0 ? this._parent.nextChild(this.index - 1, -1, 0, 4 /* DontCare */) : null;
-    }
-    get cursor() { return new TreeCursor(this); }
-    get tree() { return this.node; }
-    toTree() { return this.node; }
-    resolve(pos, side = 0) {
-        return this.cursor.moveTo(pos, side).node;
-    }
-    enterUnfinishedNodesBefore(pos) { return enterUnfinishedNodesBefore(this, pos); }
-    getChild(type, before = null, after = null) {
-        let r = getChildren(this, type, before, after);
-        return r.length ? r[0] : null;
-    }
-    getChildren(type, before = null, after = null) {
-        return getChildren(this, type, before, after);
-    }
-    /// @internal
-    toString() { return this.node.toString(); }
-}
-function getChildren(node, type, before, after) {
-    let cur = node.cursor, result = [];
-    if (!cur.firstChild())
-        return result;
-    if (before != null)
-        while (!cur.type.is(before))
-            if (!cur.nextSibling())
-                return result;
-    for (;;) {
-        if (after != null && cur.type.is(after))
-            return result;
-        if (cur.type.is(type))
-            result.push(cur.node);
-        if (!cur.nextSibling())
-            return after == null ? result : [];
-    }
-}
-class BufferContext {
-    constructor(parent, buffer, index, start) {
-        this.parent = parent;
-        this.buffer = buffer;
-        this.index = index;
-        this.start = start;
-    }
-}
-class BufferNode {
-    constructor(context, _parent, index) {
-        this.context = context;
-        this._parent = _parent;
-        this.index = index;
-        this.type = context.buffer.set.types[context.buffer.buffer[index]];
-    }
-    get name() { return this.type.name; }
-    get from() { return this.context.start + this.context.buffer.buffer[this.index + 1]; }
-    get to() { return this.context.start + this.context.buffer.buffer[this.index + 2]; }
-    child(dir, pos, side) {
-        let { buffer } = this.context;
-        let index = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], dir, pos - this.context.start, side);
-        return index < 0 ? null : new BufferNode(this.context, this, index);
-    }
-    get firstChild() { return this.child(1, 0, 4 /* DontCare */); }
-    get lastChild() { return this.child(-1, 0, 4 /* DontCare */); }
-    childAfter(pos) { return this.child(1, pos, 2 /* After */); }
-    childBefore(pos) { return this.child(-1, pos, -2 /* Before */); }
-    enter(pos, side, overlays, buffers = true) {
-        if (!buffers)
-            return null;
-        let { buffer } = this.context;
-        let index = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], side > 0 ? 1 : -1, pos - this.context.start, side);
-        return index < 0 ? null : new BufferNode(this.context, this, index);
-    }
-    get parent() {
-        return this._parent || this.context.parent.nextSignificantParent();
-    }
-    externalSibling(dir) {
-        return this._parent ? null : this.context.parent.nextChild(this.context.index + dir, dir, 0, 4 /* DontCare */);
-    }
-    get nextSibling() {
-        let { buffer } = this.context;
-        let after = buffer.buffer[this.index + 3];
-        if (after < (this._parent ? buffer.buffer[this._parent.index + 3] : buffer.buffer.length))
-            return new BufferNode(this.context, this._parent, after);
-        return this.externalSibling(1);
-    }
-    get prevSibling() {
-        let { buffer } = this.context;
-        let parentStart = this._parent ? this._parent.index + 4 : 0;
-        if (this.index == parentStart)
-            return this.externalSibling(-1);
-        return new BufferNode(this.context, this._parent, buffer.findChild(parentStart, this.index, -1, 0, 4 /* DontCare */));
-    }
-    get cursor() { return new TreeCursor(this); }
-    get tree() { return null; }
-    toTree() {
-        let children = [], positions = [];
-        let { buffer } = this.context;
-        let startI = this.index + 4, endI = buffer.buffer[this.index + 3];
-        if (endI > startI) {
-            let from = buffer.buffer[this.index + 1], to = buffer.buffer[this.index + 2];
-            children.push(buffer.slice(startI, endI, from, to));
-            positions.push(0);
-        }
-        return new Tree(this.type, children, positions, this.to - this.from);
-    }
-    resolve(pos, side = 0) {
-        return this.cursor.moveTo(pos, side).node;
-    }
-    enterUnfinishedNodesBefore(pos) { return enterUnfinishedNodesBefore(this, pos); }
-    /// @internal
-    toString() { return this.context.buffer.childString(this.index); }
-    getChild(type, before = null, after = null) {
-        let r = getChildren(this, type, before, after);
-        return r.length ? r[0] : null;
-    }
-    getChildren(type, before = null, after = null) {
-        return getChildren(this, type, before, after);
-    }
-}
-/// A tree cursor object focuses on a given node in a syntax tree, and
-/// allows you to move to adjacent nodes.
-class TreeCursor {
-    /// @internal
-    constructor(node, 
-    /// @internal
-    mode = 0) {
-        this.mode = mode;
-        this.buffer = null;
-        this.stack = [];
-        this.index = 0;
-        this.bufferNode = null;
-        if (node instanceof TreeNode) {
-            this.yieldNode(node);
-        }
-        else {
-            this._tree = node.context.parent;
-            this.buffer = node.context;
-            for (let n = node._parent; n; n = n._parent)
-                this.stack.unshift(n.index);
-            this.bufferNode = node;
-            this.yieldBuf(node.index);
-        }
-    }
-    /// Shorthand for `.type.name`.
-    get name() { return this.type.name; }
-    yieldNode(node) {
-        if (!node)
-            return false;
-        this._tree = node;
-        this.type = node.type;
-        this.from = node.from;
-        this.to = node.to;
-        return true;
-    }
-    yieldBuf(index, type) {
-        this.index = index;
-        let { start, buffer } = this.buffer;
-        this.type = type || buffer.set.types[buffer.buffer[index]];
-        this.from = start + buffer.buffer[index + 1];
-        this.to = start + buffer.buffer[index + 2];
-        return true;
-    }
-    yield(node) {
-        if (!node)
-            return false;
-        if (node instanceof TreeNode) {
-            this.buffer = null;
-            return this.yieldNode(node);
-        }
-        this.buffer = node.context;
-        return this.yieldBuf(node.index, node.type);
-    }
-    /// @internal
-    toString() {
-        return this.buffer ? this.buffer.buffer.childString(this.index) : this._tree.toString();
-    }
-    /// @internal
-    enterChild(dir, pos, side) {
-        if (!this.buffer)
-            return this.yield(this._tree.nextChild(dir < 0 ? this._tree.node.children.length - 1 : 0, dir, pos, side, this.mode));
-        let { buffer } = this.buffer;
-        let index = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], dir, pos - this.buffer.start, side);
-        if (index < 0)
-            return false;
-        this.stack.push(this.index);
-        return this.yieldBuf(index);
-    }
-    /// Move the cursor to this node's first child. When this returns
-    /// false, the node has no child, and the cursor has not been moved.
-    firstChild() { return this.enterChild(1, 0, 4 /* DontCare */); }
-    /// Move the cursor to this node's last child.
-    lastChild() { return this.enterChild(-1, 0, 4 /* DontCare */); }
-    /// Move the cursor to the first child that ends after `pos`.
-    childAfter(pos) { return this.enterChild(1, pos, 2 /* After */); }
-    /// Move to the last child that starts before `pos`.
-    childBefore(pos) { return this.enterChild(-1, pos, -2 /* Before */); }
-    /// Move the cursor to the child around `pos`. If side is -1 the
-    /// child may end at that position, when 1 it may start there. This
-    /// will also enter [overlaid](#common.MountedTree.overlay)
-    /// [mounted](#common.NodeProp^mounted) trees unless `overlays` is
-    /// set to false.
-    enter(pos, side, overlays = true, buffers = true) {
-        if (!this.buffer)
-            return this.yield(this._tree.enter(pos, side, overlays, buffers));
-        return buffers ? this.enterChild(1, pos, side) : false;
-    }
-    /// Move the node's parent node, if this isn't the top node.
-    parent() {
-        if (!this.buffer)
-            return this.yieldNode((this.mode & 1 /* Full */) ? this._tree._parent : this._tree.parent);
-        if (this.stack.length)
-            return this.yieldBuf(this.stack.pop());
-        let parent = (this.mode & 1 /* Full */) ? this.buffer.parent : this.buffer.parent.nextSignificantParent();
-        this.buffer = null;
-        return this.yieldNode(parent);
-    }
-    /// @internal
-    sibling(dir) {
-        if (!this.buffer)
-            return !this._tree._parent ? false
-                : this.yield(this._tree.index < 0 ? null
-                    : this._tree._parent.nextChild(this._tree.index + dir, dir, 0, 4 /* DontCare */, this.mode));
-        let { buffer } = this.buffer, d = this.stack.length - 1;
-        if (dir < 0) {
-            let parentStart = d < 0 ? 0 : this.stack[d] + 4;
-            if (this.index != parentStart)
-                return this.yieldBuf(buffer.findChild(parentStart, this.index, -1, 0, 4 /* DontCare */));
-        }
-        else {
-            let after = buffer.buffer[this.index + 3];
-            if (after < (d < 0 ? buffer.buffer.length : buffer.buffer[this.stack[d] + 3]))
-                return this.yieldBuf(after);
-        }
-        return d < 0 ? this.yield(this.buffer.parent.nextChild(this.buffer.index + dir, dir, 0, 4 /* DontCare */, this.mode)) : false;
-    }
-    /// Move to this node's next sibling, if any.
-    nextSibling() { return this.sibling(1); }
-    /// Move to this node's previous sibling, if any.
-    prevSibling() { return this.sibling(-1); }
-    atLastNode(dir) {
-        let index, parent, { buffer } = this;
-        if (buffer) {
-            if (dir > 0) {
-                if (this.index < buffer.buffer.buffer.length)
-                    return false;
-            }
-            else {
-                for (let i = 0; i < this.index; i++)
-                    if (buffer.buffer.buffer[i + 3] < this.index)
-                        return false;
-            }
-            ({ index, parent } = buffer);
-        }
-        else {
-            ({ index, _parent: parent } = this._tree);
-        }
-        for (; parent; { index, _parent: parent } = parent) {
-            if (index > -1)
-                for (let i = index + dir, e = dir < 0 ? -1 : parent.node.children.length; i != e; i += dir) {
-                    let child = parent.node.children[i];
-                    if ((this.mode & 1 /* Full */) || child instanceof TreeBuffer || !child.type.isAnonymous || hasChild(child))
-                        return false;
-                }
-        }
-        return true;
-    }
-    move(dir, enter) {
-        if (enter && this.enterChild(dir, 0, 4 /* DontCare */))
-            return true;
-        for (;;) {
-            if (this.sibling(dir))
-                return true;
-            if (this.atLastNode(dir) || !this.parent())
-                return false;
-        }
-    }
-    /// Move to the next node in a
-    /// [pre-order](https://en.wikipedia.org/wiki/Tree_traversal#Pre-order_(NLR))
-    /// traversal, going from a node to its first child or, if the
-    /// current node is empty or `enter` is false, its next sibling or
-    /// the next sibling of the first parent node that has one.
-    next(enter = true) { return this.move(1, enter); }
-    /// Move to the next node in a last-to-first pre-order traveral. A
-    /// node is followed by its last child or, if it has none, its
-    /// previous sibling or the previous sibling of the first parent
-    /// node that has one.
-    prev(enter = true) { return this.move(-1, enter); }
-    /// Move the cursor to the innermost node that covers `pos`. If
-    /// `side` is -1, it will enter nodes that end at `pos`. If it is 1,
-    /// it will enter nodes that start at `pos`.
-    moveTo(pos, side = 0) {
-        // Move up to a node that actually holds the position, if possible
-        while (this.from == this.to ||
-            (side < 1 ? this.from >= pos : this.from > pos) ||
-            (side > -1 ? this.to <= pos : this.to < pos))
-            if (!this.parent())
-                break;
-        // Then scan down into child nodes as far as possible
-        while (this.enterChild(1, pos, side)) { }
-        return this;
-    }
-    /// Get a [syntax node](#common.SyntaxNode) at the cursor's current
-    /// position.
-    get node() {
-        if (!this.buffer)
-            return this._tree;
-        let cache = this.bufferNode, result = null, depth = 0;
-        if (cache && cache.context == this.buffer) {
-            scan: for (let index = this.index, d = this.stack.length; d >= 0;) {
-                for (let c = cache; c; c = c._parent)
-                    if (c.index == index) {
-                        if (index == this.index)
-                            return c;
-                        result = c;
-                        depth = d + 1;
-                        break scan;
-                    }
-                index = this.stack[--d];
-            }
-        }
-        for (let i = depth; i < this.stack.length; i++)
-            result = new BufferNode(this.buffer, result, this.stack[i]);
-        return this.bufferNode = new BufferNode(this.buffer, result, this.index);
-    }
-    /// Get the [tree](#common.Tree) that represents the current node, if
-    /// any. Will return null when the node is in a [tree
-    /// buffer](#common.TreeBuffer).
-    get tree() {
-        return this.buffer ? null : this._tree.node;
-    }
-}
-function hasChild(tree) {
-    return tree.children.some(ch => ch instanceof TreeBuffer || !ch.type.isAnonymous || hasChild(ch));
-}
-function buildTree(data) {
-    var _a;
-    let { buffer, nodeSet, maxBufferLength = DefaultBufferLength, reused = [], minRepeatType = nodeSet.types.length } = data;
-    let cursor = Array.isArray(buffer) ? new FlatBufferCursor(buffer, buffer.length) : buffer;
-    let types = nodeSet.types;
-    let contextHash = 0, lookAhead = 0;
-    function takeNode(parentStart, minPos, children, positions, inRepeat) {
-        let { id, start, end, size } = cursor;
-        let lookAheadAtStart = lookAhead;
-        while (size < 0) {
-            cursor.next();
-            if (size == -1 /* Reuse */) {
-                let node = reused[id];
-                children.push(node);
-                positions.push(start - parentStart);
-                return;
-            }
-            else if (size == -3 /* ContextChange */) { // Context change
-                contextHash = id;
-                return;
-            }
-            else if (size == -4 /* LookAhead */) {
-                lookAhead = id;
-                return;
-            }
-            else {
-                throw new RangeError(`Unrecognized record size: ${size}`);
-            }
-        }
-        let type = types[id], node, buffer;
-        let startPos = start - parentStart;
-        if (end - start <= maxBufferLength && (buffer = findBufferSize(cursor.pos - minPos, inRepeat))) {
-            // Small enough for a buffer, and no reused nodes inside
-            let data = new Uint16Array(buffer.size - buffer.skip);
-            let endPos = cursor.pos - buffer.size, index = data.length;
-            while (cursor.pos > endPos)
-                index = copyToBuffer(buffer.start, data, index);
-            node = new TreeBuffer(data, end - buffer.start, nodeSet);
-            startPos = buffer.start - parentStart;
-        }
-        else { // Make it a node
-            let endPos = cursor.pos - size;
-            cursor.next();
-            let localChildren = [], localPositions = [];
-            let localInRepeat = id >= minRepeatType ? id : -1;
-            let lastGroup = 0, lastEnd = end;
-            while (cursor.pos > endPos) {
-                if (localInRepeat >= 0 && cursor.id == localInRepeat && cursor.size >= 0) {
-                    if (cursor.end <= lastEnd - maxBufferLength) {
-                        makeRepeatLeaf(localChildren, localPositions, start, lastGroup, cursor.end, lastEnd, localInRepeat, lookAheadAtStart);
-                        lastGroup = localChildren.length;
-                        lastEnd = cursor.end;
-                    }
-                    cursor.next();
-                }
-                else {
-                    takeNode(start, endPos, localChildren, localPositions, localInRepeat);
-                }
-            }
-            if (localInRepeat >= 0 && lastGroup > 0 && lastGroup < localChildren.length)
-                makeRepeatLeaf(localChildren, localPositions, start, lastGroup, start, lastEnd, localInRepeat, lookAheadAtStart);
-            localChildren.reverse();
-            localPositions.reverse();
-            if (localInRepeat > -1 && lastGroup > 0) {
-                let make = makeBalanced(type);
-                node = balanceRange(type, localChildren, localPositions, 0, localChildren.length, 0, end - start, make, make);
-            }
-            else {
-                node = makeTree(type, localChildren, localPositions, end - start, lookAheadAtStart - end);
-            }
-        }
-        children.push(node);
-        positions.push(startPos);
-    }
-    function makeBalanced(type) {
-        return (children, positions, length) => {
-            let lookAhead = 0, lastI = children.length - 1, last, lookAheadProp;
-            if (lastI >= 0 && (last = children[lastI]) instanceof Tree) {
-                if (!lastI && last.type == type && last.length == length)
-                    return last;
-                if (lookAheadProp = last.prop(NodeProp.lookAhead))
-                    lookAhead = positions[lastI] + last.length + lookAheadProp;
-            }
-            return makeTree(type, children, positions, length, lookAhead);
-        };
-    }
-    function makeRepeatLeaf(children, positions, base, i, from, to, type, lookAhead) {
-        let localChildren = [], localPositions = [];
-        while (children.length > i) {
-            localChildren.push(children.pop());
-            localPositions.push(positions.pop() + base - from);
-        }
-        children.push(makeTree(nodeSet.types[type], localChildren, localPositions, to - from, lookAhead - to));
-        positions.push(from - base);
-    }
-    function makeTree(type, children, positions, length, lookAhead = 0, props) {
-        if (contextHash) {
-            let pair = [NodeProp.contextHash, contextHash];
-            props = props ? [pair].concat(props) : [pair];
-        }
-        if (lookAhead > 25) {
-            let pair = [NodeProp.lookAhead, lookAhead];
-            props = props ? [pair].concat(props) : [pair];
-        }
-        return new Tree(type, children, positions, length, props);
-    }
-    function findBufferSize(maxSize, inRepeat) {
-        // Scan through the buffer to find previous siblings that fit
-        // together in a TreeBuffer, and don't contain any reused nodes
-        // (which can't be stored in a buffer).
-        // If `inRepeat` is > -1, ignore node boundaries of that type for
-        // nesting, but make sure the end falls either at the start
-        // (`maxSize`) or before such a node.
-        let fork = cursor.fork();
-        let size = 0, start = 0, skip = 0, minStart = fork.end - maxBufferLength;
-        let result = { size: 0, start: 0, skip: 0 };
-        scan: for (let minPos = fork.pos - maxSize; fork.pos > minPos;) {
-            let nodeSize = fork.size;
-            // Pretend nested repeat nodes of the same type don't exist
-            if (fork.id == inRepeat && nodeSize >= 0) {
-                // Except that we store the current state as a valid return
-                // value.
-                result.size = size;
-                result.start = start;
-                result.skip = skip;
-                skip += 4;
-                size += 4;
-                fork.next();
-                continue;
-            }
-            let startPos = fork.pos - nodeSize;
-            if (nodeSize < 0 || startPos < minPos || fork.start < minStart)
-                break;
-            let localSkipped = fork.id >= minRepeatType ? 4 : 0;
-            let nodeStart = fork.start;
-            fork.next();
-            while (fork.pos > startPos) {
-                if (fork.size < 0) {
-                    if (fork.size == -3 /* ContextChange */)
-                        localSkipped += 4;
-                    else
-                        break scan;
-                }
-                else if (fork.id >= minRepeatType) {
-                    localSkipped += 4;
-                }
-                fork.next();
-            }
-            start = nodeStart;
-            size += nodeSize;
-            skip += localSkipped;
-        }
-        if (inRepeat < 0 || size == maxSize) {
-            result.size = size;
-            result.start = start;
-            result.skip = skip;
-        }
-        return result.size > 4 ? result : undefined;
-    }
-    function copyToBuffer(bufferStart, buffer, index) {
-        let { id, start, end, size } = cursor;
-        cursor.next();
-        if (size >= 0 && id < minRepeatType) {
-            let startIndex = index;
-            if (size > 4) {
-                let endPos = cursor.pos - (size - 4);
-                while (cursor.pos > endPos)
-                    index = copyToBuffer(bufferStart, buffer, index);
-            }
-            buffer[--index] = startIndex;
-            buffer[--index] = end - bufferStart;
-            buffer[--index] = start - bufferStart;
-            buffer[--index] = id;
-        }
-        else if (size == -3 /* ContextChange */) {
-            contextHash = id;
-        }
-        else if (size == -4 /* LookAhead */) {
-            lookAhead = id;
-        }
-        return index;
-    }
-    let children = [], positions = [];
-    while (cursor.pos > 0)
-        takeNode(data.start || 0, data.bufferStart || 0, children, positions, -1);
-    let length = (_a = data.length) !== null && _a !== void 0 ? _a : (children.length ? positions[0] + children[0].length : 0);
-    return new Tree(types[data.topID], children.reverse(), positions.reverse(), length);
-}
-const nodeSizeCache = new WeakMap;
-function nodeSize(balanceType, node) {
-    if (!balanceType.isAnonymous || node instanceof TreeBuffer || node.type != balanceType)
-        return 1;
-    let size = nodeSizeCache.get(node);
-    if (size == null) {
-        size = node.children.reduce((s, ch) => s + nodeSize(balanceType, ch), 1);
-        nodeSizeCache.set(node, size);
-    }
-    return size;
-}
-function balanceRange(
-// The type to tag the resulting tree with. Will also be used for
-// internal nodes when it is an anonymous type
-type, 
-// The direct children and their positions
-children, positions, 
-// The index range in children/positions to use
-from, to, 
-// The start position of the nodes, relative to their parent.
-start, 
-// Length of the outer node
-length, 
-// Function to build the top node of the balanced tree
-mkTop, 
-// Function to build internal nodes for the balanced tree
-mkTree) {
-    let total = 0;
-    for (let i = from; i < to; i++)
-        total += nodeSize(type, children[i]);
-    let maxChild = Math.ceil((total * 1.5) / 8 /* BranchFactor */);
-    let localChildren = [], localPositions = [];
-    function divide(children, positions, from, to, offset) {
-        for (let i = from; i < to;) {
-            let groupFrom = i, groupStart = positions[i], groupSize = nodeSize(type, children[i]);
-            i++;
-            for (; i < to; i++) {
-                let nextSize = nodeSize(type, children[i]);
-                if (groupSize + nextSize >= maxChild)
-                    break;
-                groupSize += nextSize;
-            }
-            if (i == groupFrom + 1) {
-                if (groupSize > maxChild) {
-                    let only = children[groupFrom];
-                    divide(only.children, only.positions, 0, only.children.length, positions[groupFrom] + offset);
-                    continue;
-                }
-                localChildren.push(children[groupFrom]);
-            }
-            else {
-                let length = positions[i - 1] + children[i - 1].length - groupStart;
-                localChildren.push(balanceRange(type, children, positions, groupFrom, i, groupStart, length, null, mkTree));
-            }
-            localPositions.push(groupStart + offset - start);
-        }
-    }
-    divide(children, positions, from, to, 0);
-    return (mkTop || mkTree)(localChildren, localPositions, length);
-}
-
-/// Tree fragments are used during [incremental
-/// parsing](#common.Parser.startParse) to track parts of old trees
-/// that can be reused in a new parse. An array of fragments is used
-/// to track regions of an old tree whose nodes might be reused in new
-/// parses. Use the static
-/// [`applyChanges`](#common.TreeFragment^applyChanges) method to
-/// update fragments for document changes.
-class TreeFragment {
-    /// Construct a tree fragment.
-    constructor(
-    /// The start of the unchanged range pointed to by this fragment.
-    /// This refers to an offset in the _updated_ document (as opposed
-    /// to the original tree).
-    from, 
-    /// The end of the unchanged range.
-    to, 
-    /// The tree that this fragment is based on.
-    tree, 
-    /// The offset between the fragment's tree and the document that
-    /// this fragment can be used against. Add this when going from
-    /// document to tree positions, subtract it to go from tree to
-    /// document positions.
-    offset, openStart = false, openEnd = false) {
-        this.from = from;
-        this.to = to;
-        this.tree = tree;
-        this.offset = offset;
-        this.open = (openStart ? 1 /* Start */ : 0) | (openEnd ? 2 /* End */ : 0);
-    }
-    /// Whether the start of the fragment represents the start of a
-    /// parse, or the end of a change. (In the second case, it may not
-    /// be safe to reuse some nodes at the start, depending on the
-    /// parsing algorithm.)
-    get openStart() { return (this.open & 1 /* Start */) > 0; }
-    /// Whether the end of the fragment represents the end of a
-    /// full-document parse, or the start of a change.
-    get openEnd() { return (this.open & 2 /* End */) > 0; }
-    /// Create a set of fragments from a freshly parsed tree, or update
-    /// an existing set of fragments by replacing the ones that overlap
-    /// with a tree with content from the new tree. When `partial` is
-    /// true, the parse is treated as incomplete, and the resulting
-    /// fragment has [`openEnd`](#common.TreeFragment.openEnd) set to
-    /// true.
-    static addTree(tree, fragments = [], partial = false) {
-        let result = [new TreeFragment(0, tree.length, tree, 0, false, partial)];
-        for (let f of fragments)
-            if (f.to > tree.length)
-                result.push(f);
-        return result;
-    }
-    /// Apply a set of edits to an array of fragments, removing or
-    /// splitting fragments as necessary to remove edited ranges, and
-    /// adjusting offsets for fragments that moved.
-    static applyChanges(fragments, changes, minGap = 128) {
-        if (!changes.length)
-            return fragments;
-        let result = [];
-        let fI = 1, nextF = fragments.length ? fragments[0] : null;
-        for (let cI = 0, pos = 0, off = 0;; cI++) {
-            let nextC = cI < changes.length ? changes[cI] : null;
-            let nextPos = nextC ? nextC.fromA : 1e9;
-            if (nextPos - pos >= minGap)
-                while (nextF && nextF.from < nextPos) {
-                    let cut = nextF;
-                    if (pos >= cut.from || nextPos <= cut.to || off) {
-                        let fFrom = Math.max(cut.from, pos) - off, fTo = Math.min(cut.to, nextPos) - off;
-                        cut = fFrom >= fTo ? null : new TreeFragment(fFrom, fTo, cut.tree, cut.offset + off, cI > 0, !!nextC);
-                    }
-                    if (cut)
-                        result.push(cut);
-                    if (nextF.to > nextPos)
-                        break;
-                    nextF = fI < fragments.length ? fragments[fI++] : null;
-                }
-            if (!nextC)
-                break;
-            pos = nextC.toA;
-            off = nextC.toA - nextC.toB;
-        }
-        return result;
-    }
-}
-/// A superclass that parsers should extend.
-class Parser {
-    /// Start a parse, returning a [partial parse](#common.PartialParse)
-    /// object. [`fragments`](#common.TreeFragment) can be passed in to
-    /// make the parse incremental.
-    ///
-    /// By default, the entire input is parsed. You can pass `ranges`,
-    /// which should be a sorted array of non-empty, non-overlapping
-    /// ranges, to parse only those ranges. The tree returned in that
-    /// case will start at `ranges[0].from`.
-    startParse(input, fragments, ranges) {
-        if (typeof input == "string")
-            input = new StringInput(input);
-        ranges = !ranges ? [new Range$1(0, input.length)] : ranges.length ? ranges.map(r => new Range$1(r.from, r.to)) : [new Range$1(0, 0)];
-        return this.createParse(input, fragments || [], ranges);
-    }
-    /// Run a full parse, returning the resulting tree.
-    parse(input, fragments, ranges) {
-        let parse = this.startParse(input, fragments, ranges);
-        for (;;) {
-            let done = parse.advance();
-            if (done)
-                return done;
-        }
-    }
-}
-class StringInput {
-    constructor(string) {
-        this.string = string;
-    }
-    get length() { return this.string.length; }
-    chunk(from) { return this.string.slice(from); }
-    get lineChunks() { return false; }
-    read(from, to) { return this.string.slice(from, to); }
-}
-
-/// Create a parse wrapper that, after the inner parse completes,
-/// scans its tree for mixed language regions with the `nest`
-/// function, runs the resulting [inner parses](#common.NestedParse),
-/// and then [mounts](#common.NodeProp^mounted) their results onto the
-/// tree.
-///
-/// The nesting function is passed a cursor to provide context for a
-/// node, but _should not_ move that cursor, only inspect its
-/// properties and optionally access its
-/// [node object](#common.TreeCursor.node).
-function parseMixed(nest) {
-    return (parse, input, fragments, ranges) => new MixedParse(parse, nest, input, fragments, ranges);
-}
-class InnerParse {
-    constructor(parser, parse, overlay, target) {
-        this.parser = parser;
-        this.parse = parse;
-        this.overlay = overlay;
-        this.target = target;
-    }
-}
-class ActiveOverlay {
-    constructor(parser, predicate, mounts, index, start, target, prev) {
-        this.parser = parser;
-        this.predicate = predicate;
-        this.mounts = mounts;
-        this.index = index;
-        this.start = start;
-        this.target = target;
-        this.prev = prev;
-        this.depth = 0;
-        this.ranges = [];
-    }
-}
-class MixedParse {
-    constructor(base, nest, input, fragments, ranges) {
-        this.nest = nest;
-        this.input = input;
-        this.fragments = fragments;
-        this.ranges = ranges;
-        this.inner = [];
-        this.innerDone = 0;
-        this.baseTree = null;
-        this.stoppedAt = null;
-        this.baseParse = base;
-    }
-    advance() {
-        if (this.baseParse) {
-            let done = this.baseParse.advance();
-            if (!done)
-                return null;
-            this.baseParse = null;
-            this.baseTree = done;
-            this.startInner();
-        }
-        if (this.innerDone == this.inner.length)
-            return this.baseTree;
-        let inner = this.inner[this.innerDone], done = inner.parse.advance();
-        if (done) {
-            this.innerDone++;
-            // This is a somewhat dodgy but super helpful hack where we
-            // patch up nodes created by the inner parse (and thus
-            // presumably not aliased anywhere else) to hold the information
-            // about the inner parse.
-            let props = Object.assign(Object.create(null), inner.target.props);
-            props[NodeProp.mounted.id] = new MountedTree(done, inner.overlay, inner.parser);
-            inner.target.props = props;
-        }
-        return null;
-    }
-    get parsedPos() {
-        if (this.baseParse)
-            return 0;
-        let next = this.inner[this.innerDone];
-        return next ? next.parse.parsedPos : this.input.length;
-    }
-    stopAt(pos) {
-        this.stoppedAt = pos;
-        if (this.baseParse)
-            this.baseParse.stopAt(pos);
-        else
-            for (let i = this.innerDone; i < this.inner.length; i++)
-                this.inner[i].parse.stopAt(pos);
-    }
-    startInner() {
-        let fragmentCursor = new FragmentCursor$2(this.fragments);
-        let overlay = null;
-        let covered = null;
-        let cursor = new TreeCursor(new TreeNode(this.baseTree, this.ranges[0].from, 0, null), 1 /* Full */);
-        scan: for (let nest, isCovered;;) {
-            let enter = true, range;
-            if (fragmentCursor.hasNode(cursor)) {
-                if (overlay) {
-                    let match = overlay.mounts.find(m => m.frag.from <= cursor.from && m.frag.to >= cursor.to && m.mount.overlay);
-                    if (match)
-                        for (let r of match.mount.overlay) {
-                            let from = r.from + match.pos, to = r.to + match.pos;
-                            if (from >= cursor.from && to <= cursor.to)
-                                overlay.ranges.push({ from, to });
-                        }
-                }
-                enter = false;
-            }
-            else if (covered && (isCovered = checkCover(covered.ranges, cursor.from, cursor.to))) {
-                enter = isCovered != 2 /* Full */;
-            }
-            else if (!cursor.type.isAnonymous && cursor.from < cursor.to && (nest = this.nest(cursor, this.input))) {
-                if (!cursor.tree)
-                    materialize(cursor);
-                let oldMounts = fragmentCursor.findMounts(cursor.from, nest.parser);
-                if (typeof nest.overlay == "function") {
-                    overlay = new ActiveOverlay(nest.parser, nest.overlay, oldMounts, this.inner.length, cursor.from, cursor.tree, overlay);
-                }
-                else {
-                    let ranges = punchRanges(this.ranges, nest.overlay || [new Range$1(cursor.from, cursor.to)]);
-                    if (ranges.length)
-                        this.inner.push(new InnerParse(nest.parser, nest.parser.startParse(this.input, enterFragments(oldMounts, ranges), ranges), nest.overlay ? nest.overlay.map(r => new Range$1(r.from - cursor.from, r.to - cursor.from)) : null, cursor.tree));
-                    if (!nest.overlay)
-                        enter = false;
-                    else if (ranges.length)
-                        covered = { ranges, depth: 0, prev: covered };
-                }
-            }
-            else if (overlay && (range = overlay.predicate(cursor))) {
-                if (range === true)
-                    range = new Range$1(cursor.from, cursor.to);
-                if (range.from < range.to)
-                    overlay.ranges.push(range);
-            }
-            if (enter && cursor.firstChild()) {
-                if (overlay)
-                    overlay.depth++;
-                if (covered)
-                    covered.depth++;
-            }
-            else {
-                for (;;) {
-                    if (cursor.nextSibling())
-                        break;
-                    if (!cursor.parent())
-                        break scan;
-                    if (overlay && !--overlay.depth) {
-                        let ranges = punchRanges(this.ranges, overlay.ranges);
-                        if (ranges.length)
-                            this.inner.splice(overlay.index, 0, new InnerParse(overlay.parser, overlay.parser.startParse(this.input, enterFragments(overlay.mounts, ranges), ranges), overlay.ranges.map(r => new Range$1(r.from - overlay.start, r.to - overlay.start)), overlay.target));
-                        overlay = overlay.prev;
-                    }
-                    if (covered && !--covered.depth)
-                        covered = covered.prev;
-                }
-            }
-        }
-    }
-}
-function checkCover(covered, from, to) {
-    for (let range of covered) {
-        if (range.from >= to)
-            break;
-        if (range.to > from)
-            return range.from <= from && range.to >= to ? 2 /* Full */ : 1 /* Partial */;
-    }
-    return 0 /* None */;
-}
-// Take a piece of buffer and convert it into a stand-alone
-// TreeBuffer.
-function sliceBuf(buf, startI, endI, nodes, positions, off) {
-    if (startI < endI) {
-        let from = buf.buffer[startI + 1], to = buf.buffer[endI - 2];
-        nodes.push(buf.slice(startI, endI, from, to));
-        positions.push(from - off);
-    }
-}
-// This function takes a node that's in a buffer, and converts it, and
-// its parent buffer nodes, into a Tree. This is again acting on the
-// assumption that the trees and buffers have been constructed by the
-// parse that was ran via the mix parser, and thus aren't shared with
-// any other code, making violations of the immutability safe.
-function materialize(cursor) {
-    let { node } = cursor, depth = 0;
-    // Scan up to the nearest tree
-    do {
-        cursor.parent();
-        depth++;
-    } while (!cursor.tree);
-    // Find the index of the buffer in that tree
-    let i = 0, base = cursor.tree, off = 0;
-    for (;; i++) {
-        off = base.positions[i] + cursor.from;
-        if (off <= node.from && off + base.children[i].length >= node.to)
-            break;
-    }
-    let buf = base.children[i], b = buf.buffer;
-    // Split a level in the buffer, putting the nodes before and after
-    // the child that contains `node` into new buffers.
-    function split(startI, endI, type, innerOffset) {
-        let i = startI;
-        while (b[i + 2] + off <= node.from)
-            i = b[i + 3];
-        let children = [], positions = [];
-        sliceBuf(buf, startI, i, children, positions, innerOffset);
-        let isTarget = b[i + 1] + off == node.from && b[i + 2] + off == node.to && b[i] == node.type.id;
-        children.push(isTarget ? node.toTree() : split(i + 4, b[i + 3], buf.set.types[b[i]], b[i + 1]));
-        positions.push(b[i + 1] - innerOffset);
-        sliceBuf(buf, b[i + 3], endI, children, positions, innerOffset);
-        let last = children.length - 1;
-        return new Tree(type, children, positions, positions[last] + children[last].length);
-    }
-    base.children[i] = split(0, b.length, NodeType.none, 0);
-    // Move the cursor back to the target node
-    for (let d = 0; d <= depth; d++)
-        cursor.childAfter(node.from);
-}
-class StructureCursor {
-    constructor(root, offset) {
-        this.offset = offset;
-        this.done = false;
-        this.cursor = root.fullCursor();
-    }
-    // Move to the first node (in pre-order) that starts at or after `pos`.
-    moveTo(pos) {
-        let { cursor } = this, p = pos - this.offset;
-        while (!this.done && cursor.from < p) {
-            if (cursor.to >= pos && cursor.enter(p, 1, false, false)) ;
-            else if (!cursor.next(false))
-                this.done = true;
-        }
-    }
-    hasNode(cursor) {
-        this.moveTo(cursor.from);
-        if (!this.done && this.cursor.from + this.offset == cursor.from && this.cursor.tree) {
-            for (let tree = this.cursor.tree;;) {
-                if (tree == cursor.tree)
-                    return true;
-                if (tree.children.length && tree.positions[0] == 0 && tree.children[0] instanceof Tree)
-                    tree = tree.children[0];
-                else
-                    break;
-            }
-        }
-        return false;
-    }
-}
-class FragmentCursor$2 {
-    constructor(fragments) {
-        this.fragments = fragments;
-        this.fragI = 0;
-        if (fragments.length) {
-            let first = this.curFrag = fragments[0];
-            this.inner = new StructureCursor(first.tree, -first.offset);
-        }
-        else {
-            this.curFrag = this.inner = null;
-        }
-    }
-    hasNode(node) {
-        while (this.curFrag && node.from >= this.curFrag.to)
-            this.nextFrag();
-        return this.curFrag && this.curFrag.from <= node.from && this.curFrag.to >= node.to && this.inner.hasNode(node);
-    }
-    nextFrag() {
-        this.fragI++;
-        if (this.fragI == this.fragments.length) {
-            this.curFrag = this.inner = null;
-        }
-        else {
-            let frag = this.curFrag = this.fragments[this.fragI];
-            this.inner = new StructureCursor(frag.tree, -frag.offset);
-        }
-    }
-    findMounts(pos, parser) {
-        var _a;
-        let result = [];
-        if (this.inner) {
-            this.inner.cursor.moveTo(pos, 1);
-            for (let pos = this.inner.cursor.node; pos; pos = pos.parent) {
-                let mount = (_a = pos.tree) === null || _a === void 0 ? void 0 : _a.prop(NodeProp.mounted);
-                if (mount && mount.parser == parser) {
-                    for (let i = this.fragI; i < this.fragments.length; i++) {
-                        let frag = this.fragments[i];
-                        if (frag.from >= pos.to)
-                            break;
-                        if (frag.tree == this.curFrag.tree)
-                            result.push({
-                                frag,
-                                pos: pos.from - frag.offset,
-                                mount
-                            });
-                    }
-                }
-            }
-        }
-        return result;
-    }
-}
-function punchRanges(outer, ranges) {
-    let copy = null, current = ranges;
-    for (let i = 1, j = 0; i < outer.length; i++) {
-        let gapFrom = outer[i - 1].to, gapTo = outer[i].from;
-        for (; j < current.length; j++) {
-            let r = current[j];
-            if (r.from >= gapTo)
-                break;
-            if (r.to <= gapFrom)
-                continue;
-            if (!copy)
-                current = copy = ranges.slice();
-            if (r.from < gapFrom) {
-                copy[j] = new Range$1(r.from, gapFrom);
-                if (r.to > gapTo)
-                    copy.splice(j + 1, 0, new Range$1(gapTo, r.to));
-            }
-            else if (r.to > gapTo) {
-                copy[j--] = new Range$1(gapTo, r.to);
-            }
-            else {
-                copy.splice(j--, 1);
-            }
-        }
-    }
-    return current;
-}
-function findCoverChanges(a, b, from, to) {
-    let iA = 0, iB = 0, inA = false, inB = false, pos = -1e9;
-    let result = [];
-    for (;;) {
-        let nextA = iA == a.length ? 1e9 : inA ? a[iA].to : a[iA].from;
-        let nextB = iB == b.length ? 1e9 : inB ? b[iB].to : b[iB].from;
-        if (inA != inB) {
-            let start = Math.max(pos, from), end = Math.min(nextA, nextB, to);
-            if (start < end)
-                result.push(new Range$1(start, end));
-        }
-        pos = Math.min(nextA, nextB);
-        if (pos == 1e9)
-            break;
-        if (nextA == pos) {
-            if (!inA)
-                inA = true;
-            else {
-                inA = false;
-                iA++;
-            }
-        }
-        if (nextB == pos) {
-            if (!inB)
-                inB = true;
-            else {
-                inB = false;
-                iB++;
-            }
-        }
-    }
-    return result;
-}
-// Given a number of fragments for the outer tree, and a set of ranges
-// to parse, find fragments for inner trees mounted around those
-// ranges, if any.
-function enterFragments(mounts, ranges) {
-    let result = [];
-    for (let { pos, mount, frag } of mounts) {
-        let startPos = pos + (mount.overlay ? mount.overlay[0].from : 0), endPos = startPos + mount.tree.length;
-        let from = Math.max(frag.from, startPos), to = Math.min(frag.to, endPos);
-        if (mount.overlay) {
-            let overlay = mount.overlay.map(r => new Range$1(r.from + pos, r.to + pos));
-            let changes = findCoverChanges(ranges, overlay, from, to);
-            for (let i = 0, pos = from;; i++) {
-                let last = i == changes.length, end = last ? to : changes[i].from;
-                if (end > pos)
-                    result.push(new TreeFragment(pos, end, mount.tree, -startPos, frag.from >= pos, frag.to <= end));
-                if (last)
-                    break;
-                pos = changes[i].to;
-            }
-        }
-        else {
-            result.push(new TreeFragment(from, to, mount.tree, -startPos, frag.from >= startPos, frag.to <= endPos));
-        }
-    }
-    return result;
-}
+var index$6 = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    Annotation: Annotation,
+    AnnotationType: AnnotationType,
+    ChangeDesc: ChangeDesc,
+    ChangeSet: ChangeSet,
+    get CharCategory () { return CharCategory; },
+    Compartment: Compartment,
+    EditorSelection: EditorSelection,
+    EditorState: EditorState,
+    Facet: Facet,
+    get MapMode () { return MapMode; },
+    Prec: Prec,
+    SelectionRange: SelectionRange,
+    StateEffect: StateEffect,
+    StateEffectType: StateEffectType,
+    StateField: StateField,
+    Transaction: Transaction,
+    combineConfig: combineConfig,
+    Text: Text
+});
 
 const C = "\u037c";
 const COUNT = typeof Symbol == "undefined" ? "__" + C : Symbol.for(C);
@@ -4770,7 +3159,7 @@ class RangeValue {
     /**
     Create a [range](https://codemirror.net/6/docs/ref/#rangeset.Range) with this value.
     */
-    range(from, to = from) { return new Range(from, to, this); }
+    range(from, to = from) { return new Range$1(from, to, this); }
 }
 RangeValue.prototype.startSide = RangeValue.prototype.endSide = 0;
 RangeValue.prototype.point = false;
@@ -4778,7 +3167,7 @@ RangeValue.prototype.mapMode = MapMode.TrackDel;
 /**
 A range associates a value with a range of positions.
 */
-class Range {
+class Range$1 {
     /**
     @internal
     */
@@ -4958,7 +3347,7 @@ class RangeSet {
             else {
                 if (!filter || filterFrom > cur.to || filterTo < cur.from || filter(cur.from, cur.to, cur.value)) {
                     if (!builder.addInner(cur.from, cur.to, cur.value))
-                        spill.push(new Range(cur.from, cur.to, cur.value));
+                        spill.push(new Range$1(cur.from, cur.to, cur.value));
                 }
                 cur.next();
             }
@@ -5122,7 +3511,7 @@ class RangeSet {
     */
     static of(ranges, sort = false) {
         let build = new RangeSetBuilder();
-        for (let range of ranges instanceof Range ? [ranges] : sort ? lazySort(ranges) : ranges)
+        for (let range of ranges instanceof Range$1 ? [ranges] : sort ? lazySort(ranges) : ranges)
             build.add(range.from, range.to, range.value);
         return build.finish();
     }
@@ -12564,6 +10953,71 @@ class TabWidget extends WidgetType {
     ignoreEvent() { return false; }
 }
 
+const plugin = /*@__PURE__*/ViewPlugin.fromClass(class {
+    constructor(view) {
+        this.height = -1;
+        this.measure = {
+            read: view => Math.max(0, view.scrollDOM.clientHeight - view.defaultLineHeight),
+            write: (value, view) => {
+                if (Math.abs(value - this.height) > 1) {
+                    this.height = value;
+                    view.contentDOM.style.paddingBottom = value + "px";
+                }
+            }
+        };
+        view.requestMeasure(this.measure);
+    }
+    update(update) {
+        if (update.geometryChanged)
+            update.view.requestMeasure(this.measure);
+    }
+});
+/**
+Returns a plugin that makes sure the content has a bottom margin
+equivalent to the height of the editor, minus one line height, so
+that every line in the document can be scrolled to the top of the
+editor.
+
+This is only meaningful when the editor is scrollable, and should
+not be enabled in editors that take the size of their content.
+*/
+function scrollPastEnd() {
+    return plugin;
+}
+
+/**
+Mark lines that have a cursor on them with the `"cm-activeLine"`
+DOM class.
+*/
+function highlightActiveLine() {
+    return activeLineHighlighter;
+}
+const lineDeco = /*@__PURE__*/Decoration.line({ attributes: { class: "cm-activeLine" } });
+const activeLineHighlighter = /*@__PURE__*/ViewPlugin.fromClass(class {
+    constructor(view) {
+        this.decorations = this.getDeco(view);
+    }
+    update(update) {
+        if (update.docChanged || update.selectionSet)
+            this.decorations = this.getDeco(update.view);
+    }
+    getDeco(view) {
+        let lastLineStart = -1, deco = [];
+        for (let r of view.state.selection.ranges) {
+            if (!r.empty)
+                return Decoration.none;
+            let line = view.visualLineAt(r.head);
+            if (line.from > lastLineStart) {
+                deco.push(lineDeco.range(line.from));
+                lastLineStart = line.from;
+            }
+        }
+        return Decoration.set(deco);
+    }
+}, {
+    decorations: v => v.decorations
+});
+
 class Placeholder extends WidgetType {
     constructor(content) {
         super();
@@ -12595,6 +11049,1857 @@ function placeholder(content) {
         get decorations() { return this.view.state.doc.length ? Decoration.none : this.placeholder; }
     }, { decorations: v => v.decorations });
 }
+
+/**
+@internal
+*/
+const __test = { HeightMap, HeightOracle, MeasuredHeights, QueryType, ChangedRange, computeOrder, moveVisually };
+
+var index$5 = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    BidiSpan: BidiSpan,
+    BlockInfo: BlockInfo,
+    get BlockType () { return BlockType; },
+    Decoration: Decoration,
+    get Direction () { return Direction; },
+    EditorView: EditorView,
+    MatchDecorator: MatchDecorator,
+    PluginField: PluginField,
+    PluginFieldProvider: PluginFieldProvider,
+    ViewPlugin: ViewPlugin,
+    ViewUpdate: ViewUpdate,
+    WidgetType: WidgetType,
+    __test: __test,
+    drawSelection: drawSelection,
+    highlightActiveLine: highlightActiveLine,
+    highlightSpecialChars: highlightSpecialChars,
+    keymap: keymap,
+    logException: logException,
+    placeholder: placeholder,
+    runScopeHandlers: runScopeHandlers,
+    scrollPastEnd: scrollPastEnd,
+    Range: Range$1
+});
+
+const ios = typeof navigator != "undefined" &&
+    !/*@__PURE__*//Edge\/(\d+)/.exec(navigator.userAgent) && /*@__PURE__*//Apple Computer/.test(navigator.vendor) &&
+    (/*@__PURE__*//Mobile\/\w+/.test(navigator.userAgent) || navigator.maxTouchPoints > 2);
+const Outside = "-10000px";
+class TooltipViewManager {
+    constructor(view, facet, createTooltipView) {
+        this.facet = facet;
+        this.createTooltipView = createTooltipView;
+        this.input = view.state.facet(facet);
+        this.tooltips = this.input.filter(t => t);
+        this.tooltipViews = this.tooltips.map(createTooltipView);
+    }
+    update(update) {
+        let input = update.state.facet(this.facet);
+        let tooltips = input.filter(x => x);
+        if (input === this.input) {
+            for (let t of this.tooltipViews)
+                if (t.update)
+                    t.update(update);
+            return { shouldMeasure: false };
+        }
+        let tooltipViews = [];
+        for (let i = 0; i < tooltips.length; i++) {
+            let tip = tooltips[i], known = -1;
+            if (!tip)
+                continue;
+            for (let i = 0; i < this.tooltips.length; i++) {
+                let other = this.tooltips[i];
+                if (other && other.create == tip.create)
+                    known = i;
+            }
+            if (known < 0) {
+                tooltipViews[i] = this.createTooltipView(tip);
+            }
+            else {
+                let tooltipView = tooltipViews[i] = this.tooltipViews[known];
+                if (tooltipView.update)
+                    tooltipView.update(update);
+            }
+        }
+        for (let t of this.tooltipViews)
+            if (tooltipViews.indexOf(t) < 0)
+                t.dom.remove();
+        this.input = input;
+        this.tooltips = tooltips;
+        this.tooltipViews = tooltipViews;
+        return { shouldMeasure: true };
+    }
+}
+const tooltipPositioning = /*@__PURE__*/Facet.define({
+    combine: values => ios ? "absolute" : values.length ? values[0] : "fixed"
+});
+const tooltipPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
+    constructor(view) {
+        this.view = view;
+        this.inView = true;
+        this.position = view.state.facet(tooltipPositioning);
+        this.measureReq = { read: this.readMeasure.bind(this), write: this.writeMeasure.bind(this), key: this };
+        this.manager = new TooltipViewManager(view, showTooltip, t => this.createTooltip(t));
+    }
+    update(update) {
+        let { shouldMeasure } = this.manager.update(update);
+        let newPosition = update.state.facet(tooltipPositioning);
+        if (newPosition != this.position) {
+            this.position = newPosition;
+            for (let t of this.manager.tooltipViews)
+                t.dom.style.position = newPosition;
+            shouldMeasure = true;
+        }
+        if (shouldMeasure)
+            this.maybeMeasure();
+    }
+    createTooltip(tooltip) {
+        let tooltipView = tooltip.create(this.view);
+        tooltipView.dom.classList.add("cm-tooltip");
+        tooltipView.dom.style.position = this.position;
+        tooltipView.dom.style.top = Outside;
+        this.view.dom.appendChild(tooltipView.dom);
+        if (tooltipView.mount)
+            tooltipView.mount(this.view);
+        return tooltipView;
+    }
+    destroy() {
+        for (let { dom } of this.manager.tooltipViews)
+            dom.remove();
+    }
+    readMeasure() {
+        return {
+            editor: this.view.dom.getBoundingClientRect(),
+            pos: this.manager.tooltips.map(t => this.view.coordsAtPos(t.pos)),
+            size: this.manager.tooltipViews.map(({ dom }) => dom.getBoundingClientRect()),
+            innerWidth: window.innerWidth,
+            innerHeight: window.innerHeight
+        };
+    }
+    writeMeasure(measured) {
+        let { editor } = measured;
+        let others = [];
+        for (let i = 0; i < this.manager.tooltips.length; i++) {
+            let tooltip = this.manager.tooltips[i], tView = this.manager.tooltipViews[i], { dom } = tView;
+            let pos = measured.pos[i], size = measured.size[i];
+            // Hide tooltips that are outside of the editor.
+            if (!pos || pos.bottom <= editor.top || pos.top >= editor.bottom || pos.right <= editor.left || pos.left >= editor.right) {
+                dom.style.top = Outside;
+                continue;
+            }
+            let width = size.right - size.left, height = size.bottom - size.top;
+            let left = this.view.textDirection == Direction.LTR ? Math.min(pos.left, measured.innerWidth - width)
+                : Math.max(0, pos.left - width);
+            let above = !!tooltip.above;
+            if (!tooltip.strictSide &&
+                (above ? pos.top - (size.bottom - size.top) < 0 : pos.bottom + (size.bottom - size.top) > measured.innerHeight))
+                above = !above;
+            let top = above ? pos.top - height : pos.bottom, right = left + width;
+            for (let r of others)
+                if (r.left < right && r.right > left && r.top < top + height && r.bottom > top)
+                    top = above ? r.top - height : r.bottom;
+            if (this.position == "absolute") {
+                dom.style.top = (top - editor.top) + "px";
+                dom.style.left = (left - editor.left) + "px";
+            }
+            else {
+                dom.style.top = top + "px";
+                dom.style.left = left + "px";
+            }
+            others.push({ left, top, right, bottom: top + height });
+            dom.classList.toggle("cm-tooltip-above", above);
+            dom.classList.toggle("cm-tooltip-below", !above);
+            if (tView.positioned)
+                tView.positioned();
+        }
+    }
+    maybeMeasure() {
+        if (this.manager.tooltips.length) {
+            if (this.view.inView)
+                this.view.requestMeasure(this.measureReq);
+            if (this.inView != this.view.inView) {
+                this.inView = this.view.inView;
+                if (!this.inView)
+                    for (let tv of this.manager.tooltipViews)
+                        tv.dom.style.top = Outside;
+            }
+        }
+    }
+}, {
+    eventHandlers: {
+        scroll() { this.maybeMeasure(); }
+    }
+});
+const baseTheme$7 = /*@__PURE__*/EditorView.baseTheme({
+    ".cm-tooltip": {
+        zIndex: 100
+    },
+    "&light .cm-tooltip": {
+        border: "1px solid #ddd",
+        backgroundColor: "#f5f5f5"
+    },
+    "&light .cm-tooltip-section:not(:first-child)": {
+        borderTop: "1px solid #ddd",
+    },
+    "&dark .cm-tooltip": {
+        backgroundColor: "#333338",
+        color: "white"
+    }
+});
+/**
+Behavior by which an extension can provide a tooltip to be shown.
+*/
+const showTooltip = /*@__PURE__*/Facet.define({
+    enables: [tooltipPlugin, baseTheme$7]
+});
+
+// FIXME profile adding a per-Tree TreeNode cache, validating it by
+// parent pointer
+/// The default maximum length of a `TreeBuffer` node (1024).
+const DefaultBufferLength = 1024;
+let nextPropID = 0;
+class Range {
+    constructor(from, to) {
+        this.from = from;
+        this.to = to;
+    }
+}
+/// Each [node type](#common.NodeType) or [individual tree](#common.Tree)
+/// can have metadata associated with it in props. Instances of this
+/// class represent prop names.
+class NodeProp {
+    /// Create a new node prop type.
+    constructor(config = {}) {
+        this.id = nextPropID++;
+        this.perNode = !!config.perNode;
+        this.deserialize = config.deserialize || (() => {
+            throw new Error("This node type doesn't define a deserialize function");
+        });
+    }
+    /// This is meant to be used with
+    /// [`NodeSet.extend`](#common.NodeSet.extend) or
+    /// [`LRParser.configure`](#lr.ParserConfig.props) to compute
+    /// prop values for each node type in the set. Takes a [match
+    /// object](#common.NodeType^match) or function that returns undefined
+    /// if the node type doesn't get this prop, and the prop's value if
+    /// it does.
+    add(match) {
+        if (this.perNode)
+            throw new RangeError("Can't add per-node props to node types");
+        if (typeof match != "function")
+            match = NodeType.match(match);
+        return (type) => {
+            let result = match(type);
+            return result === undefined ? null : [this, result];
+        };
+    }
+}
+/// Prop that is used to describe matching delimiters. For opening
+/// delimiters, this holds an array of node names (written as a
+/// space-separated string when declaring this prop in a grammar)
+/// for the node types of closing delimiters that match it.
+NodeProp.closedBy = new NodeProp({ deserialize: str => str.split(" ") });
+/// The inverse of [`closedBy`](#common.NodeProp^closedBy). This is
+/// attached to closing delimiters, holding an array of node names
+/// of types of matching opening delimiters.
+NodeProp.openedBy = new NodeProp({ deserialize: str => str.split(" ") });
+/// Used to assign node types to groups (for example, all node
+/// types that represent an expression could be tagged with an
+/// `"Expression"` group).
+NodeProp.group = new NodeProp({ deserialize: str => str.split(" ") });
+/// The hash of the [context](#lr.ContextTracker.constructor)
+/// that the node was parsed in, if any. Used to limit reuse of
+/// contextual nodes.
+NodeProp.contextHash = new NodeProp({ perNode: true });
+/// The distance beyond the end of the node that the tokenizer
+/// looked ahead for any of the tokens inside the node. (The LR
+/// parser only stores this when it is larger than 25, for
+/// efficiency reasons.)
+NodeProp.lookAhead = new NodeProp({ perNode: true });
+/// This per-node prop is used to replace a given node, or part of a
+/// node, with another tree. This is useful to include trees from
+/// different languages.
+NodeProp.mounted = new NodeProp({ perNode: true });
+/// A mounted tree, which can be [stored](#common.NodeProp^mounted) on
+/// a tree node to indicate that parts of its content are
+/// represented by another tree.
+class MountedTree {
+    constructor(
+    /// The inner tree.
+    tree, 
+    /// If this is null, this tree replaces the entire node (it will
+    /// be included in the regular iteration instead of its host
+    /// node). If not, only the given ranges are considered to be
+    /// covered by this tree. This is used for trees that are mixed in
+    /// a way that isn't strictly hierarchical. Such mounted trees are
+    /// only entered by [`resolveInner`](#common.Tree.resolveInner)
+    /// and [`enter`](#common.SyntaxNode.enter).
+    overlay, 
+    /// The parser used to create this subtree.
+    parser) {
+        this.tree = tree;
+        this.overlay = overlay;
+        this.parser = parser;
+    }
+}
+const noProps = Object.create(null);
+/// Each node in a syntax tree has a node type associated with it.
+class NodeType {
+    /// @internal
+    constructor(
+    /// The name of the node type. Not necessarily unique, but if the
+    /// grammar was written properly, different node types with the
+    /// same name within a node set should play the same semantic
+    /// role.
+    name, 
+    /// @internal
+    props, 
+    /// The id of this node in its set. Corresponds to the term ids
+    /// used in the parser.
+    id, 
+    /// @internal
+    flags = 0) {
+        this.name = name;
+        this.props = props;
+        this.id = id;
+        this.flags = flags;
+    }
+    static define(spec) {
+        let props = spec.props && spec.props.length ? Object.create(null) : noProps;
+        let flags = (spec.top ? 1 /* Top */ : 0) | (spec.skipped ? 2 /* Skipped */ : 0) |
+            (spec.error ? 4 /* Error */ : 0) | (spec.name == null ? 8 /* Anonymous */ : 0);
+        let type = new NodeType(spec.name || "", props, spec.id, flags);
+        if (spec.props)
+            for (let src of spec.props) {
+                if (!Array.isArray(src))
+                    src = src(type);
+                if (src) {
+                    if (src[0].perNode)
+                        throw new RangeError("Can't store a per-node prop on a node type");
+                    props[src[0].id] = src[1];
+                }
+            }
+        return type;
+    }
+    /// Retrieves a node prop for this type. Will return `undefined` if
+    /// the prop isn't present on this node.
+    prop(prop) { return this.props[prop.id]; }
+    /// True when this is the top node of a grammar.
+    get isTop() { return (this.flags & 1 /* Top */) > 0; }
+    /// True when this node is produced by a skip rule.
+    get isSkipped() { return (this.flags & 2 /* Skipped */) > 0; }
+    /// Indicates whether this is an error node.
+    get isError() { return (this.flags & 4 /* Error */) > 0; }
+    /// When true, this node type doesn't correspond to a user-declared
+    /// named node, for example because it is used to cache repetition.
+    get isAnonymous() { return (this.flags & 8 /* Anonymous */) > 0; }
+    /// Returns true when this node's name or one of its
+    /// [groups](#common.NodeProp^group) matches the given string.
+    is(name) {
+        if (typeof name == 'string') {
+            if (this.name == name)
+                return true;
+            let group = this.prop(NodeProp.group);
+            return group ? group.indexOf(name) > -1 : false;
+        }
+        return this.id == name;
+    }
+    /// Create a function from node types to arbitrary values by
+    /// specifying an object whose property names are node or
+    /// [group](#common.NodeProp^group) names. Often useful with
+    /// [`NodeProp.add`](#common.NodeProp.add). You can put multiple
+    /// names, separated by spaces, in a single property name to map
+    /// multiple node names to a single value.
+    static match(map) {
+        let direct = Object.create(null);
+        for (let prop in map)
+            for (let name of prop.split(" "))
+                direct[name] = map[prop];
+        return (node) => {
+            for (let groups = node.prop(NodeProp.group), i = -1; i < (groups ? groups.length : 0); i++) {
+                let found = direct[i < 0 ? node.name : groups[i]];
+                if (found)
+                    return found;
+            }
+        };
+    }
+}
+/// An empty dummy node type to use when no actual type is available.
+NodeType.none = new NodeType("", Object.create(null), 0, 8 /* Anonymous */);
+/// A node set holds a collection of node types. It is used to
+/// compactly represent trees by storing their type ids, rather than a
+/// full pointer to the type object, in a numeric array. Each parser
+/// [has](#lr.LRParser.nodeSet) a node set, and [tree
+/// buffers](#common.TreeBuffer) can only store collections of nodes
+/// from the same set. A set can have a maximum of 2**16 (65536) node
+/// types in it, so that the ids fit into 16-bit typed array slots.
+class NodeSet {
+    /// Create a set with the given types. The `id` property of each
+    /// type should correspond to its position within the array.
+    constructor(
+    /// The node types in this set, by id.
+    types) {
+        this.types = types;
+        for (let i = 0; i < types.length; i++)
+            if (types[i].id != i)
+                throw new RangeError("Node type ids should correspond to array positions when creating a node set");
+    }
+    /// Create a copy of this set with some node properties added. The
+    /// arguments to this method should be created with
+    /// [`NodeProp.add`](#common.NodeProp.add).
+    extend(...props) {
+        let newTypes = [];
+        for (let type of this.types) {
+            let newProps = null;
+            for (let source of props) {
+                let add = source(type);
+                if (add) {
+                    if (!newProps)
+                        newProps = Object.assign({}, type.props);
+                    newProps[add[0].id] = add[1];
+                }
+            }
+            newTypes.push(newProps ? new NodeType(type.name, newProps, type.id, type.flags) : type);
+        }
+        return new NodeSet(newTypes);
+    }
+}
+const CachedNode = new WeakMap();
+/// A piece of syntax tree. There are two ways to approach these
+/// trees: the way they are actually stored in memory, and the
+/// convenient way.
+///
+/// Syntax trees are stored as a tree of `Tree` and `TreeBuffer`
+/// objects. By packing detail information into `TreeBuffer` leaf
+/// nodes, the representation is made a lot more memory-efficient.
+///
+/// However, when you want to actually work with tree nodes, this
+/// representation is very awkward, so most client code will want to
+/// use the [`TreeCursor`](#common.TreeCursor) or
+/// [`SyntaxNode`](#common.SyntaxNode) interface instead, which provides
+/// a view on some part of this data structure, and can be used to
+/// move around to adjacent nodes.
+class Tree {
+    /// Construct a new tree. See also [`Tree.build`](#common.Tree^build).
+    constructor(
+    /// The type of the top node.
+    type, 
+    /// This node's child nodes.
+    children, 
+    /// The positions (offsets relative to the start of this tree) of
+    /// the children.
+    positions, 
+    /// The total length of this tree
+    length, 
+    /// Per-node [node props](#common.NodeProp) to associate with this node.
+    props) {
+        this.type = type;
+        this.children = children;
+        this.positions = positions;
+        this.length = length;
+        /// @internal
+        this.props = null;
+        if (props && props.length) {
+            this.props = Object.create(null);
+            for (let [prop, value] of props)
+                this.props[typeof prop == "number" ? prop : prop.id] = value;
+        }
+    }
+    /// @internal
+    toString() {
+        let mounted = this.prop(NodeProp.mounted);
+        if (mounted && !mounted.overlay)
+            return mounted.tree.toString();
+        let children = "";
+        for (let ch of this.children) {
+            let str = ch.toString();
+            if (str) {
+                if (children)
+                    children += ",";
+                children += str;
+            }
+        }
+        return !this.type.name ? children :
+            (/\W/.test(this.type.name) && !this.type.isError ? JSON.stringify(this.type.name) : this.type.name) +
+                (children.length ? "(" + children + ")" : "");
+    }
+    /// Get a [tree cursor](#common.TreeCursor) rooted at this tree. When
+    /// `pos` is given, the cursor is [moved](#common.TreeCursor.moveTo)
+    /// to the given position and side.
+    cursor(pos, side = 0) {
+        let scope = (pos != null && CachedNode.get(this)) || this.topNode;
+        let cursor = new TreeCursor(scope);
+        if (pos != null) {
+            cursor.moveTo(pos, side);
+            CachedNode.set(this, cursor._tree);
+        }
+        return cursor;
+    }
+    /// Get a [tree cursor](#common.TreeCursor) that, unlike regular
+    /// cursors, doesn't skip through
+    /// [anonymous](#common.NodeType.isAnonymous) nodes.
+    fullCursor() {
+        return new TreeCursor(this.topNode, 1 /* Full */);
+    }
+    /// Get a [syntax node](#common.SyntaxNode) object for the top of the
+    /// tree.
+    get topNode() {
+        return new TreeNode(this, 0, 0, null);
+    }
+    /// Get the [syntax node](#common.SyntaxNode) at the given position.
+    /// If `side` is -1, this will move into nodes that end at the
+    /// position. If 1, it'll move into nodes that start at the
+    /// position. With 0, it'll only enter nodes that cover the position
+    /// from both sides.
+    resolve(pos, side = 0) {
+        return this.cursor(pos, side).node;
+    }
+    /// Like [`resolve`](#common.Tree.resolve), but will enter
+    /// [overlaid](#common.MountedTree.overlay) nodes, producing a syntax node
+    /// pointing into the innermost overlaid tree at the given position
+    /// (with parent links going through all parent structure, including
+    /// the host trees).
+    resolveInner(pos, side = 0) {
+        let result = this.topNode;
+        for (;;) {
+            let inner = result.enter(pos, side);
+            if (!inner)
+                return result;
+            result = inner;
+        }
+    }
+    /// Iterate over the tree and its children, calling `enter` for any
+    /// node that touches the `from`/`to` region (if given) before
+    /// running over such a node's children, and `leave` (if given) when
+    /// leaving the node. When `enter` returns `false`, that node will
+    /// not have its children iterated over (or `leave` called).
+    iterate(spec) {
+        let { enter, leave, from = 0, to = this.length } = spec;
+        for (let c = this.cursor(), get = () => c.node;;) {
+            let mustLeave = false;
+            if (c.from <= to && c.to >= from && (c.type.isAnonymous || enter(c.type, c.from, c.to, get) !== false)) {
+                if (c.firstChild())
+                    continue;
+                if (!c.type.isAnonymous)
+                    mustLeave = true;
+            }
+            for (;;) {
+                if (mustLeave && leave)
+                    leave(c.type, c.from, c.to, get);
+                mustLeave = c.type.isAnonymous;
+                if (c.nextSibling())
+                    break;
+                if (!c.parent())
+                    return;
+                mustLeave = true;
+            }
+        }
+    }
+    /// Get the value of the given [node prop](#common.NodeProp) for this
+    /// node. Works with both per-node and per-type props.
+    prop(prop) {
+        return !prop.perNode ? this.type.prop(prop) : this.props ? this.props[prop.id] : undefined;
+    }
+    /// Returns the node's [per-node props](#common.NodeProp.perNode) in a
+    /// format that can be passed to the [`Tree`](#common.Tree)
+    /// constructor.
+    get propValues() {
+        let result = [];
+        if (this.props)
+            for (let id in this.props)
+                result.push([+id, this.props[id]]);
+        return result;
+    }
+    /// Balance the direct children of this tree, producing a copy of
+    /// which may have children grouped into subtrees with type
+    /// [`NodeType.none`](#common.NodeType^none).
+    balance(config = {}) {
+        return this.children.length <= 8 /* BranchFactor */ ? this :
+            balanceRange(this.type, this.children, this.positions, 0, this.children.length, 0, this.length, (children, positions, length) => new Tree(this.type, children, positions, length, this.propValues), config.makeTree || ((children, positions, length) => new Tree(NodeType.none, children, positions, length)));
+    }
+    /// Build a tree from a postfix-ordered buffer of node information,
+    /// or a cursor over such a buffer.
+    static build(data) { return buildTree(data); }
+}
+/// The empty tree
+Tree.empty = new Tree(NodeType.none, [], [], 0);
+class FlatBufferCursor {
+    constructor(buffer, index) {
+        this.buffer = buffer;
+        this.index = index;
+    }
+    get id() { return this.buffer[this.index - 4]; }
+    get start() { return this.buffer[this.index - 3]; }
+    get end() { return this.buffer[this.index - 2]; }
+    get size() { return this.buffer[this.index - 1]; }
+    get pos() { return this.index; }
+    next() { this.index -= 4; }
+    fork() { return new FlatBufferCursor(this.buffer, this.index); }
+}
+/// Tree buffers contain (type, start, end, endIndex) quads for each
+/// node. In such a buffer, nodes are stored in prefix order (parents
+/// before children, with the endIndex of the parent indicating which
+/// children belong to it)
+class TreeBuffer {
+    /// Create a tree buffer.
+    constructor(
+    /// The buffer's content.
+    buffer, 
+    /// The total length of the group of nodes in the buffer.
+    length, 
+    /// The node set used in this buffer.
+    set) {
+        this.buffer = buffer;
+        this.length = length;
+        this.set = set;
+    }
+    /// @internal
+    get type() { return NodeType.none; }
+    /// @internal
+    toString() {
+        let result = [];
+        for (let index = 0; index < this.buffer.length;) {
+            result.push(this.childString(index));
+            index = this.buffer[index + 3];
+        }
+        return result.join(",");
+    }
+    /// @internal
+    childString(index) {
+        let id = this.buffer[index], endIndex = this.buffer[index + 3];
+        let type = this.set.types[id], result = type.name;
+        if (/\W/.test(result) && !type.isError)
+            result = JSON.stringify(result);
+        index += 4;
+        if (endIndex == index)
+            return result;
+        let children = [];
+        while (index < endIndex) {
+            children.push(this.childString(index));
+            index = this.buffer[index + 3];
+        }
+        return result + "(" + children.join(",") + ")";
+    }
+    /// @internal
+    findChild(startIndex, endIndex, dir, pos, side) {
+        let { buffer } = this, pick = -1;
+        for (let i = startIndex; i != endIndex; i = buffer[i + 3]) {
+            if (checkSide(side, pos, buffer[i + 1], buffer[i + 2])) {
+                pick = i;
+                if (dir > 0)
+                    break;
+            }
+        }
+        return pick;
+    }
+    /// @internal
+    slice(startI, endI, from, to) {
+        let b = this.buffer;
+        let copy = new Uint16Array(endI - startI);
+        for (let i = startI, j = 0; i < endI;) {
+            copy[j++] = b[i++];
+            copy[j++] = b[i++] - from;
+            copy[j++] = b[i++] - from;
+            copy[j++] = b[i++] - startI;
+        }
+        return new TreeBuffer(copy, to - from, this.set);
+    }
+}
+function checkSide(side, pos, from, to) {
+    switch (side) {
+        case -2 /* Before */: return from < pos;
+        case -1 /* AtOrBefore */: return to >= pos && from < pos;
+        case 0 /* Around */: return from < pos && to > pos;
+        case 1 /* AtOrAfter */: return from <= pos && to > pos;
+        case 2 /* After */: return to > pos;
+        case 4 /* DontCare */: return true;
+    }
+}
+function enterUnfinishedNodesBefore(node, pos) {
+    let scan = node.childBefore(pos);
+    while (scan) {
+        let last = scan.lastChild;
+        if (!last || last.to != scan.to)
+            break;
+        if (last.type.isError && last.from == last.to) {
+            node = scan;
+            scan = last.prevSibling;
+        }
+        else {
+            scan = last;
+        }
+    }
+    return node;
+}
+class TreeNode {
+    constructor(node, _from, 
+    // Index in parent node, set to -1 if the node is not a direct child of _parent.node (overlay)
+    index, _parent) {
+        this.node = node;
+        this._from = _from;
+        this.index = index;
+        this._parent = _parent;
+    }
+    get type() { return this.node.type; }
+    get name() { return this.node.type.name; }
+    get from() { return this._from; }
+    get to() { return this._from + this.node.length; }
+    nextChild(i, dir, pos, side, mode = 0) {
+        for (let parent = this;;) {
+            for (let { children, positions } = parent.node, e = dir > 0 ? children.length : -1; i != e; i += dir) {
+                let next = children[i], start = positions[i] + parent._from;
+                if (!checkSide(side, pos, start, start + next.length))
+                    continue;
+                if (next instanceof TreeBuffer) {
+                    if (mode & 2 /* NoEnterBuffer */)
+                        continue;
+                    let index = next.findChild(0, next.buffer.length, dir, pos - start, side);
+                    if (index > -1)
+                        return new BufferNode(new BufferContext(parent, next, i, start), null, index);
+                }
+                else if ((mode & 1 /* Full */) || (!next.type.isAnonymous || hasChild(next))) {
+                    let mounted;
+                    if (next.props && (mounted = next.prop(NodeProp.mounted)) && !mounted.overlay)
+                        return new TreeNode(mounted.tree, start, i, parent);
+                    let inner = new TreeNode(next, start, i, parent);
+                    return (mode & 1 /* Full */) || !inner.type.isAnonymous ? inner
+                        : inner.nextChild(dir < 0 ? next.children.length - 1 : 0, dir, pos, side);
+                }
+            }
+            if ((mode & 1 /* Full */) || !parent.type.isAnonymous)
+                return null;
+            if (parent.index >= 0)
+                i = parent.index + dir;
+            else
+                i = dir < 0 ? -1 : parent._parent.node.children.length;
+            parent = parent._parent;
+            if (!parent)
+                return null;
+        }
+    }
+    get firstChild() { return this.nextChild(0, 1, 0, 4 /* DontCare */); }
+    get lastChild() { return this.nextChild(this.node.children.length - 1, -1, 0, 4 /* DontCare */); }
+    childAfter(pos) { return this.nextChild(0, 1, pos, 2 /* After */); }
+    childBefore(pos) { return this.nextChild(this.node.children.length - 1, -1, pos, -2 /* Before */); }
+    enter(pos, side, overlays = true, buffers = true) {
+        let mounted;
+        if (overlays && (mounted = this.node.prop(NodeProp.mounted)) && mounted.overlay) {
+            let rPos = pos - this.from;
+            for (let { from, to } of mounted.overlay) {
+                if ((side > 0 ? from <= rPos : from < rPos) &&
+                    (side < 0 ? to >= rPos : to > rPos))
+                    return new TreeNode(mounted.tree, mounted.overlay[0].from + this.from, -1, this);
+            }
+        }
+        return this.nextChild(0, 1, pos, side, buffers ? 0 : 2 /* NoEnterBuffer */);
+    }
+    nextSignificantParent() {
+        let val = this;
+        while (val.type.isAnonymous && val._parent)
+            val = val._parent;
+        return val;
+    }
+    get parent() {
+        return this._parent ? this._parent.nextSignificantParent() : null;
+    }
+    get nextSibling() {
+        return this._parent && this.index >= 0 ? this._parent.nextChild(this.index + 1, 1, 0, 4 /* DontCare */) : null;
+    }
+    get prevSibling() {
+        return this._parent && this.index >= 0 ? this._parent.nextChild(this.index - 1, -1, 0, 4 /* DontCare */) : null;
+    }
+    get cursor() { return new TreeCursor(this); }
+    get tree() { return this.node; }
+    toTree() { return this.node; }
+    resolve(pos, side = 0) {
+        return this.cursor.moveTo(pos, side).node;
+    }
+    enterUnfinishedNodesBefore(pos) { return enterUnfinishedNodesBefore(this, pos); }
+    getChild(type, before = null, after = null) {
+        let r = getChildren(this, type, before, after);
+        return r.length ? r[0] : null;
+    }
+    getChildren(type, before = null, after = null) {
+        return getChildren(this, type, before, after);
+    }
+    /// @internal
+    toString() { return this.node.toString(); }
+}
+function getChildren(node, type, before, after) {
+    let cur = node.cursor, result = [];
+    if (!cur.firstChild())
+        return result;
+    if (before != null)
+        while (!cur.type.is(before))
+            if (!cur.nextSibling())
+                return result;
+    for (;;) {
+        if (after != null && cur.type.is(after))
+            return result;
+        if (cur.type.is(type))
+            result.push(cur.node);
+        if (!cur.nextSibling())
+            return after == null ? result : [];
+    }
+}
+class BufferContext {
+    constructor(parent, buffer, index, start) {
+        this.parent = parent;
+        this.buffer = buffer;
+        this.index = index;
+        this.start = start;
+    }
+}
+class BufferNode {
+    constructor(context, _parent, index) {
+        this.context = context;
+        this._parent = _parent;
+        this.index = index;
+        this.type = context.buffer.set.types[context.buffer.buffer[index]];
+    }
+    get name() { return this.type.name; }
+    get from() { return this.context.start + this.context.buffer.buffer[this.index + 1]; }
+    get to() { return this.context.start + this.context.buffer.buffer[this.index + 2]; }
+    child(dir, pos, side) {
+        let { buffer } = this.context;
+        let index = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], dir, pos - this.context.start, side);
+        return index < 0 ? null : new BufferNode(this.context, this, index);
+    }
+    get firstChild() { return this.child(1, 0, 4 /* DontCare */); }
+    get lastChild() { return this.child(-1, 0, 4 /* DontCare */); }
+    childAfter(pos) { return this.child(1, pos, 2 /* After */); }
+    childBefore(pos) { return this.child(-1, pos, -2 /* Before */); }
+    enter(pos, side, overlays, buffers = true) {
+        if (!buffers)
+            return null;
+        let { buffer } = this.context;
+        let index = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], side > 0 ? 1 : -1, pos - this.context.start, side);
+        return index < 0 ? null : new BufferNode(this.context, this, index);
+    }
+    get parent() {
+        return this._parent || this.context.parent.nextSignificantParent();
+    }
+    externalSibling(dir) {
+        return this._parent ? null : this.context.parent.nextChild(this.context.index + dir, dir, 0, 4 /* DontCare */);
+    }
+    get nextSibling() {
+        let { buffer } = this.context;
+        let after = buffer.buffer[this.index + 3];
+        if (after < (this._parent ? buffer.buffer[this._parent.index + 3] : buffer.buffer.length))
+            return new BufferNode(this.context, this._parent, after);
+        return this.externalSibling(1);
+    }
+    get prevSibling() {
+        let { buffer } = this.context;
+        let parentStart = this._parent ? this._parent.index + 4 : 0;
+        if (this.index == parentStart)
+            return this.externalSibling(-1);
+        return new BufferNode(this.context, this._parent, buffer.findChild(parentStart, this.index, -1, 0, 4 /* DontCare */));
+    }
+    get cursor() { return new TreeCursor(this); }
+    get tree() { return null; }
+    toTree() {
+        let children = [], positions = [];
+        let { buffer } = this.context;
+        let startI = this.index + 4, endI = buffer.buffer[this.index + 3];
+        if (endI > startI) {
+            let from = buffer.buffer[this.index + 1], to = buffer.buffer[this.index + 2];
+            children.push(buffer.slice(startI, endI, from, to));
+            positions.push(0);
+        }
+        return new Tree(this.type, children, positions, this.to - this.from);
+    }
+    resolve(pos, side = 0) {
+        return this.cursor.moveTo(pos, side).node;
+    }
+    enterUnfinishedNodesBefore(pos) { return enterUnfinishedNodesBefore(this, pos); }
+    /// @internal
+    toString() { return this.context.buffer.childString(this.index); }
+    getChild(type, before = null, after = null) {
+        let r = getChildren(this, type, before, after);
+        return r.length ? r[0] : null;
+    }
+    getChildren(type, before = null, after = null) {
+        return getChildren(this, type, before, after);
+    }
+}
+/// A tree cursor object focuses on a given node in a syntax tree, and
+/// allows you to move to adjacent nodes.
+class TreeCursor {
+    /// @internal
+    constructor(node, 
+    /// @internal
+    mode = 0) {
+        this.mode = mode;
+        this.buffer = null;
+        this.stack = [];
+        this.index = 0;
+        this.bufferNode = null;
+        if (node instanceof TreeNode) {
+            this.yieldNode(node);
+        }
+        else {
+            this._tree = node.context.parent;
+            this.buffer = node.context;
+            for (let n = node._parent; n; n = n._parent)
+                this.stack.unshift(n.index);
+            this.bufferNode = node;
+            this.yieldBuf(node.index);
+        }
+    }
+    /// Shorthand for `.type.name`.
+    get name() { return this.type.name; }
+    yieldNode(node) {
+        if (!node)
+            return false;
+        this._tree = node;
+        this.type = node.type;
+        this.from = node.from;
+        this.to = node.to;
+        return true;
+    }
+    yieldBuf(index, type) {
+        this.index = index;
+        let { start, buffer } = this.buffer;
+        this.type = type || buffer.set.types[buffer.buffer[index]];
+        this.from = start + buffer.buffer[index + 1];
+        this.to = start + buffer.buffer[index + 2];
+        return true;
+    }
+    yield(node) {
+        if (!node)
+            return false;
+        if (node instanceof TreeNode) {
+            this.buffer = null;
+            return this.yieldNode(node);
+        }
+        this.buffer = node.context;
+        return this.yieldBuf(node.index, node.type);
+    }
+    /// @internal
+    toString() {
+        return this.buffer ? this.buffer.buffer.childString(this.index) : this._tree.toString();
+    }
+    /// @internal
+    enterChild(dir, pos, side) {
+        if (!this.buffer)
+            return this.yield(this._tree.nextChild(dir < 0 ? this._tree.node.children.length - 1 : 0, dir, pos, side, this.mode));
+        let { buffer } = this.buffer;
+        let index = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], dir, pos - this.buffer.start, side);
+        if (index < 0)
+            return false;
+        this.stack.push(this.index);
+        return this.yieldBuf(index);
+    }
+    /// Move the cursor to this node's first child. When this returns
+    /// false, the node has no child, and the cursor has not been moved.
+    firstChild() { return this.enterChild(1, 0, 4 /* DontCare */); }
+    /// Move the cursor to this node's last child.
+    lastChild() { return this.enterChild(-1, 0, 4 /* DontCare */); }
+    /// Move the cursor to the first child that ends after `pos`.
+    childAfter(pos) { return this.enterChild(1, pos, 2 /* After */); }
+    /// Move to the last child that starts before `pos`.
+    childBefore(pos) { return this.enterChild(-1, pos, -2 /* Before */); }
+    /// Move the cursor to the child around `pos`. If side is -1 the
+    /// child may end at that position, when 1 it may start there. This
+    /// will also enter [overlaid](#common.MountedTree.overlay)
+    /// [mounted](#common.NodeProp^mounted) trees unless `overlays` is
+    /// set to false.
+    enter(pos, side, overlays = true, buffers = true) {
+        if (!this.buffer)
+            return this.yield(this._tree.enter(pos, side, overlays, buffers));
+        return buffers ? this.enterChild(1, pos, side) : false;
+    }
+    /// Move the node's parent node, if this isn't the top node.
+    parent() {
+        if (!this.buffer)
+            return this.yieldNode((this.mode & 1 /* Full */) ? this._tree._parent : this._tree.parent);
+        if (this.stack.length)
+            return this.yieldBuf(this.stack.pop());
+        let parent = (this.mode & 1 /* Full */) ? this.buffer.parent : this.buffer.parent.nextSignificantParent();
+        this.buffer = null;
+        return this.yieldNode(parent);
+    }
+    /// @internal
+    sibling(dir) {
+        if (!this.buffer)
+            return !this._tree._parent ? false
+                : this.yield(this._tree.index < 0 ? null
+                    : this._tree._parent.nextChild(this._tree.index + dir, dir, 0, 4 /* DontCare */, this.mode));
+        let { buffer } = this.buffer, d = this.stack.length - 1;
+        if (dir < 0) {
+            let parentStart = d < 0 ? 0 : this.stack[d] + 4;
+            if (this.index != parentStart)
+                return this.yieldBuf(buffer.findChild(parentStart, this.index, -1, 0, 4 /* DontCare */));
+        }
+        else {
+            let after = buffer.buffer[this.index + 3];
+            if (after < (d < 0 ? buffer.buffer.length : buffer.buffer[this.stack[d] + 3]))
+                return this.yieldBuf(after);
+        }
+        return d < 0 ? this.yield(this.buffer.parent.nextChild(this.buffer.index + dir, dir, 0, 4 /* DontCare */, this.mode)) : false;
+    }
+    /// Move to this node's next sibling, if any.
+    nextSibling() { return this.sibling(1); }
+    /// Move to this node's previous sibling, if any.
+    prevSibling() { return this.sibling(-1); }
+    atLastNode(dir) {
+        let index, parent, { buffer } = this;
+        if (buffer) {
+            if (dir > 0) {
+                if (this.index < buffer.buffer.buffer.length)
+                    return false;
+            }
+            else {
+                for (let i = 0; i < this.index; i++)
+                    if (buffer.buffer.buffer[i + 3] < this.index)
+                        return false;
+            }
+            ({ index, parent } = buffer);
+        }
+        else {
+            ({ index, _parent: parent } = this._tree);
+        }
+        for (; parent; { index, _parent: parent } = parent) {
+            if (index > -1)
+                for (let i = index + dir, e = dir < 0 ? -1 : parent.node.children.length; i != e; i += dir) {
+                    let child = parent.node.children[i];
+                    if ((this.mode & 1 /* Full */) || child instanceof TreeBuffer || !child.type.isAnonymous || hasChild(child))
+                        return false;
+                }
+        }
+        return true;
+    }
+    move(dir, enter) {
+        if (enter && this.enterChild(dir, 0, 4 /* DontCare */))
+            return true;
+        for (;;) {
+            if (this.sibling(dir))
+                return true;
+            if (this.atLastNode(dir) || !this.parent())
+                return false;
+        }
+    }
+    /// Move to the next node in a
+    /// [pre-order](https://en.wikipedia.org/wiki/Tree_traversal#Pre-order_(NLR))
+    /// traversal, going from a node to its first child or, if the
+    /// current node is empty or `enter` is false, its next sibling or
+    /// the next sibling of the first parent node that has one.
+    next(enter = true) { return this.move(1, enter); }
+    /// Move to the next node in a last-to-first pre-order traveral. A
+    /// node is followed by its last child or, if it has none, its
+    /// previous sibling or the previous sibling of the first parent
+    /// node that has one.
+    prev(enter = true) { return this.move(-1, enter); }
+    /// Move the cursor to the innermost node that covers `pos`. If
+    /// `side` is -1, it will enter nodes that end at `pos`. If it is 1,
+    /// it will enter nodes that start at `pos`.
+    moveTo(pos, side = 0) {
+        // Move up to a node that actually holds the position, if possible
+        while (this.from == this.to ||
+            (side < 1 ? this.from >= pos : this.from > pos) ||
+            (side > -1 ? this.to <= pos : this.to < pos))
+            if (!this.parent())
+                break;
+        // Then scan down into child nodes as far as possible
+        while (this.enterChild(1, pos, side)) { }
+        return this;
+    }
+    /// Get a [syntax node](#common.SyntaxNode) at the cursor's current
+    /// position.
+    get node() {
+        if (!this.buffer)
+            return this._tree;
+        let cache = this.bufferNode, result = null, depth = 0;
+        if (cache && cache.context == this.buffer) {
+            scan: for (let index = this.index, d = this.stack.length; d >= 0;) {
+                for (let c = cache; c; c = c._parent)
+                    if (c.index == index) {
+                        if (index == this.index)
+                            return c;
+                        result = c;
+                        depth = d + 1;
+                        break scan;
+                    }
+                index = this.stack[--d];
+            }
+        }
+        for (let i = depth; i < this.stack.length; i++)
+            result = new BufferNode(this.buffer, result, this.stack[i]);
+        return this.bufferNode = new BufferNode(this.buffer, result, this.index);
+    }
+    /// Get the [tree](#common.Tree) that represents the current node, if
+    /// any. Will return null when the node is in a [tree
+    /// buffer](#common.TreeBuffer).
+    get tree() {
+        return this.buffer ? null : this._tree.node;
+    }
+}
+function hasChild(tree) {
+    return tree.children.some(ch => ch instanceof TreeBuffer || !ch.type.isAnonymous || hasChild(ch));
+}
+function buildTree(data) {
+    var _a;
+    let { buffer, nodeSet, maxBufferLength = DefaultBufferLength, reused = [], minRepeatType = nodeSet.types.length } = data;
+    let cursor = Array.isArray(buffer) ? new FlatBufferCursor(buffer, buffer.length) : buffer;
+    let types = nodeSet.types;
+    let contextHash = 0, lookAhead = 0;
+    function takeNode(parentStart, minPos, children, positions, inRepeat) {
+        let { id, start, end, size } = cursor;
+        let lookAheadAtStart = lookAhead;
+        while (size < 0) {
+            cursor.next();
+            if (size == -1 /* Reuse */) {
+                let node = reused[id];
+                children.push(node);
+                positions.push(start - parentStart);
+                return;
+            }
+            else if (size == -3 /* ContextChange */) { // Context change
+                contextHash = id;
+                return;
+            }
+            else if (size == -4 /* LookAhead */) {
+                lookAhead = id;
+                return;
+            }
+            else {
+                throw new RangeError(`Unrecognized record size: ${size}`);
+            }
+        }
+        let type = types[id], node, buffer;
+        let startPos = start - parentStart;
+        if (end - start <= maxBufferLength && (buffer = findBufferSize(cursor.pos - minPos, inRepeat))) {
+            // Small enough for a buffer, and no reused nodes inside
+            let data = new Uint16Array(buffer.size - buffer.skip);
+            let endPos = cursor.pos - buffer.size, index = data.length;
+            while (cursor.pos > endPos)
+                index = copyToBuffer(buffer.start, data, index);
+            node = new TreeBuffer(data, end - buffer.start, nodeSet);
+            startPos = buffer.start - parentStart;
+        }
+        else { // Make it a node
+            let endPos = cursor.pos - size;
+            cursor.next();
+            let localChildren = [], localPositions = [];
+            let localInRepeat = id >= minRepeatType ? id : -1;
+            let lastGroup = 0, lastEnd = end;
+            while (cursor.pos > endPos) {
+                if (localInRepeat >= 0 && cursor.id == localInRepeat && cursor.size >= 0) {
+                    if (cursor.end <= lastEnd - maxBufferLength) {
+                        makeRepeatLeaf(localChildren, localPositions, start, lastGroup, cursor.end, lastEnd, localInRepeat, lookAheadAtStart);
+                        lastGroup = localChildren.length;
+                        lastEnd = cursor.end;
+                    }
+                    cursor.next();
+                }
+                else {
+                    takeNode(start, endPos, localChildren, localPositions, localInRepeat);
+                }
+            }
+            if (localInRepeat >= 0 && lastGroup > 0 && lastGroup < localChildren.length)
+                makeRepeatLeaf(localChildren, localPositions, start, lastGroup, start, lastEnd, localInRepeat, lookAheadAtStart);
+            localChildren.reverse();
+            localPositions.reverse();
+            if (localInRepeat > -1 && lastGroup > 0) {
+                let make = makeBalanced(type);
+                node = balanceRange(type, localChildren, localPositions, 0, localChildren.length, 0, end - start, make, make);
+            }
+            else {
+                node = makeTree(type, localChildren, localPositions, end - start, lookAheadAtStart - end);
+            }
+        }
+        children.push(node);
+        positions.push(startPos);
+    }
+    function makeBalanced(type) {
+        return (children, positions, length) => {
+            let lookAhead = 0, lastI = children.length - 1, last, lookAheadProp;
+            if (lastI >= 0 && (last = children[lastI]) instanceof Tree) {
+                if (!lastI && last.type == type && last.length == length)
+                    return last;
+                if (lookAheadProp = last.prop(NodeProp.lookAhead))
+                    lookAhead = positions[lastI] + last.length + lookAheadProp;
+            }
+            return makeTree(type, children, positions, length, lookAhead);
+        };
+    }
+    function makeRepeatLeaf(children, positions, base, i, from, to, type, lookAhead) {
+        let localChildren = [], localPositions = [];
+        while (children.length > i) {
+            localChildren.push(children.pop());
+            localPositions.push(positions.pop() + base - from);
+        }
+        children.push(makeTree(nodeSet.types[type], localChildren, localPositions, to - from, lookAhead - to));
+        positions.push(from - base);
+    }
+    function makeTree(type, children, positions, length, lookAhead = 0, props) {
+        if (contextHash) {
+            let pair = [NodeProp.contextHash, contextHash];
+            props = props ? [pair].concat(props) : [pair];
+        }
+        if (lookAhead > 25) {
+            let pair = [NodeProp.lookAhead, lookAhead];
+            props = props ? [pair].concat(props) : [pair];
+        }
+        return new Tree(type, children, positions, length, props);
+    }
+    function findBufferSize(maxSize, inRepeat) {
+        // Scan through the buffer to find previous siblings that fit
+        // together in a TreeBuffer, and don't contain any reused nodes
+        // (which can't be stored in a buffer).
+        // If `inRepeat` is > -1, ignore node boundaries of that type for
+        // nesting, but make sure the end falls either at the start
+        // (`maxSize`) or before such a node.
+        let fork = cursor.fork();
+        let size = 0, start = 0, skip = 0, minStart = fork.end - maxBufferLength;
+        let result = { size: 0, start: 0, skip: 0 };
+        scan: for (let minPos = fork.pos - maxSize; fork.pos > minPos;) {
+            let nodeSize = fork.size;
+            // Pretend nested repeat nodes of the same type don't exist
+            if (fork.id == inRepeat && nodeSize >= 0) {
+                // Except that we store the current state as a valid return
+                // value.
+                result.size = size;
+                result.start = start;
+                result.skip = skip;
+                skip += 4;
+                size += 4;
+                fork.next();
+                continue;
+            }
+            let startPos = fork.pos - nodeSize;
+            if (nodeSize < 0 || startPos < minPos || fork.start < minStart)
+                break;
+            let localSkipped = fork.id >= minRepeatType ? 4 : 0;
+            let nodeStart = fork.start;
+            fork.next();
+            while (fork.pos > startPos) {
+                if (fork.size < 0) {
+                    if (fork.size == -3 /* ContextChange */)
+                        localSkipped += 4;
+                    else
+                        break scan;
+                }
+                else if (fork.id >= minRepeatType) {
+                    localSkipped += 4;
+                }
+                fork.next();
+            }
+            start = nodeStart;
+            size += nodeSize;
+            skip += localSkipped;
+        }
+        if (inRepeat < 0 || size == maxSize) {
+            result.size = size;
+            result.start = start;
+            result.skip = skip;
+        }
+        return result.size > 4 ? result : undefined;
+    }
+    function copyToBuffer(bufferStart, buffer, index) {
+        let { id, start, end, size } = cursor;
+        cursor.next();
+        if (size >= 0 && id < minRepeatType) {
+            let startIndex = index;
+            if (size > 4) {
+                let endPos = cursor.pos - (size - 4);
+                while (cursor.pos > endPos)
+                    index = copyToBuffer(bufferStart, buffer, index);
+            }
+            buffer[--index] = startIndex;
+            buffer[--index] = end - bufferStart;
+            buffer[--index] = start - bufferStart;
+            buffer[--index] = id;
+        }
+        else if (size == -3 /* ContextChange */) {
+            contextHash = id;
+        }
+        else if (size == -4 /* LookAhead */) {
+            lookAhead = id;
+        }
+        return index;
+    }
+    let children = [], positions = [];
+    while (cursor.pos > 0)
+        takeNode(data.start || 0, data.bufferStart || 0, children, positions, -1);
+    let length = (_a = data.length) !== null && _a !== void 0 ? _a : (children.length ? positions[0] + children[0].length : 0);
+    return new Tree(types[data.topID], children.reverse(), positions.reverse(), length);
+}
+const nodeSizeCache = new WeakMap;
+function nodeSize(balanceType, node) {
+    if (!balanceType.isAnonymous || node instanceof TreeBuffer || node.type != balanceType)
+        return 1;
+    let size = nodeSizeCache.get(node);
+    if (size == null) {
+        size = node.children.reduce((s, ch) => s + nodeSize(balanceType, ch), 1);
+        nodeSizeCache.set(node, size);
+    }
+    return size;
+}
+function balanceRange(
+// The type to tag the resulting tree with. Will also be used for
+// internal nodes when it is an anonymous type
+type, 
+// The direct children and their positions
+children, positions, 
+// The index range in children/positions to use
+from, to, 
+// The start position of the nodes, relative to their parent.
+start, 
+// Length of the outer node
+length, 
+// Function to build the top node of the balanced tree
+mkTop, 
+// Function to build internal nodes for the balanced tree
+mkTree) {
+    let total = 0;
+    for (let i = from; i < to; i++)
+        total += nodeSize(type, children[i]);
+    let maxChild = Math.ceil((total * 1.5) / 8 /* BranchFactor */);
+    let localChildren = [], localPositions = [];
+    function divide(children, positions, from, to, offset) {
+        for (let i = from; i < to;) {
+            let groupFrom = i, groupStart = positions[i], groupSize = nodeSize(type, children[i]);
+            i++;
+            for (; i < to; i++) {
+                let nextSize = nodeSize(type, children[i]);
+                if (groupSize + nextSize >= maxChild)
+                    break;
+                groupSize += nextSize;
+            }
+            if (i == groupFrom + 1) {
+                if (groupSize > maxChild) {
+                    let only = children[groupFrom];
+                    divide(only.children, only.positions, 0, only.children.length, positions[groupFrom] + offset);
+                    continue;
+                }
+                localChildren.push(children[groupFrom]);
+            }
+            else {
+                let length = positions[i - 1] + children[i - 1].length - groupStart;
+                localChildren.push(balanceRange(type, children, positions, groupFrom, i, groupStart, length, null, mkTree));
+            }
+            localPositions.push(groupStart + offset - start);
+        }
+    }
+    divide(children, positions, from, to, 0);
+    return (mkTop || mkTree)(localChildren, localPositions, length);
+}
+
+/// Tree fragments are used during [incremental
+/// parsing](#common.Parser.startParse) to track parts of old trees
+/// that can be reused in a new parse. An array of fragments is used
+/// to track regions of an old tree whose nodes might be reused in new
+/// parses. Use the static
+/// [`applyChanges`](#common.TreeFragment^applyChanges) method to
+/// update fragments for document changes.
+class TreeFragment {
+    /// Construct a tree fragment.
+    constructor(
+    /// The start of the unchanged range pointed to by this fragment.
+    /// This refers to an offset in the _updated_ document (as opposed
+    /// to the original tree).
+    from, 
+    /// The end of the unchanged range.
+    to, 
+    /// The tree that this fragment is based on.
+    tree, 
+    /// The offset between the fragment's tree and the document that
+    /// this fragment can be used against. Add this when going from
+    /// document to tree positions, subtract it to go from tree to
+    /// document positions.
+    offset, openStart = false, openEnd = false) {
+        this.from = from;
+        this.to = to;
+        this.tree = tree;
+        this.offset = offset;
+        this.open = (openStart ? 1 /* Start */ : 0) | (openEnd ? 2 /* End */ : 0);
+    }
+    /// Whether the start of the fragment represents the start of a
+    /// parse, or the end of a change. (In the second case, it may not
+    /// be safe to reuse some nodes at the start, depending on the
+    /// parsing algorithm.)
+    get openStart() { return (this.open & 1 /* Start */) > 0; }
+    /// Whether the end of the fragment represents the end of a
+    /// full-document parse, or the start of a change.
+    get openEnd() { return (this.open & 2 /* End */) > 0; }
+    /// Create a set of fragments from a freshly parsed tree, or update
+    /// an existing set of fragments by replacing the ones that overlap
+    /// with a tree with content from the new tree. When `partial` is
+    /// true, the parse is treated as incomplete, and the resulting
+    /// fragment has [`openEnd`](#common.TreeFragment.openEnd) set to
+    /// true.
+    static addTree(tree, fragments = [], partial = false) {
+        let result = [new TreeFragment(0, tree.length, tree, 0, false, partial)];
+        for (let f of fragments)
+            if (f.to > tree.length)
+                result.push(f);
+        return result;
+    }
+    /// Apply a set of edits to an array of fragments, removing or
+    /// splitting fragments as necessary to remove edited ranges, and
+    /// adjusting offsets for fragments that moved.
+    static applyChanges(fragments, changes, minGap = 128) {
+        if (!changes.length)
+            return fragments;
+        let result = [];
+        let fI = 1, nextF = fragments.length ? fragments[0] : null;
+        for (let cI = 0, pos = 0, off = 0;; cI++) {
+            let nextC = cI < changes.length ? changes[cI] : null;
+            let nextPos = nextC ? nextC.fromA : 1e9;
+            if (nextPos - pos >= minGap)
+                while (nextF && nextF.from < nextPos) {
+                    let cut = nextF;
+                    if (pos >= cut.from || nextPos <= cut.to || off) {
+                        let fFrom = Math.max(cut.from, pos) - off, fTo = Math.min(cut.to, nextPos) - off;
+                        cut = fFrom >= fTo ? null : new TreeFragment(fFrom, fTo, cut.tree, cut.offset + off, cI > 0, !!nextC);
+                    }
+                    if (cut)
+                        result.push(cut);
+                    if (nextF.to > nextPos)
+                        break;
+                    nextF = fI < fragments.length ? fragments[fI++] : null;
+                }
+            if (!nextC)
+                break;
+            pos = nextC.toA;
+            off = nextC.toA - nextC.toB;
+        }
+        return result;
+    }
+}
+/// A superclass that parsers should extend.
+class Parser {
+    /// Start a parse, returning a [partial parse](#common.PartialParse)
+    /// object. [`fragments`](#common.TreeFragment) can be passed in to
+    /// make the parse incremental.
+    ///
+    /// By default, the entire input is parsed. You can pass `ranges`,
+    /// which should be a sorted array of non-empty, non-overlapping
+    /// ranges, to parse only those ranges. The tree returned in that
+    /// case will start at `ranges[0].from`.
+    startParse(input, fragments, ranges) {
+        if (typeof input == "string")
+            input = new StringInput(input);
+        ranges = !ranges ? [new Range(0, input.length)] : ranges.length ? ranges.map(r => new Range(r.from, r.to)) : [new Range(0, 0)];
+        return this.createParse(input, fragments || [], ranges);
+    }
+    /// Run a full parse, returning the resulting tree.
+    parse(input, fragments, ranges) {
+        let parse = this.startParse(input, fragments, ranges);
+        for (;;) {
+            let done = parse.advance();
+            if (done)
+                return done;
+        }
+    }
+}
+class StringInput {
+    constructor(string) {
+        this.string = string;
+    }
+    get length() { return this.string.length; }
+    chunk(from) { return this.string.slice(from); }
+    get lineChunks() { return false; }
+    read(from, to) { return this.string.slice(from, to); }
+}
+
+/// Create a parse wrapper that, after the inner parse completes,
+/// scans its tree for mixed language regions with the `nest`
+/// function, runs the resulting [inner parses](#common.NestedParse),
+/// and then [mounts](#common.NodeProp^mounted) their results onto the
+/// tree.
+///
+/// The nesting function is passed a cursor to provide context for a
+/// node, but _should not_ move that cursor, only inspect its
+/// properties and optionally access its
+/// [node object](#common.TreeCursor.node).
+function parseMixed(nest) {
+    return (parse, input, fragments, ranges) => new MixedParse(parse, nest, input, fragments, ranges);
+}
+class InnerParse {
+    constructor(parser, parse, overlay, target) {
+        this.parser = parser;
+        this.parse = parse;
+        this.overlay = overlay;
+        this.target = target;
+    }
+}
+class ActiveOverlay {
+    constructor(parser, predicate, mounts, index, start, target, prev) {
+        this.parser = parser;
+        this.predicate = predicate;
+        this.mounts = mounts;
+        this.index = index;
+        this.start = start;
+        this.target = target;
+        this.prev = prev;
+        this.depth = 0;
+        this.ranges = [];
+    }
+}
+class MixedParse {
+    constructor(base, nest, input, fragments, ranges) {
+        this.nest = nest;
+        this.input = input;
+        this.fragments = fragments;
+        this.ranges = ranges;
+        this.inner = [];
+        this.innerDone = 0;
+        this.baseTree = null;
+        this.stoppedAt = null;
+        this.baseParse = base;
+    }
+    advance() {
+        if (this.baseParse) {
+            let done = this.baseParse.advance();
+            if (!done)
+                return null;
+            this.baseParse = null;
+            this.baseTree = done;
+            this.startInner();
+        }
+        if (this.innerDone == this.inner.length)
+            return this.baseTree;
+        let inner = this.inner[this.innerDone], done = inner.parse.advance();
+        if (done) {
+            this.innerDone++;
+            // This is a somewhat dodgy but super helpful hack where we
+            // patch up nodes created by the inner parse (and thus
+            // presumably not aliased anywhere else) to hold the information
+            // about the inner parse.
+            let props = Object.assign(Object.create(null), inner.target.props);
+            props[NodeProp.mounted.id] = new MountedTree(done, inner.overlay, inner.parser);
+            inner.target.props = props;
+        }
+        return null;
+    }
+    get parsedPos() {
+        if (this.baseParse)
+            return 0;
+        let next = this.inner[this.innerDone];
+        return next ? next.parse.parsedPos : this.input.length;
+    }
+    stopAt(pos) {
+        this.stoppedAt = pos;
+        if (this.baseParse)
+            this.baseParse.stopAt(pos);
+        else
+            for (let i = this.innerDone; i < this.inner.length; i++)
+                this.inner[i].parse.stopAt(pos);
+    }
+    startInner() {
+        let fragmentCursor = new FragmentCursor$2(this.fragments);
+        let overlay = null;
+        let covered = null;
+        let cursor = new TreeCursor(new TreeNode(this.baseTree, this.ranges[0].from, 0, null), 1 /* Full */);
+        scan: for (let nest, isCovered;;) {
+            let enter = true, range;
+            if (fragmentCursor.hasNode(cursor)) {
+                if (overlay) {
+                    let match = overlay.mounts.find(m => m.frag.from <= cursor.from && m.frag.to >= cursor.to && m.mount.overlay);
+                    if (match)
+                        for (let r of match.mount.overlay) {
+                            let from = r.from + match.pos, to = r.to + match.pos;
+                            if (from >= cursor.from && to <= cursor.to)
+                                overlay.ranges.push({ from, to });
+                        }
+                }
+                enter = false;
+            }
+            else if (covered && (isCovered = checkCover(covered.ranges, cursor.from, cursor.to))) {
+                enter = isCovered != 2 /* Full */;
+            }
+            else if (!cursor.type.isAnonymous && cursor.from < cursor.to && (nest = this.nest(cursor, this.input))) {
+                if (!cursor.tree)
+                    materialize(cursor);
+                let oldMounts = fragmentCursor.findMounts(cursor.from, nest.parser);
+                if (typeof nest.overlay == "function") {
+                    overlay = new ActiveOverlay(nest.parser, nest.overlay, oldMounts, this.inner.length, cursor.from, cursor.tree, overlay);
+                }
+                else {
+                    let ranges = punchRanges(this.ranges, nest.overlay || [new Range(cursor.from, cursor.to)]);
+                    if (ranges.length)
+                        this.inner.push(new InnerParse(nest.parser, nest.parser.startParse(this.input, enterFragments(oldMounts, ranges), ranges), nest.overlay ? nest.overlay.map(r => new Range(r.from - cursor.from, r.to - cursor.from)) : null, cursor.tree));
+                    if (!nest.overlay)
+                        enter = false;
+                    else if (ranges.length)
+                        covered = { ranges, depth: 0, prev: covered };
+                }
+            }
+            else if (overlay && (range = overlay.predicate(cursor))) {
+                if (range === true)
+                    range = new Range(cursor.from, cursor.to);
+                if (range.from < range.to)
+                    overlay.ranges.push(range);
+            }
+            if (enter && cursor.firstChild()) {
+                if (overlay)
+                    overlay.depth++;
+                if (covered)
+                    covered.depth++;
+            }
+            else {
+                for (;;) {
+                    if (cursor.nextSibling())
+                        break;
+                    if (!cursor.parent())
+                        break scan;
+                    if (overlay && !--overlay.depth) {
+                        let ranges = punchRanges(this.ranges, overlay.ranges);
+                        if (ranges.length)
+                            this.inner.splice(overlay.index, 0, new InnerParse(overlay.parser, overlay.parser.startParse(this.input, enterFragments(overlay.mounts, ranges), ranges), overlay.ranges.map(r => new Range(r.from - overlay.start, r.to - overlay.start)), overlay.target));
+                        overlay = overlay.prev;
+                    }
+                    if (covered && !--covered.depth)
+                        covered = covered.prev;
+                }
+            }
+        }
+    }
+}
+function checkCover(covered, from, to) {
+    for (let range of covered) {
+        if (range.from >= to)
+            break;
+        if (range.to > from)
+            return range.from <= from && range.to >= to ? 2 /* Full */ : 1 /* Partial */;
+    }
+    return 0 /* None */;
+}
+// Take a piece of buffer and convert it into a stand-alone
+// TreeBuffer.
+function sliceBuf(buf, startI, endI, nodes, positions, off) {
+    if (startI < endI) {
+        let from = buf.buffer[startI + 1], to = buf.buffer[endI - 2];
+        nodes.push(buf.slice(startI, endI, from, to));
+        positions.push(from - off);
+    }
+}
+// This function takes a node that's in a buffer, and converts it, and
+// its parent buffer nodes, into a Tree. This is again acting on the
+// assumption that the trees and buffers have been constructed by the
+// parse that was ran via the mix parser, and thus aren't shared with
+// any other code, making violations of the immutability safe.
+function materialize(cursor) {
+    let { node } = cursor, depth = 0;
+    // Scan up to the nearest tree
+    do {
+        cursor.parent();
+        depth++;
+    } while (!cursor.tree);
+    // Find the index of the buffer in that tree
+    let i = 0, base = cursor.tree, off = 0;
+    for (;; i++) {
+        off = base.positions[i] + cursor.from;
+        if (off <= node.from && off + base.children[i].length >= node.to)
+            break;
+    }
+    let buf = base.children[i], b = buf.buffer;
+    // Split a level in the buffer, putting the nodes before and after
+    // the child that contains `node` into new buffers.
+    function split(startI, endI, type, innerOffset) {
+        let i = startI;
+        while (b[i + 2] + off <= node.from)
+            i = b[i + 3];
+        let children = [], positions = [];
+        sliceBuf(buf, startI, i, children, positions, innerOffset);
+        let isTarget = b[i + 1] + off == node.from && b[i + 2] + off == node.to && b[i] == node.type.id;
+        children.push(isTarget ? node.toTree() : split(i + 4, b[i + 3], buf.set.types[b[i]], b[i + 1]));
+        positions.push(b[i + 1] - innerOffset);
+        sliceBuf(buf, b[i + 3], endI, children, positions, innerOffset);
+        let last = children.length - 1;
+        return new Tree(type, children, positions, positions[last] + children[last].length);
+    }
+    base.children[i] = split(0, b.length, NodeType.none, 0);
+    // Move the cursor back to the target node
+    for (let d = 0; d <= depth; d++)
+        cursor.childAfter(node.from);
+}
+class StructureCursor {
+    constructor(root, offset) {
+        this.offset = offset;
+        this.done = false;
+        this.cursor = root.fullCursor();
+    }
+    // Move to the first node (in pre-order) that starts at or after `pos`.
+    moveTo(pos) {
+        let { cursor } = this, p = pos - this.offset;
+        while (!this.done && cursor.from < p) {
+            if (cursor.to >= pos && cursor.enter(p, 1, false, false)) ;
+            else if (!cursor.next(false))
+                this.done = true;
+        }
+    }
+    hasNode(cursor) {
+        this.moveTo(cursor.from);
+        if (!this.done && this.cursor.from + this.offset == cursor.from && this.cursor.tree) {
+            for (let tree = this.cursor.tree;;) {
+                if (tree == cursor.tree)
+                    return true;
+                if (tree.children.length && tree.positions[0] == 0 && tree.children[0] instanceof Tree)
+                    tree = tree.children[0];
+                else
+                    break;
+            }
+        }
+        return false;
+    }
+}
+class FragmentCursor$2 {
+    constructor(fragments) {
+        this.fragments = fragments;
+        this.fragI = 0;
+        if (fragments.length) {
+            let first = this.curFrag = fragments[0];
+            this.inner = new StructureCursor(first.tree, -first.offset);
+        }
+        else {
+            this.curFrag = this.inner = null;
+        }
+    }
+    hasNode(node) {
+        while (this.curFrag && node.from >= this.curFrag.to)
+            this.nextFrag();
+        return this.curFrag && this.curFrag.from <= node.from && this.curFrag.to >= node.to && this.inner.hasNode(node);
+    }
+    nextFrag() {
+        this.fragI++;
+        if (this.fragI == this.fragments.length) {
+            this.curFrag = this.inner = null;
+        }
+        else {
+            let frag = this.curFrag = this.fragments[this.fragI];
+            this.inner = new StructureCursor(frag.tree, -frag.offset);
+        }
+    }
+    findMounts(pos, parser) {
+        var _a;
+        let result = [];
+        if (this.inner) {
+            this.inner.cursor.moveTo(pos, 1);
+            for (let pos = this.inner.cursor.node; pos; pos = pos.parent) {
+                let mount = (_a = pos.tree) === null || _a === void 0 ? void 0 : _a.prop(NodeProp.mounted);
+                if (mount && mount.parser == parser) {
+                    for (let i = this.fragI; i < this.fragments.length; i++) {
+                        let frag = this.fragments[i];
+                        if (frag.from >= pos.to)
+                            break;
+                        if (frag.tree == this.curFrag.tree)
+                            result.push({
+                                frag,
+                                pos: pos.from - frag.offset,
+                                mount
+                            });
+                    }
+                }
+            }
+        }
+        return result;
+    }
+}
+function punchRanges(outer, ranges) {
+    let copy = null, current = ranges;
+    for (let i = 1, j = 0; i < outer.length; i++) {
+        let gapFrom = outer[i - 1].to, gapTo = outer[i].from;
+        for (; j < current.length; j++) {
+            let r = current[j];
+            if (r.from >= gapTo)
+                break;
+            if (r.to <= gapFrom)
+                continue;
+            if (!copy)
+                current = copy = ranges.slice();
+            if (r.from < gapFrom) {
+                copy[j] = new Range(r.from, gapFrom);
+                if (r.to > gapTo)
+                    copy.splice(j + 1, 0, new Range(gapTo, r.to));
+            }
+            else if (r.to > gapTo) {
+                copy[j--] = new Range(gapTo, r.to);
+            }
+            else {
+                copy.splice(j--, 1);
+            }
+        }
+    }
+    return current;
+}
+function findCoverChanges(a, b, from, to) {
+    let iA = 0, iB = 0, inA = false, inB = false, pos = -1e9;
+    let result = [];
+    for (;;) {
+        let nextA = iA == a.length ? 1e9 : inA ? a[iA].to : a[iA].from;
+        let nextB = iB == b.length ? 1e9 : inB ? b[iB].to : b[iB].from;
+        if (inA != inB) {
+            let start = Math.max(pos, from), end = Math.min(nextA, nextB, to);
+            if (start < end)
+                result.push(new Range(start, end));
+        }
+        pos = Math.min(nextA, nextB);
+        if (pos == 1e9)
+            break;
+        if (nextA == pos) {
+            if (!inA)
+                inA = true;
+            else {
+                inA = false;
+                iA++;
+            }
+        }
+        if (nextB == pos) {
+            if (!inB)
+                inB = true;
+            else {
+                inB = false;
+                iB++;
+            }
+        }
+    }
+    return result;
+}
+// Given a number of fragments for the outer tree, and a set of ranges
+// to parse, find fragments for inner trees mounted around those
+// ranges, if any.
+function enterFragments(mounts, ranges) {
+    let result = [];
+    for (let { pos, mount, frag } of mounts) {
+        let startPos = pos + (mount.overlay ? mount.overlay[0].from : 0), endPos = startPos + mount.tree.length;
+        let from = Math.max(frag.from, startPos), to = Math.min(frag.to, endPos);
+        if (mount.overlay) {
+            let overlay = mount.overlay.map(r => new Range(r.from + pos, r.to + pos));
+            let changes = findCoverChanges(ranges, overlay, from, to);
+            for (let i = 0, pos = from;; i++) {
+                let last = i == changes.length, end = last ? to : changes[i].from;
+                if (end > pos)
+                    result.push(new TreeFragment(pos, end, mount.tree, -startPos, frag.from >= pos, frag.to <= end));
+                if (last)
+                    break;
+                pos = changes[i].to;
+            }
+        }
+        else {
+            result.push(new TreeFragment(from, to, mount.tree, -startPos, frag.from >= startPos, frag.to <= endPos));
+        }
+    }
+    return result;
+}
+
+var index$4 = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    DefaultBufferLength: DefaultBufferLength,
+    MountedTree: MountedTree,
+    NodeProp: NodeProp,
+    NodeSet: NodeSet,
+    NodeType: NodeType,
+    Parser: Parser,
+    Tree: Tree,
+    TreeBuffer: TreeBuffer,
+    TreeCursor: TreeCursor,
+    TreeFragment: TreeFragment,
+    parseMixed: parseMixed
+});
 
 /**
 Node prop stored in a grammar's top syntax node to provide the
@@ -12759,6 +13064,16 @@ or the empty tree if there is no language available.
 function syntaxTree(state) {
     let field = state.field(Language.state, false);
     return field ? field.tree : Tree.empty;
+}
+/**
+Try to get a parse tree that spans at least up to `upto`. The
+method will do at most `timeout` milliseconds of work to parse
+up to that point if the tree isn't already available.
+*/
+function ensureSyntaxTree(state, upto, timeout = 50) {
+    var _a;
+    let parse = (_a = state.field(Language.state, false)) === null || _a === void 0 ? void 0 : _a.context;
+    return !parse ? null : parse.treeLen >= upto || parse.work(timeout, upto) ? parse.tree : null;
 }
 // Lezer-style Input object for a Text document.
 class DocInput {
@@ -13680,6 +13995,1487 @@ function foldable(state, lineStart, lineEnd) {
     return syntaxFolding(state, lineStart, lineEnd);
 }
 
+var index$3 = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    IndentContext: IndentContext,
+    LRLanguage: LRLanguage,
+    Language: Language,
+    LanguageDescription: LanguageDescription,
+    LanguageSupport: LanguageSupport,
+    ParseContext: ParseContext,
+    TreeIndentContext: TreeIndentContext,
+    continuedIndent: continuedIndent,
+    defineLanguageFacet: defineLanguageFacet,
+    delimitedIndent: delimitedIndent$1,
+    ensureSyntaxTree: ensureSyntaxTree,
+    flatIndent: flatIndent,
+    foldInside: foldInside$1,
+    foldNodeProp: foldNodeProp,
+    foldService: foldService,
+    foldable: foldable,
+    getIndentUnit: getIndentUnit,
+    getIndentation: getIndentation,
+    indentNodeProp: indentNodeProp,
+    indentOnInput: indentOnInput,
+    indentService: indentService,
+    indentString: indentString,
+    indentUnit: indentUnit,
+    language: language$1,
+    languageDataProp: languageDataProp,
+    syntaxTree: syntaxTree
+});
+
+/**
+An instance of this is passed to completion source functions.
+*/
+class CompletionContext {
+    /**
+    Create a new completion context. (Mostly useful for testing
+    completion sources—in the editor, the extension will create
+    these for you.)
+    */
+    constructor(
+    /**
+    The editor state that the completion happens in.
+    */
+    state, 
+    /**
+    The position at which the completion is happening.
+    */
+    pos, 
+    /**
+    Indicates whether completion was activated explicitly, or
+    implicitly by typing. The usual way to respond to this is to
+    only return completions when either there is part of a
+    completable entity before the cursor, or `explicit` is true.
+    */
+    explicit) {
+        this.state = state;
+        this.pos = pos;
+        this.explicit = explicit;
+        /**
+        @internal
+        */
+        this.abortListeners = [];
+    }
+    /**
+    Get the extent, content, and (if there is a token) type of the
+    token before `this.pos`.
+    */
+    tokenBefore(types) {
+        let token = syntaxTree(this.state).resolveInner(this.pos, -1);
+        while (token && types.indexOf(token.name) < 0)
+            token = token.parent;
+        return token ? { from: token.from, to: this.pos,
+            text: this.state.sliceDoc(token.from, this.pos),
+            type: token.type } : null;
+    }
+    /**
+    Get the match of the given expression directly before the
+    cursor.
+    */
+    matchBefore(expr) {
+        let line = this.state.doc.lineAt(this.pos);
+        let start = Math.max(line.from, this.pos - 250);
+        let str = line.text.slice(start - line.from, this.pos - line.from);
+        let found = str.search(ensureAnchor(expr, false));
+        return found < 0 ? null : { from: start + found, to: this.pos, text: str.slice(found) };
+    }
+    /**
+    Yields true when the query has been aborted. Can be useful in
+    asynchronous queries to avoid doing work that will be ignored.
+    */
+    get aborted() { return this.abortListeners == null; }
+    /**
+    Allows you to register abort handlers, which will be called when
+    the query is
+    [aborted](https://codemirror.net/6/docs/ref/#autocomplete.CompletionContext.aborted).
+    */
+    addEventListener(type, listener) {
+        if (type == "abort" && this.abortListeners)
+            this.abortListeners.push(listener);
+    }
+}
+function toSet(chars) {
+    let flat = Object.keys(chars).join("");
+    let words = /\w/.test(flat);
+    if (words)
+        flat = flat.replace(/\w/g, "");
+    return `[${words ? "\\w" : ""}${flat.replace(/[^\w\s]/g, "\\$&")}]`;
+}
+function prefixMatch(options) {
+    let first = Object.create(null), rest = Object.create(null);
+    for (let { label } of options) {
+        first[label[0]] = true;
+        for (let i = 1; i < label.length; i++)
+            rest[label[i]] = true;
+    }
+    let source = toSet(first) + toSet(rest) + "*$";
+    return [new RegExp("^" + source), new RegExp(source)];
+}
+/**
+Given a a fixed array of options, return an autocompleter that
+completes them.
+*/
+function completeFromList(list) {
+    let options = list.map(o => typeof o == "string" ? { label: o } : o);
+    let [span, match] = options.every(o => /^\w+$/.test(o.label)) ? [/\w*$/, /\w+$/] : prefixMatch(options);
+    return (context) => {
+        let token = context.matchBefore(match);
+        return token || context.explicit ? { from: token ? token.from : context.pos, options, span } : null;
+    };
+}
+/**
+Wrap the given completion source so that it will only fire when the
+cursor is in a syntax node with one of the given names.
+*/
+function ifIn(nodes, source) {
+    return (context) => {
+        for (let pos = syntaxTree(context.state).resolveInner(context.pos, -1); pos; pos = pos.parent)
+            if (nodes.indexOf(pos.name) > -1)
+                return source(context);
+        return null;
+    };
+}
+/**
+Wrap the given completion source so that it will not fire when the
+cursor is in a syntax node with one of the given names.
+*/
+function ifNotIn(nodes, source) {
+    return (context) => {
+        for (let pos = syntaxTree(context.state).resolveInner(context.pos, -1); pos; pos = pos.parent)
+            if (nodes.indexOf(pos.name) > -1)
+                return null;
+        return source(context);
+    };
+}
+class Option {
+    constructor(completion, source, match) {
+        this.completion = completion;
+        this.source = source;
+        this.match = match;
+    }
+}
+function cur(state) { return state.selection.main.head; }
+// Make sure the given regexp has a $ at its end and, if `start` is
+// true, a ^ at its start.
+function ensureAnchor(expr, start) {
+    var _a;
+    let { source } = expr;
+    let addStart = start && source[0] != "^", addEnd = source[source.length - 1] != "$";
+    if (!addStart && !addEnd)
+        return expr;
+    return new RegExp(`${addStart ? "^" : ""}(?:${source})${addEnd ? "$" : ""}`, (_a = expr.flags) !== null && _a !== void 0 ? _a : (expr.ignoreCase ? "i" : ""));
+}
+/**
+This annotation is added to transactions that are produced by
+picking a completion.
+*/
+const pickedCompletion = /*@__PURE__*/Annotation.define();
+function applyCompletion(view, option) {
+    let apply = option.completion.apply || option.completion.label;
+    let result = option.source;
+    if (typeof apply == "string") {
+        view.dispatch({
+            changes: { from: result.from, to: result.to, insert: apply },
+            selection: { anchor: result.from + apply.length },
+            userEvent: "input.complete",
+            annotations: pickedCompletion.of(option.completion)
+        });
+    }
+    else {
+        apply(view, option.completion, result.from, result.to);
+    }
+}
+const SourceCache = /*@__PURE__*/new WeakMap();
+function asSource(source) {
+    if (!Array.isArray(source))
+        return source;
+    let known = SourceCache.get(source);
+    if (!known)
+        SourceCache.set(source, known = completeFromList(source));
+    return known;
+}
+
+// A pattern matcher for fuzzy completion matching. Create an instance
+// once for a pattern, and then use that to match any number of
+// completions.
+class FuzzyMatcher {
+    constructor(pattern) {
+        this.pattern = pattern;
+        this.chars = [];
+        this.folded = [];
+        // Buffers reused by calls to `match` to track matched character
+        // positions.
+        this.any = [];
+        this.precise = [];
+        this.byWord = [];
+        for (let p = 0; p < pattern.length;) {
+            let char = codePointAt(pattern, p), size = codePointSize(char);
+            this.chars.push(char);
+            let part = pattern.slice(p, p + size), upper = part.toUpperCase();
+            this.folded.push(codePointAt(upper == part ? part.toLowerCase() : upper, 0));
+            p += size;
+        }
+        this.astral = pattern.length != this.chars.length;
+    }
+    // Matches a given word (completion) against the pattern (input).
+    // Will return null for no match, and otherwise an array that starts
+    // with the match score, followed by any number of `from, to` pairs
+    // indicating the matched parts of `word`.
+    //
+    // The score is a number that is more negative the worse the match
+    // is. See `Penalty` above.
+    match(word) {
+        if (this.pattern.length == 0)
+            return [0];
+        if (word.length < this.pattern.length)
+            return null;
+        let { chars, folded, any, precise, byWord } = this;
+        // For single-character queries, only match when they occur right
+        // at the start
+        if (chars.length == 1) {
+            let first = codePointAt(word, 0);
+            return first == chars[0] ? [0, 0, codePointSize(first)]
+                : first == folded[0] ? [-200 /* CaseFold */, 0, codePointSize(first)] : null;
+        }
+        let direct = word.indexOf(this.pattern);
+        if (direct == 0)
+            return [0, 0, this.pattern.length];
+        let len = chars.length, anyTo = 0;
+        if (direct < 0) {
+            for (let i = 0, e = Math.min(word.length, 200); i < e && anyTo < len;) {
+                let next = codePointAt(word, i);
+                if (next == chars[anyTo] || next == folded[anyTo])
+                    any[anyTo++] = i;
+                i += codePointSize(next);
+            }
+            // No match, exit immediately
+            if (anyTo < len)
+                return null;
+        }
+        // This tracks the extent of the precise (non-folded, not
+        // necessarily adjacent) match
+        let preciseTo = 0;
+        // Tracks whether there is a match that hits only characters that
+        // appear to be starting words. `byWordFolded` is set to true when
+        // a case folded character is encountered in such a match
+        let byWordTo = 0, byWordFolded = false;
+        // If we've found a partial adjacent match, these track its state
+        let adjacentTo = 0, adjacentStart = -1, adjacentEnd = -1;
+        let hasLower = /[a-z]/.test(word);
+        // Go over the option's text, scanning for the various kinds of matches
+        for (let i = 0, e = Math.min(word.length, 200), prevType = 0 /* NonWord */; i < e && byWordTo < len;) {
+            let next = codePointAt(word, i);
+            if (direct < 0) {
+                if (preciseTo < len && next == chars[preciseTo])
+                    precise[preciseTo++] = i;
+                if (adjacentTo < len) {
+                    if (next == chars[adjacentTo] || next == folded[adjacentTo]) {
+                        if (adjacentTo == 0)
+                            adjacentStart = i;
+                        adjacentEnd = i + 1;
+                        adjacentTo++;
+                    }
+                    else {
+                        adjacentTo = 0;
+                    }
+                }
+            }
+            let ch, type = next < 0xff
+                ? (next >= 48 && next <= 57 || next >= 97 && next <= 122 ? 2 /* Lower */ : next >= 65 && next <= 90 ? 1 /* Upper */ : 0 /* NonWord */)
+                : ((ch = fromCodePoint(next)) != ch.toLowerCase() ? 1 /* Upper */ : ch != ch.toUpperCase() ? 2 /* Lower */ : 0 /* NonWord */);
+            if ((type == 1 /* Upper */ && hasLower || prevType == 0 /* NonWord */ && type != 0 /* NonWord */) &&
+                (chars[byWordTo] == next || (folded[byWordTo] == next && (byWordFolded = true))))
+                byWord[byWordTo++] = i;
+            prevType = type;
+            i += codePointSize(next);
+        }
+        if (byWordTo == len && byWord[0] == 0)
+            return this.result(-100 /* ByWord */ + (byWordFolded ? -200 /* CaseFold */ : 0), byWord, word);
+        if (adjacentTo == len && adjacentStart == 0)
+            return [-200 /* CaseFold */, 0, adjacentEnd];
+        if (direct > -1)
+            return [-700 /* NotStart */, direct, direct + this.pattern.length];
+        if (adjacentTo == len)
+            return [-200 /* CaseFold */ + -700 /* NotStart */, adjacentStart, adjacentEnd];
+        if (byWordTo == len)
+            return this.result(-100 /* ByWord */ + (byWordFolded ? -200 /* CaseFold */ : 0) + -700 /* NotStart */, byWord, word);
+        return chars.length == 2 ? null : this.result((any[0] ? -700 /* NotStart */ : 0) + -200 /* CaseFold */ + -1100 /* Gap */, any, word);
+    }
+    result(score, positions, word) {
+        let result = [score], i = 1;
+        for (let pos of positions) {
+            let to = pos + (this.astral ? codePointSize(codePointAt(word, pos)) : 1);
+            if (i > 1 && result[i - 1] == pos)
+                result[i - 1] = to;
+            else {
+                result[i++] = pos;
+                result[i++] = to;
+            }
+        }
+        return result;
+    }
+}
+
+const completionConfig = /*@__PURE__*/Facet.define({
+    combine(configs) {
+        return combineConfig(configs, {
+            activateOnTyping: true,
+            override: null,
+            maxRenderedOptions: 100,
+            defaultKeymap: true,
+            optionClass: () => "",
+            aboveCursor: false,
+            icons: true,
+            addToOptions: []
+        }, {
+            defaultKeymap: (a, b) => a && b,
+            icons: (a, b) => a && b,
+            optionClass: (a, b) => c => joinClass(a(c), b(c)),
+            addToOptions: (a, b) => a.concat(b)
+        });
+    }
+});
+function joinClass(a, b) {
+    return a ? b ? a + " " + b : a : b;
+}
+
+function optionContent(config) {
+    let content = config.addToOptions.slice();
+    if (config.icons)
+        content.push({
+            render(completion) {
+                let icon = document.createElement("div");
+                icon.classList.add("cm-completionIcon");
+                if (completion.type)
+                    icon.classList.add(...completion.type.split(/\s+/g).map(cls => "cm-completionIcon-" + cls));
+                icon.setAttribute("aria-hidden", "true");
+                return icon;
+            },
+            position: 20
+        });
+    content.push({
+        render(completion, _s, match) {
+            let labelElt = document.createElement("span");
+            labelElt.className = "cm-completionLabel";
+            let { label } = completion, off = 0;
+            for (let j = 1; j < match.length;) {
+                let from = match[j++], to = match[j++];
+                if (from > off)
+                    labelElt.appendChild(document.createTextNode(label.slice(off, from)));
+                let span = labelElt.appendChild(document.createElement("span"));
+                span.appendChild(document.createTextNode(label.slice(from, to)));
+                span.className = "cm-completionMatchedText";
+                off = to;
+            }
+            if (off < label.length)
+                labelElt.appendChild(document.createTextNode(label.slice(off)));
+            return labelElt;
+        },
+        position: 50
+    }, {
+        render(completion) {
+            if (!completion.detail)
+                return null;
+            let detailElt = document.createElement("span");
+            detailElt.className = "cm-completionDetail";
+            detailElt.textContent = completion.detail;
+            return detailElt;
+        },
+        position: 80
+    });
+    return content.sort((a, b) => a.position - b.position).map(a => a.render);
+}
+function createInfoDialog(option, view) {
+    let dom = document.createElement("div");
+    dom.className = "cm-tooltip cm-completionInfo";
+    let { info } = option.completion;
+    if (typeof info == "string") {
+        dom.textContent = info;
+    }
+    else {
+        let content = info(option.completion);
+        if (content.then)
+            content.then(node => dom.appendChild(node), e => logException(view.state, e, "completion info"));
+        else
+            dom.appendChild(content);
+    }
+    return dom;
+}
+function rangeAroundSelected(total, selected, max) {
+    if (total <= max)
+        return { from: 0, to: total };
+    if (selected <= (total >> 1)) {
+        let off = Math.floor(selected / max);
+        return { from: off * max, to: (off + 1) * max };
+    }
+    let off = Math.floor((total - selected) / max);
+    return { from: total - (off + 1) * max, to: total - off * max };
+}
+class CompletionTooltip {
+    constructor(view, stateField) {
+        this.view = view;
+        this.stateField = stateField;
+        this.info = null;
+        this.placeInfo = {
+            read: () => this.measureInfo(),
+            write: (pos) => this.positionInfo(pos),
+            key: this
+        };
+        let cState = view.state.field(stateField);
+        let { options, selected } = cState.open;
+        let config = view.state.facet(completionConfig);
+        this.optionContent = optionContent(config);
+        this.optionClass = config.optionClass;
+        this.range = rangeAroundSelected(options.length, selected, config.maxRenderedOptions);
+        this.dom = document.createElement("div");
+        this.dom.className = "cm-tooltip-autocomplete";
+        this.dom.addEventListener("mousedown", (e) => {
+            for (let dom = e.target, match; dom && dom != this.dom; dom = dom.parentNode) {
+                if (dom.nodeName == "LI" && (match = /-(\d+)$/.exec(dom.id)) && +match[1] < options.length) {
+                    applyCompletion(view, options[+match[1]]);
+                    e.preventDefault();
+                    return;
+                }
+            }
+        });
+        this.list = this.dom.appendChild(this.createListBox(options, cState.id, this.range));
+        this.list.addEventListener("scroll", () => {
+            if (this.info)
+                this.view.requestMeasure(this.placeInfo);
+        });
+    }
+    mount() { this.updateSel(); }
+    update(update) {
+        if (update.state.field(this.stateField) != update.startState.field(this.stateField))
+            this.updateSel();
+    }
+    positioned() {
+        if (this.info)
+            this.view.requestMeasure(this.placeInfo);
+    }
+    updateSel() {
+        let cState = this.view.state.field(this.stateField), open = cState.open;
+        if (open.selected < this.range.from || open.selected >= this.range.to) {
+            this.range = rangeAroundSelected(open.options.length, open.selected, this.view.state.facet(completionConfig).maxRenderedOptions);
+            this.list.remove();
+            this.list = this.dom.appendChild(this.createListBox(open.options, cState.id, this.range));
+            this.list.addEventListener("scroll", () => {
+                if (this.info)
+                    this.view.requestMeasure(this.placeInfo);
+            });
+        }
+        if (this.updateSelectedOption(open.selected)) {
+            if (this.info) {
+                this.info.remove();
+                this.info = null;
+            }
+            let option = open.options[open.selected];
+            if (option.completion.info) {
+                this.info = this.dom.appendChild(createInfoDialog(option, this.view));
+                this.view.requestMeasure(this.placeInfo);
+            }
+        }
+    }
+    updateSelectedOption(selected) {
+        let set = null;
+        for (let opt = this.list.firstChild, i = this.range.from; opt; opt = opt.nextSibling, i++) {
+            if (i == selected) {
+                if (!opt.hasAttribute("aria-selected")) {
+                    opt.setAttribute("aria-selected", "true");
+                    set = opt;
+                }
+            }
+            else {
+                if (opt.hasAttribute("aria-selected"))
+                    opt.removeAttribute("aria-selected");
+            }
+        }
+        if (set)
+            scrollIntoView(this.list, set);
+        return set;
+    }
+    measureInfo() {
+        let sel = this.dom.querySelector("[aria-selected]");
+        if (!sel || !this.info)
+            return null;
+        let rect = this.dom.getBoundingClientRect(), infoRect = this.info.getBoundingClientRect();
+        if (rect.top > innerHeight - 10 || rect.bottom < 10)
+            return null;
+        let top = Math.max(0, Math.min(sel.getBoundingClientRect().top, innerHeight - infoRect.height)) - rect.top;
+        let left = this.view.textDirection == Direction.RTL;
+        let spaceLeft = rect.left, spaceRight = innerWidth - rect.right;
+        if (left && spaceLeft < Math.min(infoRect.width, spaceRight))
+            left = false;
+        else if (!left && spaceRight < Math.min(infoRect.width, spaceLeft))
+            left = true;
+        return { top, left };
+    }
+    positionInfo(pos) {
+        if (this.info) {
+            this.info.style.top = (pos ? pos.top : -1e6) + "px";
+            if (pos) {
+                this.info.classList.toggle("cm-completionInfo-left", pos.left);
+                this.info.classList.toggle("cm-completionInfo-right", !pos.left);
+            }
+        }
+    }
+    createListBox(options, id, range) {
+        const ul = document.createElement("ul");
+        ul.id = id;
+        ul.setAttribute("role", "listbox");
+        for (let i = range.from; i < range.to; i++) {
+            let { completion, match } = options[i];
+            const li = ul.appendChild(document.createElement("li"));
+            li.id = id + "-" + i;
+            li.setAttribute("role", "option");
+            let cls = this.optionClass(completion);
+            if (cls)
+                li.className = cls;
+            for (let source of this.optionContent) {
+                let node = source(completion, this.view.state, match);
+                if (node)
+                    li.appendChild(node);
+            }
+        }
+        if (range.from)
+            ul.classList.add("cm-completionListIncompleteTop");
+        if (range.to < options.length)
+            ul.classList.add("cm-completionListIncompleteBottom");
+        return ul;
+    }
+}
+// We allocate a new function instance every time the completion
+// changes to force redrawing/repositioning of the tooltip
+function completionTooltip(stateField) {
+    return (view) => new CompletionTooltip(view, stateField);
+}
+function scrollIntoView(container, element) {
+    let parent = container.getBoundingClientRect();
+    let self = element.getBoundingClientRect();
+    if (self.top < parent.top)
+        container.scrollTop -= parent.top - self.top;
+    else if (self.bottom > parent.bottom)
+        container.scrollTop += self.bottom - parent.bottom;
+}
+
+const MaxOptions = 300;
+// Used to pick a preferred option when two options with the same
+// label occur in the result.
+function score(option) {
+    return (option.boost || 0) * 100 + (option.apply ? 10 : 0) + (option.info ? 5 : 0) +
+        (option.type ? 1 : 0);
+}
+function sortOptions(active, state) {
+    let options = [], i = 0;
+    for (let a of active)
+        if (a.hasResult()) {
+            if (a.result.filter === false) {
+                for (let option of a.result.options)
+                    options.push(new Option(option, a, [1e9 - i++]));
+            }
+            else {
+                let matcher = new FuzzyMatcher(state.sliceDoc(a.from, a.to)), match;
+                for (let option of a.result.options)
+                    if (match = matcher.match(option.label)) {
+                        if (option.boost != null)
+                            match[0] += option.boost;
+                        options.push(new Option(option, a, match));
+                    }
+            }
+        }
+    options.sort(cmpOption);
+    let result = [], prev = null;
+    for (let opt of options.sort(cmpOption)) {
+        if (result.length == MaxOptions)
+            break;
+        if (!prev || prev.label != opt.completion.label || prev.detail != opt.completion.detail ||
+            prev.type != opt.completion.type || prev.apply != opt.completion.apply)
+            result.push(opt);
+        else if (score(opt.completion) > score(prev))
+            result[result.length - 1] = opt;
+        prev = opt.completion;
+    }
+    return result;
+}
+class CompletionDialog {
+    constructor(options, attrs, tooltip, timestamp, selected) {
+        this.options = options;
+        this.attrs = attrs;
+        this.tooltip = tooltip;
+        this.timestamp = timestamp;
+        this.selected = selected;
+    }
+    setSelected(selected, id) {
+        return selected == this.selected || selected >= this.options.length ? this
+            : new CompletionDialog(this.options, makeAttrs(id, selected), this.tooltip, this.timestamp, selected);
+    }
+    static build(active, state, id, prev, conf) {
+        let options = sortOptions(active, state);
+        if (!options.length)
+            return null;
+        let selected = 0;
+        if (prev && prev.selected) {
+            let selectedValue = prev.options[prev.selected].completion;
+            for (let i = 0; i < options.length && !selected; i++) {
+                if (options[i].completion == selectedValue)
+                    selected = i;
+            }
+        }
+        return new CompletionDialog(options, makeAttrs(id, selected), {
+            pos: active.reduce((a, b) => b.hasResult() ? Math.min(a, b.from) : a, 1e8),
+            create: completionTooltip(completionState),
+            above: conf.aboveCursor,
+        }, prev ? prev.timestamp : Date.now(), selected);
+    }
+    map(changes) {
+        return new CompletionDialog(this.options, this.attrs, Object.assign(Object.assign({}, this.tooltip), { pos: changes.mapPos(this.tooltip.pos) }), this.timestamp, this.selected);
+    }
+}
+class CompletionState {
+    constructor(active, id, open) {
+        this.active = active;
+        this.id = id;
+        this.open = open;
+    }
+    static start() {
+        return new CompletionState(none$2, "cm-ac-" + Math.floor(Math.random() * 2e6).toString(36), null);
+    }
+    update(tr) {
+        let { state } = tr, conf = state.facet(completionConfig);
+        let sources = conf.override ||
+            state.languageDataAt("autocomplete", cur(state)).map(asSource);
+        let active = sources.map(source => {
+            let value = this.active.find(s => s.source == source) ||
+                new ActiveSource(source, this.active.some(a => a.state != 0 /* Inactive */) ? 1 /* Pending */ : 0 /* Inactive */);
+            return value.update(tr, conf);
+        });
+        if (active.length == this.active.length && active.every((a, i) => a == this.active[i]))
+            active = this.active;
+        let open = tr.selection || active.some(a => a.hasResult() && tr.changes.touchesRange(a.from, a.to)) ||
+            !sameResults(active, this.active) ? CompletionDialog.build(active, state, this.id, this.open, conf)
+            : this.open && tr.docChanged ? this.open.map(tr.changes) : this.open;
+        if (!open && active.every(a => a.state != 1 /* Pending */) && active.some(a => a.hasResult()))
+            active = active.map(a => a.hasResult() ? new ActiveSource(a.source, 0 /* Inactive */) : a);
+        for (let effect of tr.effects)
+            if (effect.is(setSelectedEffect))
+                open = open && open.setSelected(effect.value, this.id);
+        return active == this.active && open == this.open ? this : new CompletionState(active, this.id, open);
+    }
+    get tooltip() { return this.open ? this.open.tooltip : null; }
+    get attrs() { return this.open ? this.open.attrs : baseAttrs; }
+}
+function sameResults(a, b) {
+    if (a == b)
+        return true;
+    for (let iA = 0, iB = 0;;) {
+        while (iA < a.length && !a[iA].hasResult)
+            iA++;
+        while (iB < b.length && !b[iB].hasResult)
+            iB++;
+        let endA = iA == a.length, endB = iB == b.length;
+        if (endA || endB)
+            return endA == endB;
+        if (a[iA++].result != b[iB++].result)
+            return false;
+    }
+}
+const baseAttrs = {
+    "aria-autocomplete": "list",
+    "aria-expanded": "false"
+};
+function makeAttrs(id, selected) {
+    return {
+        "aria-autocomplete": "list",
+        "aria-expanded": "true",
+        "aria-activedescendant": id + "-" + selected,
+        "aria-controls": id
+    };
+}
+const none$2 = [];
+function cmpOption(a, b) {
+    let dScore = b.match[0] - a.match[0];
+    if (dScore)
+        return dScore;
+    return a.completion.label.localeCompare(b.completion.label);
+}
+function getUserEvent(tr) {
+    return tr.isUserEvent("input.type") ? "input" : tr.isUserEvent("delete.backward") ? "delete" : null;
+}
+class ActiveSource {
+    constructor(source, state, explicitPos = -1) {
+        this.source = source;
+        this.state = state;
+        this.explicitPos = explicitPos;
+    }
+    hasResult() { return false; }
+    update(tr, conf) {
+        let event = getUserEvent(tr), value = this;
+        if (event)
+            value = value.handleUserEvent(tr, event, conf);
+        else if (tr.docChanged)
+            value = value.handleChange(tr);
+        else if (tr.selection && value.state != 0 /* Inactive */)
+            value = new ActiveSource(value.source, 0 /* Inactive */);
+        for (let effect of tr.effects) {
+            if (effect.is(startCompletionEffect))
+                value = new ActiveSource(value.source, 1 /* Pending */, effect.value ? cur(tr.state) : -1);
+            else if (effect.is(closeCompletionEffect))
+                value = new ActiveSource(value.source, 0 /* Inactive */);
+            else if (effect.is(setActiveEffect))
+                for (let active of effect.value)
+                    if (active.source == value.source)
+                        value = active;
+        }
+        return value;
+    }
+    handleUserEvent(tr, type, conf) {
+        return type == "delete" || !conf.activateOnTyping ? this.map(tr.changes) : new ActiveSource(this.source, 1 /* Pending */);
+    }
+    handleChange(tr) {
+        return tr.changes.touchesRange(cur(tr.startState)) ? new ActiveSource(this.source, 0 /* Inactive */) : this.map(tr.changes);
+    }
+    map(changes) {
+        return changes.empty || this.explicitPos < 0 ? this : new ActiveSource(this.source, this.state, changes.mapPos(this.explicitPos));
+    }
+}
+class ActiveResult extends ActiveSource {
+    constructor(source, explicitPos, result, from, to, span) {
+        super(source, 2 /* Result */, explicitPos);
+        this.result = result;
+        this.from = from;
+        this.to = to;
+        this.span = span;
+    }
+    hasResult() { return true; }
+    handleUserEvent(tr, type, conf) {
+        let from = tr.changes.mapPos(this.from), to = tr.changes.mapPos(this.to, 1);
+        let pos = cur(tr.state);
+        if ((this.explicitPos > -1 ? pos < from : pos <= from) || pos > to)
+            return new ActiveSource(this.source, type == "input" && conf.activateOnTyping ? 1 /* Pending */ : 0 /* Inactive */);
+        let explicitPos = this.explicitPos < 0 ? -1 : tr.changes.mapPos(this.explicitPos);
+        if (this.span && (from == to || this.span.test(tr.state.sliceDoc(from, to))))
+            return new ActiveResult(this.source, explicitPos, this.result, from, to, this.span);
+        return new ActiveSource(this.source, 1 /* Pending */, explicitPos);
+    }
+    handleChange(tr) {
+        return tr.changes.touchesRange(this.from, this.to) ? new ActiveSource(this.source, 0 /* Inactive */) : this.map(tr.changes);
+    }
+    map(mapping) {
+        return mapping.empty ? this :
+            new ActiveResult(this.source, this.explicitPos < 0 ? -1 : mapping.mapPos(this.explicitPos), this.result, mapping.mapPos(this.from), mapping.mapPos(this.to, 1), this.span);
+    }
+}
+const startCompletionEffect = /*@__PURE__*/StateEffect.define();
+const closeCompletionEffect = /*@__PURE__*/StateEffect.define();
+const setActiveEffect = /*@__PURE__*/StateEffect.define({
+    map(sources, mapping) { return sources.map(s => s.map(mapping)); }
+});
+const setSelectedEffect = /*@__PURE__*/StateEffect.define();
+const completionState = /*@__PURE__*/StateField.define({
+    create() { return CompletionState.start(); },
+    update(value, tr) { return value.update(tr); },
+    provide: f => [
+        showTooltip.from(f, val => val.tooltip),
+        EditorView.contentAttributes.from(f, state => state.attrs)
+    ]
+});
+
+const CompletionInteractMargin = 75;
+/**
+Returns a command that moves the completion selection forward or
+backward by the given amount.
+*/
+function moveCompletionSelection(forward, by = "option") {
+    return (view) => {
+        let cState = view.state.field(completionState, false);
+        if (!cState || !cState.open || Date.now() - cState.open.timestamp < CompletionInteractMargin)
+            return false;
+        let step = 1, tooltip;
+        if (by == "page" && (tooltip = view.dom.querySelector(".cm-tooltip-autocomplete")))
+            step = Math.max(2, Math.floor(tooltip.offsetHeight / tooltip.firstChild.offsetHeight));
+        let selected = cState.open.selected + step * (forward ? 1 : -1), { length } = cState.open.options;
+        if (selected < 0)
+            selected = by == "page" ? 0 : length - 1;
+        else if (selected >= length)
+            selected = by == "page" ? length - 1 : 0;
+        view.dispatch({ effects: setSelectedEffect.of(selected) });
+        return true;
+    };
+}
+/**
+Accept the current completion.
+*/
+const acceptCompletion = (view) => {
+    let cState = view.state.field(completionState, false);
+    if (view.state.readOnly || !cState || !cState.open || Date.now() - cState.open.timestamp < CompletionInteractMargin)
+        return false;
+    applyCompletion(view, cState.open.options[cState.open.selected]);
+    return true;
+};
+/**
+Explicitly start autocompletion.
+*/
+const startCompletion = (view) => {
+    let cState = view.state.field(completionState, false);
+    if (!cState)
+        return false;
+    view.dispatch({ effects: startCompletionEffect.of(true) });
+    return true;
+};
+/**
+Close the currently active completion.
+*/
+const closeCompletion = (view) => {
+    let cState = view.state.field(completionState, false);
+    if (!cState || !cState.active.some(a => a.state != 0 /* Inactive */))
+        return false;
+    view.dispatch({ effects: closeCompletionEffect.of(null) });
+    return true;
+};
+class RunningQuery {
+    constructor(active, context) {
+        this.active = active;
+        this.context = context;
+        this.time = Date.now();
+        this.updates = [];
+        // Note that 'undefined' means 'not done yet', whereas 'null' means
+        // 'query returned null'.
+        this.done = undefined;
+    }
+}
+const DebounceTime = 50, MaxUpdateCount = 50, MinAbortTime = 1000;
+const completionPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
+    constructor(view) {
+        this.view = view;
+        this.debounceUpdate = -1;
+        this.running = [];
+        this.debounceAccept = -1;
+        this.composing = 0 /* None */;
+        for (let active of view.state.field(completionState).active)
+            if (active.state == 1 /* Pending */)
+                this.startQuery(active);
+    }
+    update(update) {
+        let cState = update.state.field(completionState);
+        if (!update.selectionSet && !update.docChanged && update.startState.field(completionState) == cState)
+            return;
+        let doesReset = update.transactions.some(tr => {
+            return (tr.selection || tr.docChanged) && !getUserEvent(tr);
+        });
+        for (let i = 0; i < this.running.length; i++) {
+            let query = this.running[i];
+            if (doesReset ||
+                query.updates.length + update.transactions.length > MaxUpdateCount && query.time - Date.now() > MinAbortTime) {
+                for (let handler of query.context.abortListeners) {
+                    try {
+                        handler();
+                    }
+                    catch (e) {
+                        logException(this.view.state, e);
+                    }
+                }
+                query.context.abortListeners = null;
+                this.running.splice(i--, 1);
+            }
+            else {
+                query.updates.push(...update.transactions);
+            }
+        }
+        if (this.debounceUpdate > -1)
+            clearTimeout(this.debounceUpdate);
+        this.debounceUpdate = cState.active.some(a => a.state == 1 /* Pending */ && !this.running.some(q => q.active.source == a.source))
+            ? setTimeout(() => this.startUpdate(), DebounceTime) : -1;
+        if (this.composing != 0 /* None */)
+            for (let tr of update.transactions) {
+                if (getUserEvent(tr) == "input")
+                    this.composing = 2 /* Changed */;
+                else if (this.composing == 2 /* Changed */ && tr.selection)
+                    this.composing = 3 /* ChangedAndMoved */;
+            }
+    }
+    startUpdate() {
+        this.debounceUpdate = -1;
+        let { state } = this.view, cState = state.field(completionState);
+        for (let active of cState.active) {
+            if (active.state == 1 /* Pending */ && !this.running.some(r => r.active.source == active.source))
+                this.startQuery(active);
+        }
+    }
+    startQuery(active) {
+        let { state } = this.view, pos = cur(state);
+        let context = new CompletionContext(state, pos, active.explicitPos == pos);
+        let pending = new RunningQuery(active, context);
+        this.running.push(pending);
+        Promise.resolve(active.source(context)).then(result => {
+            if (!pending.context.aborted) {
+                pending.done = result || null;
+                this.scheduleAccept();
+            }
+        }, err => {
+            this.view.dispatch({ effects: closeCompletionEffect.of(null) });
+            logException(this.view.state, err);
+        });
+    }
+    scheduleAccept() {
+        if (this.running.every(q => q.done !== undefined))
+            this.accept();
+        else if (this.debounceAccept < 0)
+            this.debounceAccept = setTimeout(() => this.accept(), DebounceTime);
+    }
+    // For each finished query in this.running, try to create a result
+    // or, if appropriate, restart the query.
+    accept() {
+        var _a;
+        if (this.debounceAccept > -1)
+            clearTimeout(this.debounceAccept);
+        this.debounceAccept = -1;
+        let updated = [];
+        let conf = this.view.state.facet(completionConfig);
+        for (let i = 0; i < this.running.length; i++) {
+            let query = this.running[i];
+            if (query.done === undefined)
+                continue;
+            this.running.splice(i--, 1);
+            if (query.done) {
+                let active = new ActiveResult(query.active.source, query.active.explicitPos, query.done, query.done.from, (_a = query.done.to) !== null && _a !== void 0 ? _a : cur(query.updates.length ? query.updates[0].startState : this.view.state), query.done.span && query.done.filter !== false ? ensureAnchor(query.done.span, true) : null);
+                // Replay the transactions that happened since the start of
+                // the request and see if that preserves the result
+                for (let tr of query.updates)
+                    active = active.update(tr, conf);
+                if (active.hasResult()) {
+                    updated.push(active);
+                    continue;
+                }
+            }
+            let current = this.view.state.field(completionState).active.find(a => a.source == query.active.source);
+            if (current && current.state == 1 /* Pending */) {
+                if (query.done == null) {
+                    // Explicitly failed. Should clear the pending status if it
+                    // hasn't been re-set in the meantime.
+                    let active = new ActiveSource(query.active.source, 0 /* Inactive */);
+                    for (let tr of query.updates)
+                        active = active.update(tr, conf);
+                    if (active.state != 1 /* Pending */)
+                        updated.push(active);
+                }
+                else {
+                    // Cleared by subsequent transactions. Restart.
+                    this.startQuery(current);
+                }
+            }
+        }
+        if (updated.length)
+            this.view.dispatch({ effects: setActiveEffect.of(updated) });
+    }
+}, {
+    eventHandlers: {
+        compositionstart() {
+            this.composing = 1 /* Started */;
+        },
+        compositionend() {
+            if (this.composing == 3 /* ChangedAndMoved */) {
+                // Safari fires compositionend events synchronously, possibly
+                // from inside an update, so dispatch asynchronously to avoid reentrancy
+                setTimeout(() => this.view.dispatch({ effects: startCompletionEffect.of(false) }), 20);
+            }
+            this.composing = 0 /* None */;
+        }
+    }
+});
+
+const baseTheme$6 = /*@__PURE__*/EditorView.baseTheme({
+    ".cm-tooltip.cm-tooltip-autocomplete": {
+        "& > ul": {
+            fontFamily: "monospace",
+            whiteSpace: "nowrap",
+            overflow: "hidden auto",
+            maxWidth_fallback: "700px",
+            maxWidth: "min(700px, 95vw)",
+            minWidth: "250px",
+            maxHeight: "10em",
+            listStyle: "none",
+            margin: 0,
+            padding: 0,
+            "& > li": {
+                overflowX: "hidden",
+                textOverflow: "ellipsis",
+                cursor: "pointer",
+                padding: "1px 3px",
+                lineHeight: 1.2
+            },
+        }
+    },
+    "&light .cm-tooltip-autocomplete ul li[aria-selected]": {
+        background: "#39e",
+        color: "white",
+    },
+    "&dark .cm-tooltip-autocomplete ul li[aria-selected]": {
+        background: "#347",
+        color: "white",
+    },
+    ".cm-completionListIncompleteTop:before, .cm-completionListIncompleteBottom:after": {
+        content: '"···"',
+        opacity: 0.5,
+        display: "block",
+        textAlign: "center"
+    },
+    ".cm-tooltip.cm-completionInfo": {
+        position: "absolute",
+        padding: "3px 9px",
+        width: "max-content",
+        maxWidth: "300px",
+    },
+    ".cm-completionInfo.cm-completionInfo-left": { right: "100%" },
+    ".cm-completionInfo.cm-completionInfo-right": { left: "100%" },
+    "&light .cm-snippetField": { backgroundColor: "#00000022" },
+    "&dark .cm-snippetField": { backgroundColor: "#ffffff22" },
+    ".cm-snippetFieldPosition": {
+        verticalAlign: "text-top",
+        width: 0,
+        height: "1.15em",
+        margin: "0 -0.7px -.7em",
+        borderLeft: "1.4px dotted #888"
+    },
+    ".cm-completionMatchedText": {
+        textDecoration: "underline"
+    },
+    ".cm-completionDetail": {
+        marginLeft: "0.5em",
+        fontStyle: "italic"
+    },
+    ".cm-completionIcon": {
+        fontSize: "90%",
+        width: ".8em",
+        display: "inline-block",
+        textAlign: "center",
+        paddingRight: ".6em",
+        opacity: "0.6"
+    },
+    ".cm-completionIcon-function, .cm-completionIcon-method": {
+        "&:after": { content: "'ƒ'" }
+    },
+    ".cm-completionIcon-class": {
+        "&:after": { content: "'○'" }
+    },
+    ".cm-completionIcon-interface": {
+        "&:after": { content: "'◌'" }
+    },
+    ".cm-completionIcon-variable": {
+        "&:after": { content: "'𝑥'" }
+    },
+    ".cm-completionIcon-constant": {
+        "&:after": { content: "'𝐶'" }
+    },
+    ".cm-completionIcon-type": {
+        "&:after": { content: "'𝑡'" }
+    },
+    ".cm-completionIcon-enum": {
+        "&:after": { content: "'∪'" }
+    },
+    ".cm-completionIcon-property": {
+        "&:after": { content: "'□'" }
+    },
+    ".cm-completionIcon-keyword": {
+        "&:after": { content: "'🔑\uFE0E'" } // Disable emoji rendering
+    },
+    ".cm-completionIcon-namespace": {
+        "&:after": { content: "'▢'" }
+    },
+    ".cm-completionIcon-text": {
+        "&:after": { content: "'abc'", fontSize: "50%", verticalAlign: "middle" }
+    }
+});
+
+class FieldPos {
+    constructor(field, line, from, to) {
+        this.field = field;
+        this.line = line;
+        this.from = from;
+        this.to = to;
+    }
+}
+class FieldRange {
+    constructor(field, from, to) {
+        this.field = field;
+        this.from = from;
+        this.to = to;
+    }
+    map(changes) {
+        return new FieldRange(this.field, changes.mapPos(this.from, -1), changes.mapPos(this.to, 1));
+    }
+}
+class Snippet {
+    constructor(lines, fieldPositions) {
+        this.lines = lines;
+        this.fieldPositions = fieldPositions;
+    }
+    instantiate(state, pos) {
+        let text = [], lineStart = [pos];
+        let lineObj = state.doc.lineAt(pos), baseIndent = /^\s*/.exec(lineObj.text)[0];
+        for (let line of this.lines) {
+            if (text.length) {
+                let indent = baseIndent, tabs = /^\t*/.exec(line)[0].length;
+                for (let i = 0; i < tabs; i++)
+                    indent += state.facet(indentUnit);
+                lineStart.push(pos + indent.length - tabs);
+                line = indent + line.slice(tabs);
+            }
+            text.push(line);
+            pos += line.length + 1;
+        }
+        let ranges = this.fieldPositions.map(pos => new FieldRange(pos.field, lineStart[pos.line] + pos.from, lineStart[pos.line] + pos.to));
+        return { text, ranges };
+    }
+    static parse(template) {
+        let fields = [];
+        let lines = [], positions = [], m;
+        for (let line of template.split(/\r\n?|\n/)) {
+            while (m = /[#$]\{(?:(\d+)(?::([^}]*))?|([^}]*))\}/.exec(line)) {
+                let seq = m[1] ? +m[1] : null, name = m[2] || m[3] || "", found = -1;
+                for (let i = 0; i < fields.length; i++) {
+                    if (seq != null ? fields[i].seq == seq : name ? fields[i].name == name : false)
+                        found = i;
+                }
+                if (found < 0) {
+                    let i = 0;
+                    while (i < fields.length && (seq == null || (fields[i].seq != null && fields[i].seq < seq)))
+                        i++;
+                    fields.splice(i, 0, { seq, name });
+                    found = i;
+                    for (let pos of positions)
+                        if (pos.field >= found)
+                            pos.field++;
+                }
+                positions.push(new FieldPos(found, lines.length, m.index, m.index + name.length));
+                line = line.slice(0, m.index) + name + line.slice(m.index + m[0].length);
+            }
+            lines.push(line);
+        }
+        return new Snippet(lines, positions);
+    }
+}
+let fieldMarker = /*@__PURE__*/Decoration.widget({ widget: /*@__PURE__*/new class extends WidgetType {
+        toDOM() {
+            let span = document.createElement("span");
+            span.className = "cm-snippetFieldPosition";
+            return span;
+        }
+        ignoreEvent() { return false; }
+    } });
+let fieldRange = /*@__PURE__*/Decoration.mark({ class: "cm-snippetField" });
+class ActiveSnippet {
+    constructor(ranges, active) {
+        this.ranges = ranges;
+        this.active = active;
+        this.deco = Decoration.set(ranges.map(r => (r.from == r.to ? fieldMarker : fieldRange).range(r.from, r.to)));
+    }
+    map(changes) {
+        return new ActiveSnippet(this.ranges.map(r => r.map(changes)), this.active);
+    }
+    selectionInsideField(sel) {
+        return sel.ranges.every(range => this.ranges.some(r => r.field == this.active && r.from <= range.from && r.to >= range.to));
+    }
+}
+const setActive = /*@__PURE__*/StateEffect.define({
+    map(value, changes) { return value && value.map(changes); }
+});
+const moveToField = /*@__PURE__*/StateEffect.define();
+const snippetState = /*@__PURE__*/StateField.define({
+    create() { return null; },
+    update(value, tr) {
+        for (let effect of tr.effects) {
+            if (effect.is(setActive))
+                return effect.value;
+            if (effect.is(moveToField) && value)
+                return new ActiveSnippet(value.ranges, effect.value);
+        }
+        if (value && tr.docChanged)
+            value = value.map(tr.changes);
+        if (value && tr.selection && !value.selectionInsideField(tr.selection))
+            value = null;
+        return value;
+    },
+    provide: f => EditorView.decorations.from(f, val => val ? val.deco : Decoration.none)
+});
+function fieldSelection(ranges, field) {
+    return EditorSelection.create(ranges.filter(r => r.field == field).map(r => EditorSelection.range(r.from, r.to)));
+}
+/**
+Convert a snippet template to a function that can apply it.
+Snippets are written using syntax like this:
+
+    "for (let ${index} = 0; ${index} < ${end}; ${index}++) {\n\t${}\n}"
+
+Each `${}` placeholder (you may also use `#{}`) indicates a field
+that the user can fill in. Its name, if any, will be the default
+content for the field.
+
+When the snippet is activated by calling the returned function,
+the code is inserted at the given position. Newlines in the
+template are indented by the indentation of the start line, plus
+one [indent unit](https://codemirror.net/6/docs/ref/#language.indentUnit) per tab character after
+the newline.
+
+On activation, (all instances of) the first field are selected.
+The user can move between fields with Tab and Shift-Tab as long as
+the fields are active. Moving to the last field or moving the
+cursor out of the current field deactivates the fields.
+
+The order of fields defaults to textual order, but you can add
+numbers to placeholders (`${1}` or `${1:defaultText}`) to provide
+a custom order.
+*/
+function snippet(template) {
+    let snippet = Snippet.parse(template);
+    return (editor, _completion, from, to) => {
+        let { text, ranges } = snippet.instantiate(editor.state, from);
+        let spec = { changes: { from, to, insert: Text.of(text) } };
+        if (ranges.length)
+            spec.selection = fieldSelection(ranges, 0);
+        if (ranges.length > 1) {
+            let active = new ActiveSnippet(ranges, 0);
+            let effects = spec.effects = [setActive.of(active)];
+            if (editor.state.field(snippetState, false) === undefined)
+                effects.push(StateEffect.appendConfig.of([snippetState, addSnippetKeymap, snippetPointerHandler, baseTheme$6]));
+        }
+        editor.dispatch(editor.state.update(spec));
+    };
+}
+function moveField(dir) {
+    return ({ state, dispatch }) => {
+        let active = state.field(snippetState, false);
+        if (!active || dir < 0 && active.active == 0)
+            return false;
+        let next = active.active + dir, last = dir > 0 && !active.ranges.some(r => r.field == next + dir);
+        dispatch(state.update({
+            selection: fieldSelection(active.ranges, next),
+            effects: setActive.of(last ? null : new ActiveSnippet(active.ranges, next))
+        }));
+        return true;
+    };
+}
+/**
+A command that clears the active snippet, if any.
+*/
+const clearSnippet = ({ state, dispatch }) => {
+    let active = state.field(snippetState, false);
+    if (!active)
+        return false;
+    dispatch(state.update({ effects: setActive.of(null) }));
+    return true;
+};
+/**
+Move to the next snippet field, if available.
+*/
+const nextSnippetField = /*@__PURE__*/moveField(1);
+/**
+Move to the previous snippet field, if available.
+*/
+const prevSnippetField = /*@__PURE__*/moveField(-1);
+const defaultSnippetKeymap = [
+    { key: "Tab", run: nextSnippetField, shift: prevSnippetField },
+    { key: "Escape", run: clearSnippet }
+];
+/**
+A facet that can be used to configure the key bindings used by
+snippets. The default binds Tab to
+[`nextSnippetField`](https://codemirror.net/6/docs/ref/#autocomplete.nextSnippetField), Shift-Tab to
+[`prevSnippetField`](https://codemirror.net/6/docs/ref/#autocomplete.prevSnippetField), and Escape
+to [`clearSnippet`](https://codemirror.net/6/docs/ref/#autocomplete.clearSnippet).
+*/
+const snippetKeymap = /*@__PURE__*/Facet.define({
+    combine(maps) { return maps.length ? maps[0] : defaultSnippetKeymap; }
+});
+const addSnippetKeymap = /*@__PURE__*/Prec.highest(/*@__PURE__*/keymap.compute([snippetKeymap], state => state.facet(snippetKeymap)));
+/**
+Create a completion from a snippet. Returns an object with the
+properties from `completion`, plus an `apply` function that
+applies the snippet.
+*/
+function snippetCompletion(template, completion) {
+    return Object.assign(Object.assign({}, completion), { apply: snippet(template) });
+}
+const snippetPointerHandler = /*@__PURE__*/EditorView.domEventHandlers({
+    mousedown(event, view) {
+        let active = view.state.field(snippetState, false), pos;
+        if (!active || (pos = view.posAtCoords({ x: event.clientX, y: event.clientY })) == null)
+            return false;
+        let match = active.ranges.find(r => r.from <= pos && r.to >= pos);
+        if (!match || match.field == active.active)
+            return false;
+        view.dispatch({
+            selection: fieldSelection(active.ranges, match.field),
+            effects: setActive.of(active.ranges.some(r => r.field > match.field) ? new ActiveSnippet(active.ranges, match.field) : null)
+        });
+        return true;
+    }
+});
+
+function wordRE(wordChars) {
+    let escaped = wordChars.replace(/[\\[.+*?(){|^$]/g, "\\$&");
+    try {
+        return new RegExp(`[\\p{Alphabetic}\\p{Number}_${escaped}]+`, "ug");
+    }
+    catch (_a) {
+        return new RegExp(`[\w${escaped}]`, "g");
+    }
+}
+function mapRE(re, f) {
+    return new RegExp(f(re.source), re.unicode ? "u" : "");
+}
+const wordCaches = /*@__PURE__*/Object.create(null);
+function wordCache(wordChars) {
+    return wordCaches[wordChars] || (wordCaches[wordChars] = new WeakMap);
+}
+function storeWords(doc, wordRE, result, seen, ignoreAt) {
+    for (let lines = doc.iterLines(), pos = 0; !lines.next().done;) {
+        let { value } = lines, m;
+        wordRE.lastIndex = 0;
+        while (m = wordRE.exec(value)) {
+            if (!seen[m[0]] && pos + m.index != ignoreAt) {
+                result.push({ type: "text", label: m[0] });
+                seen[m[0]] = true;
+                if (result.length >= 2000 /* MaxList */)
+                    return;
+            }
+        }
+        pos += value.length + 1;
+    }
+}
+function collectWords(doc, cache, wordRE, to, ignoreAt) {
+    let big = doc.length >= 1000 /* MinCacheLen */;
+    let cached = big && cache.get(doc);
+    if (cached)
+        return cached;
+    let result = [], seen = Object.create(null);
+    if (doc.children) {
+        let pos = 0;
+        for (let ch of doc.children) {
+            if (ch.length >= 1000 /* MinCacheLen */) {
+                for (let c of collectWords(ch, cache, wordRE, to - pos, ignoreAt - pos)) {
+                    if (!seen[c.label]) {
+                        seen[c.label] = true;
+                        result.push(c);
+                    }
+                }
+            }
+            else {
+                storeWords(ch, wordRE, result, seen, ignoreAt - pos);
+            }
+            pos += ch.length + 1;
+        }
+    }
+    else {
+        storeWords(doc, wordRE, result, seen, ignoreAt);
+    }
+    if (big && result.length < 2000 /* MaxList */)
+        cache.set(doc, result);
+    return result;
+}
+/**
+A completion source that will scan the document for words (using a
+[character categorizer](https://codemirror.net/6/docs/ref/#state.EditorState.charCategorizer)), and
+return those as completions.
+*/
+const completeAnyWord = context => {
+    let wordChars = context.state.languageDataAt("wordChars", context.pos).join("");
+    let re = wordRE(wordChars);
+    let token = context.matchBefore(mapRE(re, s => s + "$"));
+    if (!token && !context.explicit)
+        return null;
+    let from = token ? token.from : context.pos;
+    let options = collectWords(context.state.doc, wordCache(wordChars), re, 50000 /* Range */, from);
+    return { from, options, span: mapRE(re, s => "^" + s) };
+};
+
+/**
+Returns an extension that enables autocompletion.
+*/
+function autocompletion$1(config = {}) {
+    return [
+        completionState,
+        completionConfig.of(config),
+        completionPlugin,
+        completionKeymapExt,
+        baseTheme$6
+    ];
+}
+/**
+Basic keybindings for autocompletion.
+
+ - Ctrl-Space: [`startCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.startCompletion)
+ - Escape: [`closeCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.closeCompletion)
+ - ArrowDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true)`
+ - ArrowUp: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(false)`
+ - PageDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true, "page")`
+ - PageDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true, "page")`
+ - Enter: [`acceptCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.acceptCompletion)
+*/
+const completionKeymap$1 = [
+    { key: "Ctrl-Space", run: startCompletion },
+    { key: "Escape", run: closeCompletion },
+    { key: "ArrowDown", run: /*@__PURE__*/moveCompletionSelection(true) },
+    { key: "ArrowUp", run: /*@__PURE__*/moveCompletionSelection(false) },
+    { key: "PageDown", run: /*@__PURE__*/moveCompletionSelection(true, "page") },
+    { key: "PageUp", run: /*@__PURE__*/moveCompletionSelection(false, "page") },
+    { key: "Enter", run: acceptCompletion }
+];
+const completionKeymapExt = /*@__PURE__*/Prec.highest(/*@__PURE__*/keymap.computeN([completionConfig], state => state.facet(completionConfig).defaultKeymap ? [completionKeymap$1] : []));
+/**
+Get the current completion status. When completions are available,
+this will return `"active"`. When completions are pending (in the
+process of being queried), this returns `"pending"`. Otherwise, it
+returns `null`.
+*/
+function completionStatus(state) {
+    let cState = state.field(completionState, false);
+    return cState && cState.active.some(a => a.state == 1 /* Pending */) ? "pending"
+        : cState && cState.active.some(a => a.state != 0 /* Inactive */) ? "active" : null;
+}
+/**
+Returns the available completions as an array.
+*/
+function currentCompletions(state) {
+    var _a;
+    let open = (_a = state.field(completionState, false)) === null || _a === void 0 ? void 0 : _a.open;
+    return open ? open.options.map(o => o.completion) : [];
+}
+/**
+Return the currently selected completion, if any.
+*/
+function selectedCompletion(state) {
+    var _a;
+    let open = (_a = state.field(completionState, false)) === null || _a === void 0 ? void 0 : _a.open;
+    return open ? open.options[open.selected].completion : null;
+}
+
+var index$2 = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    CompletionContext: CompletionContext,
+    acceptCompletion: acceptCompletion,
+    autocompletion: autocompletion$1,
+    clearSnippet: clearSnippet,
+    closeCompletion: closeCompletion,
+    completeAnyWord: completeAnyWord,
+    completeFromList: completeFromList,
+    completionKeymap: completionKeymap$1,
+    completionStatus: completionStatus,
+    currentCompletions: currentCompletions,
+    ifIn: ifIn,
+    ifNotIn: ifNotIn,
+    moveCompletionSelection: moveCompletionSelection,
+    nextSnippetField: nextSnippetField,
+    pickedCompletion: pickedCompletion,
+    prevSnippetField: prevSnippetField,
+    selectedCompletion: selectedCompletion,
+    snippet: snippet,
+    snippetCompletion: snippetCompletion,
+    snippetKeymap: snippetKeymap,
+    startCompletion: startCompletion
+});
+
 let nextTagID = 0;
 /**
 Highlighting tags are markers that denote a highlighting category.
@@ -14019,6 +15815,33 @@ class HighlightStyle {
         let style = getHighlightStyle(state);
         return style && style(tag, scope || NodeType.none);
     }
+}
+/**
+Run the tree highlighter over the given tree.
+*/
+function highlightTree(tree, 
+/**
+Get the CSS classes used to style a given [tag](https://codemirror.net/6/docs/ref/#highlight.Tag),
+or `null` if it isn't styled. (You'll often want to pass a
+highlight style's [`match`](https://codemirror.net/6/docs/ref/#highlight.HighlightStyle.match)
+method here.)
+*/
+getStyle, 
+/**
+Assign styling to a region of the text. Will be called, in order
+of position, for any ranges where more than zero classes apply.
+`classes` is a space separated string of CSS classes.
+*/
+putStyle, 
+/**
+The start of the range to highlight.
+*/
+from = 0, 
+/**
+The end of the range.
+*/
+to = tree.length) {
+    highlightTreeRange(tree, from, to, getStyle, putStyle);
 }
 class TreeHighlighter {
     constructor(view) {
@@ -14631,7 +16454,7 @@ In addition, these mappings are provided:
 * [`definition`](https://codemirror.net/6/docs/ref/#highlight.tags.definition)[`(variableName)`](https://codemirror.net/6/docs/ref/#highlight.tags.variableName)
   to `"cmt-variableName cmt-definition"`
 */
-/*@__PURE__*/HighlightStyle.define([
+const classHighlightStyle = /*@__PURE__*/HighlightStyle.define([
     { tag: tags$1.link, class: "cmt-link" },
     { tag: tags$1.heading, class: "cmt-heading" },
     { tag: tags$1.emphasis, class: "cmt-emphasis" },
@@ -14661,6 +16484,1199 @@ In addition, these mappings are provided:
     { tag: tags$1.invalid, class: "cmt-invalid" },
     { tag: tags$1.punctuation, class: "cmt-punctuation" }
 ]);
+
+var index$1 = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    HighlightStyle: HighlightStyle,
+    Tag: Tag,
+    classHighlightStyle: classHighlightStyle,
+    defaultHighlightStyle: defaultHighlightStyle,
+    highlightTree: highlightTree,
+    styleTags: styleTags$1,
+    tags: tags$1
+});
+
+const baseTheme$5 = /*@__PURE__*/EditorView.baseTheme({
+    ".cm-matchingBracket": { backgroundColor: "#328c8252" },
+    ".cm-nonmatchingBracket": { backgroundColor: "#bb555544" }
+});
+const DefaultScanDist = 10000, DefaultBrackets = "()[]{}";
+const bracketMatchingConfig = /*@__PURE__*/Facet.define({
+    combine(configs) {
+        return combineConfig(configs, {
+            afterCursor: true,
+            brackets: DefaultBrackets,
+            maxScanDistance: DefaultScanDist
+        });
+    }
+});
+const matchingMark = /*@__PURE__*/Decoration.mark({ class: "cm-matchingBracket" }), nonmatchingMark = /*@__PURE__*/Decoration.mark({ class: "cm-nonmatchingBracket" });
+const bracketMatchingState = /*@__PURE__*/StateField.define({
+    create() { return Decoration.none; },
+    update(deco, tr) {
+        if (!tr.docChanged && !tr.selection)
+            return deco;
+        let decorations = [];
+        let config = tr.state.facet(bracketMatchingConfig);
+        for (let range of tr.state.selection.ranges) {
+            if (!range.empty)
+                continue;
+            let match = matchBrackets(tr.state, range.head, -1, config)
+                || (range.head > 0 && matchBrackets(tr.state, range.head - 1, 1, config))
+                || (config.afterCursor &&
+                    (matchBrackets(tr.state, range.head, 1, config) ||
+                        (range.head < tr.state.doc.length && matchBrackets(tr.state, range.head + 1, -1, config))));
+            if (!match)
+                continue;
+            let mark = match.matched ? matchingMark : nonmatchingMark;
+            decorations.push(mark.range(match.start.from, match.start.to));
+            if (match.end)
+                decorations.push(mark.range(match.end.from, match.end.to));
+        }
+        return Decoration.set(decorations, true);
+    },
+    provide: f => EditorView.decorations.from(f)
+});
+const bracketMatchingUnique = [
+    bracketMatchingState,
+    baseTheme$5
+];
+/**
+Create an extension that enables bracket matching. Whenever the
+cursor is next to a bracket, that bracket and the one it matches
+are highlighted. Or, when no matching bracket is found, another
+highlighting style is used to indicate this.
+*/
+function bracketMatching(config = {}) {
+    return [bracketMatchingConfig.of(config), bracketMatchingUnique];
+}
+function matchingNodes(node, dir, brackets) {
+    let byProp = node.prop(dir < 0 ? NodeProp.openedBy : NodeProp.closedBy);
+    if (byProp)
+        return byProp;
+    if (node.name.length == 1) {
+        let index = brackets.indexOf(node.name);
+        if (index > -1 && index % 2 == (dir < 0 ? 1 : 0))
+            return [brackets[index + dir]];
+    }
+    return null;
+}
+/**
+Find the matching bracket for the token at `pos`, scanning
+direction `dir`. Only the `brackets` and `maxScanDistance`
+properties are used from `config`, if given. Returns null if no
+bracket was found at `pos`, or a match result otherwise.
+*/
+function matchBrackets(state, pos, dir, config = {}) {
+    let maxScanDistance = config.maxScanDistance || DefaultScanDist, brackets = config.brackets || DefaultBrackets;
+    let tree = syntaxTree(state), node = tree.resolveInner(pos, dir);
+    for (let cur = node; cur; cur = cur.parent) {
+        let matches = matchingNodes(cur.type, dir, brackets);
+        if (matches && cur.from < cur.to)
+            return matchMarkedBrackets(state, pos, dir, cur, matches, brackets);
+    }
+    return matchPlainBrackets(state, pos, dir, tree, node.type, maxScanDistance, brackets);
+}
+function matchMarkedBrackets(_state, _pos, dir, token, matching, brackets) {
+    let parent = token.parent, firstToken = { from: token.from, to: token.to };
+    let depth = 0, cursor = parent === null || parent === void 0 ? void 0 : parent.cursor;
+    if (cursor && (dir < 0 ? cursor.childBefore(token.from) : cursor.childAfter(token.to)))
+        do {
+            if (dir < 0 ? cursor.to <= token.from : cursor.from >= token.to) {
+                if (depth == 0 && matching.indexOf(cursor.type.name) > -1 && cursor.from < cursor.to) {
+                    return { start: firstToken, end: { from: cursor.from, to: cursor.to }, matched: true };
+                }
+                else if (matchingNodes(cursor.type, dir, brackets)) {
+                    depth++;
+                }
+                else if (matchingNodes(cursor.type, -dir, brackets)) {
+                    depth--;
+                    if (depth == 0)
+                        return {
+                            start: firstToken,
+                            end: cursor.from == cursor.to ? undefined : { from: cursor.from, to: cursor.to },
+                            matched: false
+                        };
+                }
+            }
+        } while (dir < 0 ? cursor.prevSibling() : cursor.nextSibling());
+    return { start: firstToken, matched: false };
+}
+function matchPlainBrackets(state, pos, dir, tree, tokenType, maxScanDistance, brackets) {
+    let startCh = dir < 0 ? state.sliceDoc(pos - 1, pos) : state.sliceDoc(pos, pos + 1);
+    let bracket = brackets.indexOf(startCh);
+    if (bracket < 0 || (bracket % 2 == 0) != (dir > 0))
+        return null;
+    let startToken = { from: dir < 0 ? pos - 1 : pos, to: dir > 0 ? pos + 1 : pos };
+    let iter = state.doc.iterRange(pos, dir > 0 ? state.doc.length : 0), depth = 0;
+    for (let distance = 0; !(iter.next()).done && distance <= maxScanDistance;) {
+        let text = iter.value;
+        if (dir < 0)
+            distance += text.length;
+        let basePos = pos + distance * dir;
+        for (let pos = dir > 0 ? 0 : text.length - 1, end = dir > 0 ? text.length : -1; pos != end; pos += dir) {
+            let found = brackets.indexOf(text[pos]);
+            if (found < 0 || tree.resolve(basePos + pos, 1).type != tokenType)
+                continue;
+            if ((found % 2 == 0) == (dir > 0)) {
+                depth++;
+            }
+            else if (depth == 1) { // Closing
+                return { start: startToken, end: { from: basePos + pos, to: basePos + pos + 1 }, matched: (found >> 1) == (bracket >> 1) };
+            }
+            else {
+                depth--;
+            }
+        }
+        if (dir > 0)
+            distance += text.length;
+    }
+    return iter.done ? { start: startToken, matched: false } : null;
+}
+
+function updateSel(sel, by) {
+    return EditorSelection.create(sel.ranges.map(by), sel.mainIndex);
+}
+function setSel(state, selection) {
+    return state.update({ selection, scrollIntoView: true, userEvent: "select" });
+}
+function moveSel({ state, dispatch }, how) {
+    let selection = updateSel(state.selection, how);
+    if (selection.eq(state.selection))
+        return false;
+    dispatch(setSel(state, selection));
+    return true;
+}
+function rangeEnd(range, forward) {
+    return EditorSelection.cursor(forward ? range.to : range.from);
+}
+function cursorByChar(view, forward) {
+    return moveSel(view, range => range.empty ? view.moveByChar(range, forward) : rangeEnd(range, forward));
+}
+/**
+Move the selection one character to the left (which is backward in
+left-to-right text, forward in right-to-left text).
+*/
+const cursorCharLeft = view => cursorByChar(view, view.textDirection != Direction.LTR);
+/**
+Move the selection one character to the right.
+*/
+const cursorCharRight = view => cursorByChar(view, view.textDirection == Direction.LTR);
+/**
+Move the selection one character forward.
+*/
+const cursorCharForward = view => cursorByChar(view, true);
+/**
+Move the selection one character backward.
+*/
+const cursorCharBackward = view => cursorByChar(view, false);
+function cursorByGroup(view, forward) {
+    return moveSel(view, range => range.empty ? view.moveByGroup(range, forward) : rangeEnd(range, forward));
+}
+/**
+Move the selection to the left across one group of word or
+non-word (but also non-space) characters.
+*/
+const cursorGroupLeft = view => cursorByGroup(view, view.textDirection != Direction.LTR);
+/**
+Move the selection one group to the right.
+*/
+const cursorGroupRight = view => cursorByGroup(view, view.textDirection == Direction.LTR);
+/**
+Move the selection one group forward.
+*/
+const cursorGroupForward = view => cursorByGroup(view, true);
+/**
+Move the selection one group backward.
+*/
+const cursorGroupBackward = view => cursorByGroup(view, false);
+function moveBySubword(view, range, forward) {
+    let categorize = view.state.charCategorizer(range.from);
+    return view.moveByChar(range, forward, start => {
+        let cat = CharCategory.Space, pos = range.from;
+        let done = false, sawUpper = false, sawLower = false;
+        let step = (next) => {
+            if (done)
+                return false;
+            pos += forward ? next.length : -next.length;
+            let nextCat = categorize(next), ahead;
+            if (cat == CharCategory.Space)
+                cat = nextCat;
+            if (cat != nextCat)
+                return false;
+            if (cat == CharCategory.Word) {
+                if (next.toLowerCase() == next) {
+                    if (!forward && sawUpper)
+                        return false;
+                    sawLower = true;
+                }
+                else if (sawLower) {
+                    if (forward)
+                        return false;
+                    done = true;
+                }
+                else {
+                    if (sawUpper && forward && categorize(ahead = view.state.sliceDoc(pos, pos + 1)) == CharCategory.Word &&
+                        ahead.toLowerCase() == ahead)
+                        return false;
+                    sawUpper = true;
+                }
+            }
+            return true;
+        };
+        step(start);
+        return step;
+    });
+}
+function cursorBySubword(view, forward) {
+    return moveSel(view, range => range.empty ? moveBySubword(view, range, forward) : rangeEnd(range, forward));
+}
+/**
+Move the selection one group or camel-case subword forward.
+*/
+const cursorSubwordForward = view => cursorBySubword(view, true);
+/**
+Move the selection one group or camel-case subword backward.
+*/
+const cursorSubwordBackward = view => cursorBySubword(view, false);
+function interestingNode(state, node, bracketProp) {
+    if (node.type.prop(bracketProp))
+        return true;
+    let len = node.to - node.from;
+    return len && (len > 2 || /[^\s,.;:]/.test(state.sliceDoc(node.from, node.to))) || node.firstChild;
+}
+function moveBySyntax(state, start, forward) {
+    let pos = syntaxTree(state).resolveInner(start.head);
+    let bracketProp = forward ? NodeProp.closedBy : NodeProp.openedBy;
+    // Scan forward through child nodes to see if there's an interesting
+    // node ahead.
+    for (let at = start.head;;) {
+        let next = forward ? pos.childAfter(at) : pos.childBefore(at);
+        if (!next)
+            break;
+        if (interestingNode(state, next, bracketProp))
+            pos = next;
+        else
+            at = forward ? next.to : next.from;
+    }
+    let bracket = pos.type.prop(bracketProp), match, newPos;
+    if (bracket && (match = forward ? matchBrackets(state, pos.from, 1) : matchBrackets(state, pos.to, -1)) && match.matched)
+        newPos = forward ? match.end.to : match.end.from;
+    else
+        newPos = forward ? pos.to : pos.from;
+    return EditorSelection.cursor(newPos, forward ? -1 : 1);
+}
+/**
+Move the cursor over the next syntactic element to the left.
+*/
+const cursorSyntaxLeft = view => moveSel(view, range => moveBySyntax(view.state, range, view.textDirection != Direction.LTR));
+/**
+Move the cursor over the next syntactic element to the right.
+*/
+const cursorSyntaxRight = view => moveSel(view, range => moveBySyntax(view.state, range, view.textDirection == Direction.LTR));
+function cursorByLine(view, forward) {
+    return moveSel(view, range => {
+        if (!range.empty)
+            return rangeEnd(range, forward);
+        let moved = view.moveVertically(range, forward);
+        return moved.head != range.head ? moved : view.moveToLineBoundary(range, forward);
+    });
+}
+/**
+Move the selection one line up.
+*/
+const cursorLineUp = view => cursorByLine(view, false);
+/**
+Move the selection one line down.
+*/
+const cursorLineDown = view => cursorByLine(view, true);
+function cursorByPage(view, forward) {
+    return moveSel(view, range => range.empty ? view.moveVertically(range, forward, view.dom.clientHeight) : rangeEnd(range, forward));
+}
+/**
+Move the selection one page up.
+*/
+const cursorPageUp = view => cursorByPage(view, false);
+/**
+Move the selection one page down.
+*/
+const cursorPageDown = view => cursorByPage(view, true);
+function moveByLineBoundary(view, start, forward) {
+    let line = view.visualLineAt(start.head), moved = view.moveToLineBoundary(start, forward);
+    if (moved.head == start.head && moved.head != (forward ? line.to : line.from))
+        moved = view.moveToLineBoundary(start, forward, false);
+    if (!forward && moved.head == line.from && line.length) {
+        let space = /^\s*/.exec(view.state.sliceDoc(line.from, Math.min(line.from + 100, line.to)))[0].length;
+        if (space && start.head != line.from + space)
+            moved = EditorSelection.cursor(line.from + space);
+    }
+    return moved;
+}
+/**
+Move the selection to the next line wrap point, or to the end of
+the line if there isn't one left on this line.
+*/
+const cursorLineBoundaryForward = view => moveSel(view, range => moveByLineBoundary(view, range, true));
+/**
+Move the selection to previous line wrap point, or failing that to
+the start of the line. If the line is indented, and the cursor
+isn't already at the end of the indentation, this will move to the
+end of the indentation instead of the start of the line.
+*/
+const cursorLineBoundaryBackward = view => moveSel(view, range => moveByLineBoundary(view, range, false));
+/**
+Move the selection to the start of the line.
+*/
+const cursorLineStart = view => moveSel(view, range => EditorSelection.cursor(view.visualLineAt(range.head).from, 1));
+/**
+Move the selection to the end of the line.
+*/
+const cursorLineEnd = view => moveSel(view, range => EditorSelection.cursor(view.visualLineAt(range.head).to, -1));
+function toMatchingBracket(state, dispatch, extend) {
+    let found = false, selection = updateSel(state.selection, range => {
+        let matching = matchBrackets(state, range.head, -1)
+            || matchBrackets(state, range.head, 1)
+            || (range.head > 0 && matchBrackets(state, range.head - 1, 1))
+            || (range.head < state.doc.length && matchBrackets(state, range.head + 1, -1));
+        if (!matching || !matching.end)
+            return range;
+        found = true;
+        let head = matching.start.from == range.head ? matching.end.to : matching.end.from;
+        return extend ? EditorSelection.range(range.anchor, head) : EditorSelection.cursor(head);
+    });
+    if (!found)
+        return false;
+    dispatch(setSel(state, selection));
+    return true;
+}
+/**
+Move the selection to the bracket matching the one it is currently
+on, if any.
+*/
+const cursorMatchingBracket = ({ state, dispatch }) => toMatchingBracket(state, dispatch, false);
+/**
+Extend the selection to the bracket matching the one the selection
+head is currently on, if any.
+*/
+const selectMatchingBracket = ({ state, dispatch }) => toMatchingBracket(state, dispatch, true);
+function extendSel(view, how) {
+    let selection = updateSel(view.state.selection, range => {
+        let head = how(range);
+        return EditorSelection.range(range.anchor, head.head, head.goalColumn);
+    });
+    if (selection.eq(view.state.selection))
+        return false;
+    view.dispatch(setSel(view.state, selection));
+    return true;
+}
+function selectByChar(view, forward) {
+    return extendSel(view, range => view.moveByChar(range, forward));
+}
+/**
+Move the selection head one character to the left, while leaving
+the anchor in place.
+*/
+const selectCharLeft = view => selectByChar(view, view.textDirection != Direction.LTR);
+/**
+Move the selection head one character to the right.
+*/
+const selectCharRight = view => selectByChar(view, view.textDirection == Direction.LTR);
+/**
+Move the selection head one character forward.
+*/
+const selectCharForward = view => selectByChar(view, true);
+/**
+Move the selection head one character backward.
+*/
+const selectCharBackward = view => selectByChar(view, false);
+function selectByGroup(view, forward) {
+    return extendSel(view, range => view.moveByGroup(range, forward));
+}
+/**
+Move the selection head one [group](https://codemirror.net/6/docs/ref/#commands.cursorGroupLeft) to
+the left.
+*/
+const selectGroupLeft = view => selectByGroup(view, view.textDirection != Direction.LTR);
+/**
+Move the selection head one group to the right.
+*/
+const selectGroupRight = view => selectByGroup(view, view.textDirection == Direction.LTR);
+/**
+Move the selection head one group forward.
+*/
+const selectGroupForward = view => selectByGroup(view, true);
+/**
+Move the selection head one group backward.
+*/
+const selectGroupBackward = view => selectByGroup(view, false);
+function selectBySubword(view, forward) {
+    return extendSel(view, range => moveBySubword(view, range, forward));
+}
+/**
+Move the selection head one group or camel-case subword forward.
+*/
+const selectSubwordForward = view => selectBySubword(view, true);
+/**
+Move the selection head one group or subword backward.
+*/
+const selectSubwordBackward = view => selectBySubword(view, false);
+/**
+Move the selection head over the next syntactic element to the left.
+*/
+const selectSyntaxLeft = view => extendSel(view, range => moveBySyntax(view.state, range, view.textDirection != Direction.LTR));
+/**
+Move the selection head over the next syntactic element to the right.
+*/
+const selectSyntaxRight = view => extendSel(view, range => moveBySyntax(view.state, range, view.textDirection == Direction.LTR));
+function selectByLine(view, forward) {
+    return extendSel(view, range => view.moveVertically(range, forward));
+}
+/**
+Move the selection head one line up.
+*/
+const selectLineUp = view => selectByLine(view, false);
+/**
+Move the selection head one line down.
+*/
+const selectLineDown = view => selectByLine(view, true);
+function selectByPage(view, forward) {
+    return extendSel(view, range => view.moveVertically(range, forward, view.dom.clientHeight));
+}
+/**
+Move the selection head one page up.
+*/
+const selectPageUp = view => selectByPage(view, false);
+/**
+Move the selection head one page down.
+*/
+const selectPageDown = view => selectByPage(view, true);
+/**
+Move the selection head to the next line boundary.
+*/
+const selectLineBoundaryForward = view => extendSel(view, range => moveByLineBoundary(view, range, true));
+/**
+Move the selection head to the previous line boundary.
+*/
+const selectLineBoundaryBackward = view => extendSel(view, range => moveByLineBoundary(view, range, false));
+/**
+Move the selection head to the start of the line.
+*/
+const selectLineStart = view => extendSel(view, range => EditorSelection.cursor(view.visualLineAt(range.head).from));
+/**
+Move the selection head to the end of the line.
+*/
+const selectLineEnd = view => extendSel(view, range => EditorSelection.cursor(view.visualLineAt(range.head).to));
+/**
+Move the selection to the start of the document.
+*/
+const cursorDocStart = ({ state, dispatch }) => {
+    dispatch(setSel(state, { anchor: 0 }));
+    return true;
+};
+/**
+Move the selection to the end of the document.
+*/
+const cursorDocEnd = ({ state, dispatch }) => {
+    dispatch(setSel(state, { anchor: state.doc.length }));
+    return true;
+};
+/**
+Move the selection head to the start of the document.
+*/
+const selectDocStart = ({ state, dispatch }) => {
+    dispatch(setSel(state, { anchor: state.selection.main.anchor, head: 0 }));
+    return true;
+};
+/**
+Move the selection head to the end of the document.
+*/
+const selectDocEnd = ({ state, dispatch }) => {
+    dispatch(setSel(state, { anchor: state.selection.main.anchor, head: state.doc.length }));
+    return true;
+};
+/**
+Select the entire document.
+*/
+const selectAll = ({ state, dispatch }) => {
+    dispatch(state.update({ selection: { anchor: 0, head: state.doc.length }, userEvent: "select" }));
+    return true;
+};
+/**
+Expand the selection to cover entire lines.
+*/
+const selectLine = ({ state, dispatch }) => {
+    let ranges = selectedLineBlocks(state).map(({ from, to }) => EditorSelection.range(from, Math.min(to + 1, state.doc.length)));
+    dispatch(state.update({ selection: EditorSelection.create(ranges), userEvent: "select" }));
+    return true;
+};
+/**
+Select the next syntactic construct that is larger than the
+selection. Note that this will only work insofar as the language
+[provider](https://codemirror.net/6/docs/ref/#language.language) you use builds up a full
+syntax tree.
+*/
+const selectParentSyntax = ({ state, dispatch }) => {
+    let selection = updateSel(state.selection, range => {
+        var _a;
+        let context = syntaxTree(state).resolveInner(range.head, 1);
+        while (!((context.from < range.from && context.to >= range.to) ||
+            (context.to > range.to && context.from <= range.from) ||
+            !((_a = context.parent) === null || _a === void 0 ? void 0 : _a.parent)))
+            context = context.parent;
+        return EditorSelection.range(context.to, context.from);
+    });
+    dispatch(setSel(state, selection));
+    return true;
+};
+/**
+Simplify the current selection. When multiple ranges are selected,
+reduce it to its main range. Otherwise, if the selection is
+non-empty, convert it to a cursor selection.
+*/
+const simplifySelection = ({ state, dispatch }) => {
+    let cur = state.selection, selection = null;
+    if (cur.ranges.length > 1)
+        selection = EditorSelection.create([cur.main]);
+    else if (!cur.main.empty)
+        selection = EditorSelection.create([EditorSelection.cursor(cur.main.head)]);
+    if (!selection)
+        return false;
+    dispatch(setSel(state, selection));
+    return true;
+};
+function deleteBy({ state, dispatch }, by) {
+    if (state.readOnly)
+        return false;
+    let event = "delete.selection";
+    let changes = state.changeByRange(range => {
+        let { from, to } = range;
+        if (from == to) {
+            let towards = by(from);
+            if (towards < from)
+                event = "delete.backward";
+            else if (towards > from)
+                event = "delete.forward";
+            from = Math.min(from, towards);
+            to = Math.max(to, towards);
+        }
+        return from == to ? { range } : { changes: { from, to }, range: EditorSelection.cursor(from) };
+    });
+    if (changes.changes.empty)
+        return false;
+    dispatch(state.update(changes, { scrollIntoView: true, userEvent: event }));
+    return true;
+}
+function skipAtomic(target, pos, forward) {
+    if (target instanceof EditorView)
+        for (let ranges of target.pluginField(PluginField.atomicRanges))
+            ranges.between(pos, pos, (from, to) => {
+                if (from < pos && to > pos)
+                    pos = forward ? to : from;
+            });
+    return pos;
+}
+const deleteByChar = (target, forward) => deleteBy(target, pos => {
+    let { state } = target, line = state.doc.lineAt(pos), before, targetPos;
+    if (!forward && pos > line.from && pos < line.from + 200 &&
+        !/[^ \t]/.test(before = line.text.slice(0, pos - line.from))) {
+        if (before[before.length - 1] == "\t")
+            return pos - 1;
+        let col = countColumn(before, state.tabSize), drop = col % getIndentUnit(state) || getIndentUnit(state);
+        for (let i = 0; i < drop && before[before.length - 1 - i] == " "; i++)
+            pos--;
+        targetPos = pos;
+    }
+    else {
+        targetPos = findClusterBreak(line.text, pos - line.from, forward) + line.from;
+        if (targetPos == pos && line.number != (forward ? state.doc.lines : 1))
+            targetPos += forward ? 1 : -1;
+    }
+    return skipAtomic(target, targetPos, forward);
+});
+/**
+Delete the selection, or, for cursor selections, the character
+before the cursor.
+*/
+const deleteCharBackward = view => deleteByChar(view, false);
+/**
+Delete the selection or the character after the cursor.
+*/
+const deleteCharForward = view => deleteByChar(view, true);
+const deleteByGroup = (target, forward) => deleteBy(target, start => {
+    let pos = start, { state } = target, line = state.doc.lineAt(pos);
+    let categorize = state.charCategorizer(pos);
+    for (let cat = null;;) {
+        if (pos == (forward ? line.to : line.from)) {
+            if (pos == start && line.number != (forward ? state.doc.lines : 1))
+                pos += forward ? 1 : -1;
+            break;
+        }
+        let next = findClusterBreak(line.text, pos - line.from, forward) + line.from;
+        let nextChar = line.text.slice(Math.min(pos, next) - line.from, Math.max(pos, next) - line.from);
+        let nextCat = categorize(nextChar);
+        if (cat != null && nextCat != cat)
+            break;
+        if (nextChar != " " || pos != start)
+            cat = nextCat;
+        pos = next;
+    }
+    return skipAtomic(target, pos, forward);
+});
+/**
+Delete the selection or backward until the end of the next
+[group](https://codemirror.net/6/docs/ref/#view.EditorView.moveByGroup), only skipping groups of
+whitespace when they consist of a single space.
+*/
+const deleteGroupBackward = target => deleteByGroup(target, false);
+/**
+Delete the selection or forward until the end of the next group.
+*/
+const deleteGroupForward = target => deleteByGroup(target, true);
+/**
+Delete the selection, or, if it is a cursor selection, delete to
+the end of the line. If the cursor is directly at the end of the
+line, delete the line break after it.
+*/
+const deleteToLineEnd = view => deleteBy(view, pos => {
+    let lineEnd = view.visualLineAt(pos).to;
+    return skipAtomic(view, pos < lineEnd ? lineEnd : Math.min(view.state.doc.length, pos + 1), true);
+});
+/**
+Delete the selection, or, if it is a cursor selection, delete to
+the start of the line. If the cursor is directly at the start of the
+line, delete the line break before it.
+*/
+const deleteToLineStart = view => deleteBy(view, pos => {
+    let lineStart = view.visualLineAt(pos).from;
+    return skipAtomic(view, pos > lineStart ? lineStart : Math.max(0, pos - 1), false);
+});
+/**
+Delete all whitespace directly before a line end from the
+document.
+*/
+const deleteTrailingWhitespace = ({ state, dispatch }) => {
+    if (state.readOnly)
+        return false;
+    let changes = [];
+    for (let pos = 0, prev = "", iter = state.doc.iter();;) {
+        iter.next();
+        if (iter.lineBreak || iter.done) {
+            let trailing = prev.search(/\s+$/);
+            if (trailing > -1)
+                changes.push({ from: pos - (prev.length - trailing), to: pos });
+            if (iter.done)
+                break;
+            prev = "";
+        }
+        else {
+            prev = iter.value;
+        }
+        pos += iter.value.length;
+    }
+    if (!changes.length)
+        return false;
+    dispatch(state.update({ changes, userEvent: "delete" }));
+    return true;
+};
+/**
+Replace each selection range with a line break, leaving the cursor
+on the line before the break.
+*/
+const splitLine = ({ state, dispatch }) => {
+    if (state.readOnly)
+        return false;
+    let changes = state.changeByRange(range => {
+        return { changes: { from: range.from, to: range.to, insert: Text.of(["", ""]) },
+            range: EditorSelection.cursor(range.from) };
+    });
+    dispatch(state.update(changes, { scrollIntoView: true, userEvent: "input" }));
+    return true;
+};
+/**
+Flip the characters before and after the cursor(s).
+*/
+const transposeChars = ({ state, dispatch }) => {
+    if (state.readOnly)
+        return false;
+    let changes = state.changeByRange(range => {
+        if (!range.empty || range.from == 0 || range.from == state.doc.length)
+            return { range };
+        let pos = range.from, line = state.doc.lineAt(pos);
+        let from = pos == line.from ? pos - 1 : findClusterBreak(line.text, pos - line.from, false) + line.from;
+        let to = pos == line.to ? pos + 1 : findClusterBreak(line.text, pos - line.from, true) + line.from;
+        return { changes: { from, to, insert: state.doc.slice(pos, to).append(state.doc.slice(from, pos)) },
+            range: EditorSelection.cursor(to) };
+    });
+    if (changes.changes.empty)
+        return false;
+    dispatch(state.update(changes, { scrollIntoView: true, userEvent: "move.character" }));
+    return true;
+};
+function selectedLineBlocks(state) {
+    let blocks = [], upto = -1;
+    for (let range of state.selection.ranges) {
+        let startLine = state.doc.lineAt(range.from), endLine = state.doc.lineAt(range.to);
+        if (!range.empty && range.to == endLine.from)
+            endLine = state.doc.lineAt(range.to - 1);
+        if (upto >= startLine.number) {
+            let prev = blocks[blocks.length - 1];
+            prev.to = endLine.to;
+            prev.ranges.push(range);
+        }
+        else {
+            blocks.push({ from: startLine.from, to: endLine.to, ranges: [range] });
+        }
+        upto = endLine.number + 1;
+    }
+    return blocks;
+}
+function moveLine(state, dispatch, forward) {
+    if (state.readOnly)
+        return false;
+    let changes = [], ranges = [];
+    for (let block of selectedLineBlocks(state)) {
+        if (forward ? block.to == state.doc.length : block.from == 0)
+            continue;
+        let nextLine = state.doc.lineAt(forward ? block.to + 1 : block.from - 1);
+        let size = nextLine.length + 1;
+        if (forward) {
+            changes.push({ from: block.to, to: nextLine.to }, { from: block.from, insert: nextLine.text + state.lineBreak });
+            for (let r of block.ranges)
+                ranges.push(EditorSelection.range(Math.min(state.doc.length, r.anchor + size), Math.min(state.doc.length, r.head + size)));
+        }
+        else {
+            changes.push({ from: nextLine.from, to: block.from }, { from: block.to, insert: state.lineBreak + nextLine.text });
+            for (let r of block.ranges)
+                ranges.push(EditorSelection.range(r.anchor - size, r.head - size));
+        }
+    }
+    if (!changes.length)
+        return false;
+    dispatch(state.update({
+        changes,
+        scrollIntoView: true,
+        selection: EditorSelection.create(ranges, state.selection.mainIndex),
+        userEvent: "move.line"
+    }));
+    return true;
+}
+/**
+Move the selected lines up one line.
+*/
+const moveLineUp = ({ state, dispatch }) => moveLine(state, dispatch, false);
+/**
+Move the selected lines down one line.
+*/
+const moveLineDown = ({ state, dispatch }) => moveLine(state, dispatch, true);
+function copyLine(state, dispatch, forward) {
+    if (state.readOnly)
+        return false;
+    let changes = [];
+    for (let block of selectedLineBlocks(state)) {
+        if (forward)
+            changes.push({ from: block.from, insert: state.doc.slice(block.from, block.to) + state.lineBreak });
+        else
+            changes.push({ from: block.to, insert: state.lineBreak + state.doc.slice(block.from, block.to) });
+    }
+    dispatch(state.update({ changes, scrollIntoView: true, userEvent: "input.copyline" }));
+    return true;
+}
+/**
+Create a copy of the selected lines. Keep the selection in the top copy.
+*/
+const copyLineUp = ({ state, dispatch }) => copyLine(state, dispatch, false);
+/**
+Create a copy of the selected lines. Keep the selection in the bottom copy.
+*/
+const copyLineDown = ({ state, dispatch }) => copyLine(state, dispatch, true);
+/**
+Delete selected lines.
+*/
+const deleteLine = view => {
+    if (view.state.readOnly)
+        return false;
+    let { state } = view, changes = state.changes(selectedLineBlocks(state).map(({ from, to }) => {
+        if (from > 0)
+            from--;
+        else if (to < state.doc.length)
+            to++;
+        return { from, to };
+    }));
+    let selection = updateSel(state.selection, range => view.moveVertically(range, true)).map(changes);
+    view.dispatch({ changes, selection, scrollIntoView: true, userEvent: "delete.line" });
+    return true;
+};
+/**
+Replace the selection with a newline.
+*/
+const insertNewline = ({ state, dispatch }) => {
+    dispatch(state.update(state.replaceSelection(state.lineBreak), { scrollIntoView: true, userEvent: "input" }));
+    return true;
+};
+function isBetweenBrackets(state, pos) {
+    if (/\(\)|\[\]|\{\}/.test(state.sliceDoc(pos - 1, pos + 1)))
+        return { from: pos, to: pos };
+    let context = syntaxTree(state).resolveInner(pos);
+    let before = context.childBefore(pos), after = context.childAfter(pos), closedBy;
+    if (before && after && before.to <= pos && after.from >= pos &&
+        (closedBy = before.type.prop(NodeProp.closedBy)) && closedBy.indexOf(after.name) > -1 &&
+        state.doc.lineAt(before.to).from == state.doc.lineAt(after.from).from)
+        return { from: before.to, to: after.from };
+    return null;
+}
+/**
+Replace the selection with a newline and indent the newly created
+line(s). If the current line consists only of whitespace, this
+will also delete that whitespace. When the cursor is between
+matching brackets, an additional newline will be inserted after
+the cursor.
+*/
+const insertNewlineAndIndent = /*@__PURE__*/newlineAndIndent(false);
+/**
+Create a blank, indented line below the current line.
+*/
+const insertBlankLine = /*@__PURE__*/newlineAndIndent(true);
+function newlineAndIndent(atEof) {
+    return ({ state, dispatch }) => {
+        if (state.readOnly)
+            return false;
+        let changes = state.changeByRange(range => {
+            let { from, to } = range, line = state.doc.lineAt(from);
+            let explode = !atEof && from == to && isBetweenBrackets(state, from);
+            if (atEof)
+                from = to = (to <= line.to ? line : state.doc.lineAt(to)).to;
+            let cx = new IndentContext(state, { simulateBreak: from, simulateDoubleBreak: !!explode });
+            let indent = getIndentation(cx, from);
+            if (indent == null)
+                indent = /^\s*/.exec(state.doc.lineAt(from).text)[0].length;
+            while (to < line.to && /\s/.test(line.text[to - line.from]))
+                to++;
+            if (explode)
+                ({ from, to } = explode);
+            else if (from > line.from && from < line.from + 100 && !/\S/.test(line.text.slice(0, from)))
+                from = line.from;
+            let insert = ["", indentString(state, indent)];
+            if (explode)
+                insert.push(indentString(state, cx.lineIndent(line.from, -1)));
+            return { changes: { from, to, insert: Text.of(insert) },
+                range: EditorSelection.cursor(from + 1 + insert[1].length) };
+        });
+        dispatch(state.update(changes, { scrollIntoView: true, userEvent: "input" }));
+        return true;
+    };
+}
+function changeBySelectedLine(state, f) {
+    let atLine = -1;
+    return state.changeByRange(range => {
+        let changes = [];
+        for (let pos = range.from; pos <= range.to;) {
+            let line = state.doc.lineAt(pos);
+            if (line.number > atLine && (range.empty || range.to > line.from)) {
+                f(line, changes, range);
+                atLine = line.number;
+            }
+            pos = line.to + 1;
+        }
+        let changeSet = state.changes(changes);
+        return { changes,
+            range: EditorSelection.range(changeSet.mapPos(range.anchor, 1), changeSet.mapPos(range.head, 1)) };
+    });
+}
+/**
+Auto-indent the selected lines. This uses the [indentation service
+facet](https://codemirror.net/6/docs/ref/#language.indentService) as source for auto-indent
+information.
+*/
+const indentSelection = ({ state, dispatch }) => {
+    if (state.readOnly)
+        return false;
+    let updated = Object.create(null);
+    let context = new IndentContext(state, { overrideIndentation: start => {
+            let found = updated[start];
+            return found == null ? -1 : found;
+        } });
+    let changes = changeBySelectedLine(state, (line, changes, range) => {
+        let indent = getIndentation(context, line.from);
+        if (indent == null)
+            return;
+        if (!/\S/.test(line.text))
+            indent = 0;
+        let cur = /^\s*/.exec(line.text)[0];
+        let norm = indentString(state, indent);
+        if (cur != norm || range.from < line.from + cur.length) {
+            updated[line.from] = indent;
+            changes.push({ from: line.from, to: line.from + cur.length, insert: norm });
+        }
+    });
+    if (!changes.changes.empty)
+        dispatch(state.update(changes, { userEvent: "indent" }));
+    return true;
+};
+/**
+Add a [unit](https://codemirror.net/6/docs/ref/#language.indentUnit) of indentation to all selected
+lines.
+*/
+const indentMore = ({ state, dispatch }) => {
+    if (state.readOnly)
+        return false;
+    dispatch(state.update(changeBySelectedLine(state, (line, changes) => {
+        changes.push({ from: line.from, insert: state.facet(indentUnit) });
+    }), { userEvent: "input.indent" }));
+    return true;
+};
+/**
+Remove a [unit](https://codemirror.net/6/docs/ref/#language.indentUnit) of indentation from all
+selected lines.
+*/
+const indentLess = ({ state, dispatch }) => {
+    if (state.readOnly)
+        return false;
+    dispatch(state.update(changeBySelectedLine(state, (line, changes) => {
+        let space = /^\s*/.exec(line.text)[0];
+        if (!space)
+            return;
+        let col = countColumn(space, state.tabSize), keep = 0;
+        let insert = indentString(state, Math.max(0, col - getIndentUnit(state)));
+        while (keep < space.length && keep < insert.length && space.charCodeAt(keep) == insert.charCodeAt(keep))
+            keep++;
+        changes.push({ from: line.from + keep, to: line.from + space.length, insert: insert.slice(keep) });
+    }), { userEvent: "delete.dedent" }));
+    return true;
+};
+/**
+Insert a tab character at the cursor or, if something is selected,
+use [`indentMore`](https://codemirror.net/6/docs/ref/#commands.indentMore) to indent the entire
+selection.
+*/
+const insertTab = ({ state, dispatch }) => {
+    if (state.selection.ranges.some(r => !r.empty))
+        return indentMore({ state, dispatch });
+    dispatch(state.update(state.replaceSelection("\t"), { scrollIntoView: true, userEvent: "input" }));
+    return true;
+};
+/**
+Array of key bindings containing the Emacs-style bindings that are
+available on macOS by default.
+
+ - Ctrl-b: [`cursorCharLeft`](https://codemirror.net/6/docs/ref/#commands.cursorCharLeft) ([`selectCharLeft`](https://codemirror.net/6/docs/ref/#commands.selectCharLeft) with Shift)
+ - Ctrl-f: [`cursorCharRight`](https://codemirror.net/6/docs/ref/#commands.cursorCharRight) ([`selectCharRight`](https://codemirror.net/6/docs/ref/#commands.selectCharRight) with Shift)
+ - Ctrl-p: [`cursorLineUp`](https://codemirror.net/6/docs/ref/#commands.cursorLineUp) ([`selectLineUp`](https://codemirror.net/6/docs/ref/#commands.selectLineUp) with Shift)
+ - Ctrl-n: [`cursorLineDown`](https://codemirror.net/6/docs/ref/#commands.cursorLineDown) ([`selectLineDown`](https://codemirror.net/6/docs/ref/#commands.selectLineDown) with Shift)
+ - Ctrl-a: [`cursorLineStart`](https://codemirror.net/6/docs/ref/#commands.cursorLineStart) ([`selectLineStart`](https://codemirror.net/6/docs/ref/#commands.selectLineStart) with Shift)
+ - Ctrl-e: [`cursorLineEnd`](https://codemirror.net/6/docs/ref/#commands.cursorLineEnd) ([`selectLineEnd`](https://codemirror.net/6/docs/ref/#commands.selectLineEnd) with Shift)
+ - Ctrl-d: [`deleteCharForward`](https://codemirror.net/6/docs/ref/#commands.deleteCharForward)
+ - Ctrl-h: [`deleteCharBackward`](https://codemirror.net/6/docs/ref/#commands.deleteCharBackward)
+ - Ctrl-k: [`deleteToLineEnd`](https://codemirror.net/6/docs/ref/#commands.deleteToLineEnd)
+ - Ctrl-Alt-h: [`deleteGroupBackward`](https://codemirror.net/6/docs/ref/#commands.deleteGroupBackward)
+ - Ctrl-o: [`splitLine`](https://codemirror.net/6/docs/ref/#commands.splitLine)
+ - Ctrl-t: [`transposeChars`](https://codemirror.net/6/docs/ref/#commands.transposeChars)
+ - Alt-<: [`cursorDocStart`](https://codemirror.net/6/docs/ref/#commands.cursorDocStart)
+ - Alt->: [`cursorDocEnd`](https://codemirror.net/6/docs/ref/#commands.cursorDocEnd)
+ - Ctrl-v: [`cursorPageDown`](https://codemirror.net/6/docs/ref/#commands.cursorPageDown)
+ - Alt-v: [`cursorPageUp`](https://codemirror.net/6/docs/ref/#commands.cursorPageUp)
+*/
+const emacsStyleKeymap = [
+    { key: "Ctrl-b", run: cursorCharLeft, shift: selectCharLeft, preventDefault: true },
+    { key: "Ctrl-f", run: cursorCharRight, shift: selectCharRight },
+    { key: "Ctrl-p", run: cursorLineUp, shift: selectLineUp },
+    { key: "Ctrl-n", run: cursorLineDown, shift: selectLineDown },
+    { key: "Ctrl-a", run: cursorLineStart, shift: selectLineStart },
+    { key: "Ctrl-e", run: cursorLineEnd, shift: selectLineEnd },
+    { key: "Ctrl-d", run: deleteCharForward },
+    { key: "Ctrl-h", run: deleteCharBackward },
+    { key: "Ctrl-k", run: deleteToLineEnd },
+    { key: "Ctrl-Alt-h", run: deleteGroupBackward },
+    { key: "Ctrl-o", run: splitLine },
+    { key: "Ctrl-t", run: transposeChars },
+    { key: "Alt-<", run: cursorDocStart },
+    { key: "Alt->", run: cursorDocEnd },
+    { key: "Ctrl-v", run: cursorPageDown },
+    { key: "Alt-v", run: cursorPageUp },
+];
+/**
+An array of key bindings closely sticking to platform-standard or
+widely used bindings. (This includes the bindings from
+[`emacsStyleKeymap`](https://codemirror.net/6/docs/ref/#commands.emacsStyleKeymap), with their `key`
+property changed to `mac`.)
+
+ - ArrowLeft: [`cursorCharLeft`](https://codemirror.net/6/docs/ref/#commands.cursorCharLeft) ([`selectCharLeft`](https://codemirror.net/6/docs/ref/#commands.selectCharLeft) with Shift)
+ - ArrowRight: [`cursorCharRight`](https://codemirror.net/6/docs/ref/#commands.cursorCharRight) ([`selectCharRight`](https://codemirror.net/6/docs/ref/#commands.selectCharRight) with Shift)
+ - Ctrl-ArrowLeft (Alt-ArrowLeft on macOS): [`cursorGroupLeft`](https://codemirror.net/6/docs/ref/#commands.cursorGroupLeft) ([`selectGroupLeft`](https://codemirror.net/6/docs/ref/#commands.selectGroupLeft) with Shift)
+ - Ctrl-ArrowRight (Alt-ArrowRight on macOS): [`cursorGroupRight`](https://codemirror.net/6/docs/ref/#commands.cursorGroupRight) ([`selectGroupRight`](https://codemirror.net/6/docs/ref/#commands.selectGroupRight) with Shift)
+ - Cmd-ArrowLeft (on macOS): [`cursorLineStart`](https://codemirror.net/6/docs/ref/#commands.cursorLineStart) ([`selectLineStart`](https://codemirror.net/6/docs/ref/#commands.selectLineStart) with Shift)
+ - Cmd-ArrowRight (on macOS): [`cursorLineEnd`](https://codemirror.net/6/docs/ref/#commands.cursorLineEnd) ([`selectLineEnd`](https://codemirror.net/6/docs/ref/#commands.selectLineEnd) with Shift)
+ - ArrowUp: [`cursorLineUp`](https://codemirror.net/6/docs/ref/#commands.cursorLineUp) ([`selectLineUp`](https://codemirror.net/6/docs/ref/#commands.selectLineUp) with Shift)
+ - ArrowDown: [`cursorLineDown`](https://codemirror.net/6/docs/ref/#commands.cursorLineDown) ([`selectLineDown`](https://codemirror.net/6/docs/ref/#commands.selectLineDown) with Shift)
+ - Cmd-ArrowUp (on macOS): [`cursorDocStart`](https://codemirror.net/6/docs/ref/#commands.cursorDocStart) ([`selectDocStart`](https://codemirror.net/6/docs/ref/#commands.selectDocStart) with Shift)
+ - Cmd-ArrowDown (on macOS): [`cursorDocEnd`](https://codemirror.net/6/docs/ref/#commands.cursorDocEnd) ([`selectDocEnd`](https://codemirror.net/6/docs/ref/#commands.selectDocEnd) with Shift)
+ - Ctrl-ArrowUp (on macOS): [`cursorPageUp`](https://codemirror.net/6/docs/ref/#commands.cursorPageUp) ([`selectPageUp`](https://codemirror.net/6/docs/ref/#commands.selectPageUp) with Shift)
+ - Ctrl-ArrowDown (on macOS): [`cursorPageDown`](https://codemirror.net/6/docs/ref/#commands.cursorPageDown) ([`selectPageDown`](https://codemirror.net/6/docs/ref/#commands.selectPageDown) with Shift)
+ - PageUp: [`cursorPageUp`](https://codemirror.net/6/docs/ref/#commands.cursorPageUp) ([`selectPageUp`](https://codemirror.net/6/docs/ref/#commands.selectPageUp) with Shift)
+ - PageDown: [`cursorPageDown`](https://codemirror.net/6/docs/ref/#commands.cursorPageDown) ([`selectPageDown`](https://codemirror.net/6/docs/ref/#commands.selectPageDown) with Shift)
+ - Home: [`cursorLineBoundaryBackward`](https://codemirror.net/6/docs/ref/#commands.cursorLineBoundaryBackward) ([`selectLineBoundaryBackward`](https://codemirror.net/6/docs/ref/#commands.selectLineBoundaryBackward) with Shift)
+ - End: [`cursorLineBoundaryForward`](https://codemirror.net/6/docs/ref/#commands.cursorLineBoundaryForward) ([`selectLineBoundaryForward`](https://codemirror.net/6/docs/ref/#commands.selectLineBoundaryForward) with Shift)
+ - Ctrl-Home (Cmd-Home on macOS): [`cursorDocStart`](https://codemirror.net/6/docs/ref/#commands.cursorDocStart) ([`selectDocStart`](https://codemirror.net/6/docs/ref/#commands.selectDocStart) with Shift)
+ - Ctrl-End (Cmd-Home on macOS): [`cursorDocEnd`](https://codemirror.net/6/docs/ref/#commands.cursorDocEnd) ([`selectDocEnd`](https://codemirror.net/6/docs/ref/#commands.selectDocEnd) with Shift)
+ - Enter: [`insertNewlineAndIndent`](https://codemirror.net/6/docs/ref/#commands.insertNewlineAndIndent)
+ - Ctrl-a (Cmd-a on macOS): [`selectAll`](https://codemirror.net/6/docs/ref/#commands.selectAll)
+ - Backspace: [`deleteCharBackward`](https://codemirror.net/6/docs/ref/#commands.deleteCharBackward)
+ - Delete: [`deleteCharForward`](https://codemirror.net/6/docs/ref/#commands.deleteCharForward)
+ - Ctrl-Backspace (Alt-Backspace on macOS): [`deleteGroupBackward`](https://codemirror.net/6/docs/ref/#commands.deleteGroupBackward)
+ - Ctrl-Delete (Alt-Delete on macOS): [`deleteGroupForward`](https://codemirror.net/6/docs/ref/#commands.deleteGroupForward)
+ - Cmd-Backspace (macOS): [`deleteToLineStart`](https://codemirror.net/6/docs/ref/#commands.deleteToLineStart).
+ - Cmd-Delete (macOS): [`deleteToLineEnd`](https://codemirror.net/6/docs/ref/#commands.deleteToLineEnd).
+*/
+const standardKeymap = /*@__PURE__*/[
+    { key: "ArrowLeft", run: cursorCharLeft, shift: selectCharLeft, preventDefault: true },
+    { key: "Mod-ArrowLeft", mac: "Alt-ArrowLeft", run: cursorGroupLeft, shift: selectGroupLeft },
+    { mac: "Cmd-ArrowLeft", run: cursorLineBoundaryBackward, shift: selectLineBoundaryBackward },
+    { key: "ArrowRight", run: cursorCharRight, shift: selectCharRight, preventDefault: true },
+    { key: "Mod-ArrowRight", mac: "Alt-ArrowRight", run: cursorGroupRight, shift: selectGroupRight },
+    { mac: "Cmd-ArrowRight", run: cursorLineBoundaryForward, shift: selectLineBoundaryForward },
+    { key: "ArrowUp", run: cursorLineUp, shift: selectLineUp, preventDefault: true },
+    { mac: "Cmd-ArrowUp", run: cursorDocStart, shift: selectDocStart },
+    { mac: "Ctrl-ArrowUp", run: cursorPageUp, shift: selectPageUp },
+    { key: "ArrowDown", run: cursorLineDown, shift: selectLineDown, preventDefault: true },
+    { mac: "Cmd-ArrowDown", run: cursorDocEnd, shift: selectDocEnd },
+    { mac: "Ctrl-ArrowDown", run: cursorPageDown, shift: selectPageDown },
+    { key: "PageUp", run: cursorPageUp, shift: selectPageUp },
+    { key: "PageDown", run: cursorPageDown, shift: selectPageDown },
+    { key: "Home", run: cursorLineBoundaryBackward, shift: selectLineBoundaryBackward },
+    { key: "Mod-Home", run: cursorDocStart, shift: selectDocStart },
+    { key: "End", run: cursorLineBoundaryForward, shift: selectLineBoundaryForward },
+    { key: "Mod-End", run: cursorDocEnd, shift: selectDocEnd },
+    { key: "Enter", run: insertNewlineAndIndent },
+    { key: "Mod-a", run: selectAll },
+    { key: "Backspace", run: deleteCharBackward, shift: deleteCharBackward },
+    { key: "Delete", run: deleteCharForward, shift: deleteCharForward },
+    { key: "Mod-Backspace", mac: "Alt-Backspace", run: deleteGroupBackward },
+    { key: "Mod-Delete", mac: "Alt-Delete", run: deleteGroupForward },
+    { mac: "Mod-Backspace", run: deleteToLineStart },
+    { mac: "Mod-Delete", run: deleteToLineEnd }
+].concat(/*@__PURE__*/emacsStyleKeymap.map(b => ({ mac: b.key, run: b.run, shift: b.shift })));
+/**
+The default keymap. Includes all bindings from
+[`standardKeymap`](https://codemirror.net/6/docs/ref/#commands.standardKeymap) plus the following:
+
+- Alt-ArrowLeft (Ctrl-ArrowLeft on macOS): [`cursorSyntaxLeft`](https://codemirror.net/6/docs/ref/#commands.cursorSyntaxLeft) ([`selectSyntaxLeft`](https://codemirror.net/6/docs/ref/#commands.selectSyntaxLeft) with Shift)
+- Alt-ArrowRight (Ctrl-ArrowRight on macOS): [`cursorSyntaxRight`](https://codemirror.net/6/docs/ref/#commands.cursorSyntaxRight) ([`selectSyntaxRight`](https://codemirror.net/6/docs/ref/#commands.selectSyntaxRight) with Shift)
+- Alt-ArrowUp: [`moveLineUp`](https://codemirror.net/6/docs/ref/#commands.moveLineUp)
+- Alt-ArrowDown: [`moveLineDown`](https://codemirror.net/6/docs/ref/#commands.moveLineDown)
+- Shift-Alt-ArrowUp: [`copyLineUp`](https://codemirror.net/6/docs/ref/#commands.copyLineUp)
+- Shift-Alt-ArrowDown: [`copyLineDown`](https://codemirror.net/6/docs/ref/#commands.copyLineDown)
+- Escape: [`simplifySelection`](https://codemirror.net/6/docs/ref/#commands.simplifySelection)
+- Ctrl-Enter (Comd-Enter on macOS): [`insertBlankLine`](https://codemirror.net/6/docs/ref/#commands.insertBlankLine)
+- Alt-l (Ctrl-l on macOS): [`selectLine`](https://codemirror.net/6/docs/ref/#commands.selectLine)
+- Ctrl-i (Cmd-i on macOS): [`selectParentSyntax`](https://codemirror.net/6/docs/ref/#commands.selectParentSyntax)
+- Ctrl-[ (Cmd-[ on macOS): [`indentLess`](https://codemirror.net/6/docs/ref/#commands.indentLess)
+- Ctrl-] (Cmd-] on macOS): [`indentMore`](https://codemirror.net/6/docs/ref/#commands.indentMore)
+- Ctrl-Alt-\\ (Cmd-Alt-\\ on macOS): [`indentSelection`](https://codemirror.net/6/docs/ref/#commands.indentSelection)
+- Shift-Ctrl-k (Shift-Cmd-k on macOS): [`deleteLine`](https://codemirror.net/6/docs/ref/#commands.deleteLine)
+- Shift-Ctrl-\\ (Shift-Cmd-\\ on macOS): [`cursorMatchingBracket`](https://codemirror.net/6/docs/ref/#commands.cursorMatchingBracket)
+*/
+const defaultKeymap = /*@__PURE__*/[
+    { key: "Alt-ArrowLeft", mac: "Ctrl-ArrowLeft", run: cursorSyntaxLeft, shift: selectSyntaxLeft },
+    { key: "Alt-ArrowRight", mac: "Ctrl-ArrowRight", run: cursorSyntaxRight, shift: selectSyntaxRight },
+    { key: "Alt-ArrowUp", run: moveLineUp },
+    { key: "Shift-Alt-ArrowUp", run: copyLineUp },
+    { key: "Alt-ArrowDown", run: moveLineDown },
+    { key: "Shift-Alt-ArrowDown", run: copyLineDown },
+    { key: "Escape", run: simplifySelection },
+    { key: "Mod-Enter", run: insertBlankLine },
+    { key: "Alt-l", mac: "Ctrl-l", run: selectLine },
+    { key: "Mod-i", run: selectParentSyntax, preventDefault: true },
+    { key: "Mod-[", run: indentLess },
+    { key: "Mod-]", run: indentMore },
+    { key: "Mod-Alt-\\", run: indentSelection },
+    { key: "Shift-Mod-k", run: deleteLine },
+    { key: "Shift-Mod-\\", run: cursorMatchingBracket }
+].concat(standardKeymap);
+/**
+A binding that binds Tab to [`indentMore`](https://codemirror.net/6/docs/ref/#commands.indentMore) and
+Shift-Tab to [`indentLess`](https://codemirror.net/6/docs/ref/#commands.indentLess).
+Please see the [Tab example](../../examples/tab/) before using
+this.
+*/
+const indentWithTab = { key: "Tab", run: indentMore, shift: indentLess };
+
+var index = /*#__PURE__*/Object.freeze({
+    __proto__: null,
+    copyLineDown: copyLineDown,
+    copyLineUp: copyLineUp,
+    cursorCharBackward: cursorCharBackward,
+    cursorCharForward: cursorCharForward,
+    cursorCharLeft: cursorCharLeft,
+    cursorCharRight: cursorCharRight,
+    cursorDocEnd: cursorDocEnd,
+    cursorDocStart: cursorDocStart,
+    cursorGroupBackward: cursorGroupBackward,
+    cursorGroupForward: cursorGroupForward,
+    cursorGroupLeft: cursorGroupLeft,
+    cursorGroupRight: cursorGroupRight,
+    cursorLineBoundaryBackward: cursorLineBoundaryBackward,
+    cursorLineBoundaryForward: cursorLineBoundaryForward,
+    cursorLineDown: cursorLineDown,
+    cursorLineEnd: cursorLineEnd,
+    cursorLineStart: cursorLineStart,
+    cursorLineUp: cursorLineUp,
+    cursorMatchingBracket: cursorMatchingBracket,
+    cursorPageDown: cursorPageDown,
+    cursorPageUp: cursorPageUp,
+    cursorSubwordBackward: cursorSubwordBackward,
+    cursorSubwordForward: cursorSubwordForward,
+    cursorSyntaxLeft: cursorSyntaxLeft,
+    cursorSyntaxRight: cursorSyntaxRight,
+    defaultKeymap: defaultKeymap,
+    deleteCharBackward: deleteCharBackward,
+    deleteCharForward: deleteCharForward,
+    deleteGroupBackward: deleteGroupBackward,
+    deleteGroupForward: deleteGroupForward,
+    deleteLine: deleteLine,
+    deleteToLineEnd: deleteToLineEnd,
+    deleteToLineStart: deleteToLineStart,
+    deleteTrailingWhitespace: deleteTrailingWhitespace,
+    emacsStyleKeymap: emacsStyleKeymap,
+    indentLess: indentLess,
+    indentMore: indentMore,
+    indentSelection: indentSelection,
+    indentWithTab: indentWithTab,
+    insertBlankLine: insertBlankLine,
+    insertNewline: insertNewline,
+    insertNewlineAndIndent: insertNewlineAndIndent,
+    insertTab: insertTab,
+    moveLineDown: moveLineDown,
+    moveLineUp: moveLineUp,
+    selectAll: selectAll,
+    selectCharBackward: selectCharBackward,
+    selectCharForward: selectCharForward,
+    selectCharLeft: selectCharLeft,
+    selectCharRight: selectCharRight,
+    selectDocEnd: selectDocEnd,
+    selectDocStart: selectDocStart,
+    selectGroupBackward: selectGroupBackward,
+    selectGroupForward: selectGroupForward,
+    selectGroupLeft: selectGroupLeft,
+    selectGroupRight: selectGroupRight,
+    selectLine: selectLine,
+    selectLineBoundaryBackward: selectLineBoundaryBackward,
+    selectLineBoundaryForward: selectLineBoundaryForward,
+    selectLineDown: selectLineDown,
+    selectLineEnd: selectLineEnd,
+    selectLineStart: selectLineStart,
+    selectLineUp: selectLineUp,
+    selectMatchingBracket: selectMatchingBracket,
+    selectPageDown: selectPageDown,
+    selectPageUp: selectPageUp,
+    selectParentSyntax: selectParentSyntax,
+    selectSubwordBackward: selectSubwordBackward,
+    selectSubwordForward: selectSubwordForward,
+    selectSyntaxLeft: selectSyntaxLeft,
+    selectSyntaxRight: selectSyntaxRight,
+    simplifySelection: simplifySelection,
+    splitLine: splitLine,
+    standardKeymap: standardKeymap,
+    transposeChars: transposeChars
+});
 
 // Counts the column offset in a string, taking tabs into account.
 // Used mostly to find indentation.
@@ -17526,1629 +20542,6 @@ const parser$7 = LRParser.deserialize({
   tokenPrec: 43146
 });
 
-const ios = typeof navigator != "undefined" &&
-    !/*@__PURE__*//Edge\/(\d+)/.exec(navigator.userAgent) && /*@__PURE__*//Apple Computer/.test(navigator.vendor) &&
-    (/*@__PURE__*//Mobile\/\w+/.test(navigator.userAgent) || navigator.maxTouchPoints > 2);
-const Outside = "-10000px";
-class TooltipViewManager {
-    constructor(view, facet, createTooltipView) {
-        this.facet = facet;
-        this.createTooltipView = createTooltipView;
-        this.input = view.state.facet(facet);
-        this.tooltips = this.input.filter(t => t);
-        this.tooltipViews = this.tooltips.map(createTooltipView);
-    }
-    update(update) {
-        let input = update.state.facet(this.facet);
-        let tooltips = input.filter(x => x);
-        if (input === this.input) {
-            for (let t of this.tooltipViews)
-                if (t.update)
-                    t.update(update);
-            return { shouldMeasure: false };
-        }
-        let tooltipViews = [];
-        for (let i = 0; i < tooltips.length; i++) {
-            let tip = tooltips[i], known = -1;
-            if (!tip)
-                continue;
-            for (let i = 0; i < this.tooltips.length; i++) {
-                let other = this.tooltips[i];
-                if (other && other.create == tip.create)
-                    known = i;
-            }
-            if (known < 0) {
-                tooltipViews[i] = this.createTooltipView(tip);
-            }
-            else {
-                let tooltipView = tooltipViews[i] = this.tooltipViews[known];
-                if (tooltipView.update)
-                    tooltipView.update(update);
-            }
-        }
-        for (let t of this.tooltipViews)
-            if (tooltipViews.indexOf(t) < 0)
-                t.dom.remove();
-        this.input = input;
-        this.tooltips = tooltips;
-        this.tooltipViews = tooltipViews;
-        return { shouldMeasure: true };
-    }
-}
-const tooltipPositioning = /*@__PURE__*/Facet.define({
-    combine: values => ios ? "absolute" : values.length ? values[0] : "fixed"
-});
-const tooltipPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
-    constructor(view) {
-        this.view = view;
-        this.inView = true;
-        this.position = view.state.facet(tooltipPositioning);
-        this.measureReq = { read: this.readMeasure.bind(this), write: this.writeMeasure.bind(this), key: this };
-        this.manager = new TooltipViewManager(view, showTooltip, t => this.createTooltip(t));
-    }
-    update(update) {
-        let { shouldMeasure } = this.manager.update(update);
-        let newPosition = update.state.facet(tooltipPositioning);
-        if (newPosition != this.position) {
-            this.position = newPosition;
-            for (let t of this.manager.tooltipViews)
-                t.dom.style.position = newPosition;
-            shouldMeasure = true;
-        }
-        if (shouldMeasure)
-            this.maybeMeasure();
-    }
-    createTooltip(tooltip) {
-        let tooltipView = tooltip.create(this.view);
-        tooltipView.dom.classList.add("cm-tooltip");
-        tooltipView.dom.style.position = this.position;
-        tooltipView.dom.style.top = Outside;
-        this.view.dom.appendChild(tooltipView.dom);
-        if (tooltipView.mount)
-            tooltipView.mount(this.view);
-        return tooltipView;
-    }
-    destroy() {
-        for (let { dom } of this.manager.tooltipViews)
-            dom.remove();
-    }
-    readMeasure() {
-        return {
-            editor: this.view.dom.getBoundingClientRect(),
-            pos: this.manager.tooltips.map(t => this.view.coordsAtPos(t.pos)),
-            size: this.manager.tooltipViews.map(({ dom }) => dom.getBoundingClientRect()),
-            innerWidth: window.innerWidth,
-            innerHeight: window.innerHeight
-        };
-    }
-    writeMeasure(measured) {
-        let { editor } = measured;
-        let others = [];
-        for (let i = 0; i < this.manager.tooltips.length; i++) {
-            let tooltip = this.manager.tooltips[i], tView = this.manager.tooltipViews[i], { dom } = tView;
-            let pos = measured.pos[i], size = measured.size[i];
-            // Hide tooltips that are outside of the editor.
-            if (!pos || pos.bottom <= editor.top || pos.top >= editor.bottom || pos.right <= editor.left || pos.left >= editor.right) {
-                dom.style.top = Outside;
-                continue;
-            }
-            let width = size.right - size.left, height = size.bottom - size.top;
-            let left = this.view.textDirection == Direction.LTR ? Math.min(pos.left, measured.innerWidth - width)
-                : Math.max(0, pos.left - width);
-            let above = !!tooltip.above;
-            if (!tooltip.strictSide &&
-                (above ? pos.top - (size.bottom - size.top) < 0 : pos.bottom + (size.bottom - size.top) > measured.innerHeight))
-                above = !above;
-            let top = above ? pos.top - height : pos.bottom, right = left + width;
-            for (let r of others)
-                if (r.left < right && r.right > left && r.top < top + height && r.bottom > top)
-                    top = above ? r.top - height : r.bottom;
-            if (this.position == "absolute") {
-                dom.style.top = (top - editor.top) + "px";
-                dom.style.left = (left - editor.left) + "px";
-            }
-            else {
-                dom.style.top = top + "px";
-                dom.style.left = left + "px";
-            }
-            others.push({ left, top, right, bottom: top + height });
-            dom.classList.toggle("cm-tooltip-above", above);
-            dom.classList.toggle("cm-tooltip-below", !above);
-            if (tView.positioned)
-                tView.positioned();
-        }
-    }
-    maybeMeasure() {
-        if (this.manager.tooltips.length) {
-            if (this.view.inView)
-                this.view.requestMeasure(this.measureReq);
-            if (this.inView != this.view.inView) {
-                this.inView = this.view.inView;
-                if (!this.inView)
-                    for (let tv of this.manager.tooltipViews)
-                        tv.dom.style.top = Outside;
-            }
-        }
-    }
-}, {
-    eventHandlers: {
-        scroll() { this.maybeMeasure(); }
-    }
-});
-const baseTheme$7 = /*@__PURE__*/EditorView.baseTheme({
-    ".cm-tooltip": {
-        zIndex: 100
-    },
-    "&light .cm-tooltip": {
-        border: "1px solid #ddd",
-        backgroundColor: "#f5f5f5"
-    },
-    "&light .cm-tooltip-section:not(:first-child)": {
-        borderTop: "1px solid #ddd",
-    },
-    "&dark .cm-tooltip": {
-        backgroundColor: "#333338",
-        color: "white"
-    }
-});
-/**
-Behavior by which an extension can provide a tooltip to be shown.
-*/
-const showTooltip = /*@__PURE__*/Facet.define({
-    enables: [tooltipPlugin, baseTheme$7]
-});
-
-/**
-An instance of this is passed to completion source functions.
-*/
-class CompletionContext {
-    /**
-    Create a new completion context. (Mostly useful for testing
-    completion sources—in the editor, the extension will create
-    these for you.)
-    */
-    constructor(
-    /**
-    The editor state that the completion happens in.
-    */
-    state, 
-    /**
-    The position at which the completion is happening.
-    */
-    pos, 
-    /**
-    Indicates whether completion was activated explicitly, or
-    implicitly by typing. The usual way to respond to this is to
-    only return completions when either there is part of a
-    completable entity before the cursor, or `explicit` is true.
-    */
-    explicit) {
-        this.state = state;
-        this.pos = pos;
-        this.explicit = explicit;
-        /**
-        @internal
-        */
-        this.abortListeners = [];
-    }
-    /**
-    Get the extent, content, and (if there is a token) type of the
-    token before `this.pos`.
-    */
-    tokenBefore(types) {
-        let token = syntaxTree(this.state).resolveInner(this.pos, -1);
-        while (token && types.indexOf(token.name) < 0)
-            token = token.parent;
-        return token ? { from: token.from, to: this.pos,
-            text: this.state.sliceDoc(token.from, this.pos),
-            type: token.type } : null;
-    }
-    /**
-    Get the match of the given expression directly before the
-    cursor.
-    */
-    matchBefore(expr) {
-        let line = this.state.doc.lineAt(this.pos);
-        let start = Math.max(line.from, this.pos - 250);
-        let str = line.text.slice(start - line.from, this.pos - line.from);
-        let found = str.search(ensureAnchor(expr, false));
-        return found < 0 ? null : { from: start + found, to: this.pos, text: str.slice(found) };
-    }
-    /**
-    Yields true when the query has been aborted. Can be useful in
-    asynchronous queries to avoid doing work that will be ignored.
-    */
-    get aborted() { return this.abortListeners == null; }
-    /**
-    Allows you to register abort handlers, which will be called when
-    the query is
-    [aborted](https://codemirror.net/6/docs/ref/#autocomplete.CompletionContext.aborted).
-    */
-    addEventListener(type, listener) {
-        if (type == "abort" && this.abortListeners)
-            this.abortListeners.push(listener);
-    }
-}
-function toSet(chars) {
-    let flat = Object.keys(chars).join("");
-    let words = /\w/.test(flat);
-    if (words)
-        flat = flat.replace(/\w/g, "");
-    return `[${words ? "\\w" : ""}${flat.replace(/[^\w\s]/g, "\\$&")}]`;
-}
-function prefixMatch(options) {
-    let first = Object.create(null), rest = Object.create(null);
-    for (let { label } of options) {
-        first[label[0]] = true;
-        for (let i = 1; i < label.length; i++)
-            rest[label[i]] = true;
-    }
-    let source = toSet(first) + toSet(rest) + "*$";
-    return [new RegExp("^" + source), new RegExp(source)];
-}
-/**
-Given a a fixed array of options, return an autocompleter that
-completes them.
-*/
-function completeFromList(list) {
-    let options = list.map(o => typeof o == "string" ? { label: o } : o);
-    let [span, match] = options.every(o => /^\w+$/.test(o.label)) ? [/\w*$/, /\w+$/] : prefixMatch(options);
-    return (context) => {
-        let token = context.matchBefore(match);
-        return token || context.explicit ? { from: token ? token.from : context.pos, options, span } : null;
-    };
-}
-/**
-Wrap the given completion source so that it will only fire when the
-cursor is in a syntax node with one of the given names.
-*/
-function ifIn(nodes, source) {
-    return (context) => {
-        for (let pos = syntaxTree(context.state).resolveInner(context.pos, -1); pos; pos = pos.parent)
-            if (nodes.indexOf(pos.name) > -1)
-                return source(context);
-        return null;
-    };
-}
-/**
-Wrap the given completion source so that it will not fire when the
-cursor is in a syntax node with one of the given names.
-*/
-function ifNotIn(nodes, source) {
-    return (context) => {
-        for (let pos = syntaxTree(context.state).resolveInner(context.pos, -1); pos; pos = pos.parent)
-            if (nodes.indexOf(pos.name) > -1)
-                return null;
-        return source(context);
-    };
-}
-class Option {
-    constructor(completion, source, match) {
-        this.completion = completion;
-        this.source = source;
-        this.match = match;
-    }
-}
-function cur(state) { return state.selection.main.head; }
-// Make sure the given regexp has a $ at its end and, if `start` is
-// true, a ^ at its start.
-function ensureAnchor(expr, start) {
-    var _a;
-    let { source } = expr;
-    let addStart = start && source[0] != "^", addEnd = source[source.length - 1] != "$";
-    if (!addStart && !addEnd)
-        return expr;
-    return new RegExp(`${addStart ? "^" : ""}(?:${source})${addEnd ? "$" : ""}`, (_a = expr.flags) !== null && _a !== void 0 ? _a : (expr.ignoreCase ? "i" : ""));
-}
-/**
-This annotation is added to transactions that are produced by
-picking a completion.
-*/
-const pickedCompletion = /*@__PURE__*/Annotation.define();
-function applyCompletion(view, option) {
-    let apply = option.completion.apply || option.completion.label;
-    let result = option.source;
-    if (typeof apply == "string") {
-        view.dispatch({
-            changes: { from: result.from, to: result.to, insert: apply },
-            selection: { anchor: result.from + apply.length },
-            userEvent: "input.complete",
-            annotations: pickedCompletion.of(option.completion)
-        });
-    }
-    else {
-        apply(view, option.completion, result.from, result.to);
-    }
-}
-const SourceCache = /*@__PURE__*/new WeakMap();
-function asSource(source) {
-    if (!Array.isArray(source))
-        return source;
-    let known = SourceCache.get(source);
-    if (!known)
-        SourceCache.set(source, known = completeFromList(source));
-    return known;
-}
-
-// A pattern matcher for fuzzy completion matching. Create an instance
-// once for a pattern, and then use that to match any number of
-// completions.
-class FuzzyMatcher {
-    constructor(pattern) {
-        this.pattern = pattern;
-        this.chars = [];
-        this.folded = [];
-        // Buffers reused by calls to `match` to track matched character
-        // positions.
-        this.any = [];
-        this.precise = [];
-        this.byWord = [];
-        for (let p = 0; p < pattern.length;) {
-            let char = codePointAt(pattern, p), size = codePointSize(char);
-            this.chars.push(char);
-            let part = pattern.slice(p, p + size), upper = part.toUpperCase();
-            this.folded.push(codePointAt(upper == part ? part.toLowerCase() : upper, 0));
-            p += size;
-        }
-        this.astral = pattern.length != this.chars.length;
-    }
-    // Matches a given word (completion) against the pattern (input).
-    // Will return null for no match, and otherwise an array that starts
-    // with the match score, followed by any number of `from, to` pairs
-    // indicating the matched parts of `word`.
-    //
-    // The score is a number that is more negative the worse the match
-    // is. See `Penalty` above.
-    match(word) {
-        if (this.pattern.length == 0)
-            return [0];
-        if (word.length < this.pattern.length)
-            return null;
-        let { chars, folded, any, precise, byWord } = this;
-        // For single-character queries, only match when they occur right
-        // at the start
-        if (chars.length == 1) {
-            let first = codePointAt(word, 0);
-            return first == chars[0] ? [0, 0, codePointSize(first)]
-                : first == folded[0] ? [-200 /* CaseFold */, 0, codePointSize(first)] : null;
-        }
-        let direct = word.indexOf(this.pattern);
-        if (direct == 0)
-            return [0, 0, this.pattern.length];
-        let len = chars.length, anyTo = 0;
-        if (direct < 0) {
-            for (let i = 0, e = Math.min(word.length, 200); i < e && anyTo < len;) {
-                let next = codePointAt(word, i);
-                if (next == chars[anyTo] || next == folded[anyTo])
-                    any[anyTo++] = i;
-                i += codePointSize(next);
-            }
-            // No match, exit immediately
-            if (anyTo < len)
-                return null;
-        }
-        // This tracks the extent of the precise (non-folded, not
-        // necessarily adjacent) match
-        let preciseTo = 0;
-        // Tracks whether there is a match that hits only characters that
-        // appear to be starting words. `byWordFolded` is set to true when
-        // a case folded character is encountered in such a match
-        let byWordTo = 0, byWordFolded = false;
-        // If we've found a partial adjacent match, these track its state
-        let adjacentTo = 0, adjacentStart = -1, adjacentEnd = -1;
-        let hasLower = /[a-z]/.test(word);
-        // Go over the option's text, scanning for the various kinds of matches
-        for (let i = 0, e = Math.min(word.length, 200), prevType = 0 /* NonWord */; i < e && byWordTo < len;) {
-            let next = codePointAt(word, i);
-            if (direct < 0) {
-                if (preciseTo < len && next == chars[preciseTo])
-                    precise[preciseTo++] = i;
-                if (adjacentTo < len) {
-                    if (next == chars[adjacentTo] || next == folded[adjacentTo]) {
-                        if (adjacentTo == 0)
-                            adjacentStart = i;
-                        adjacentEnd = i + 1;
-                        adjacentTo++;
-                    }
-                    else {
-                        adjacentTo = 0;
-                    }
-                }
-            }
-            let ch, type = next < 0xff
-                ? (next >= 48 && next <= 57 || next >= 97 && next <= 122 ? 2 /* Lower */ : next >= 65 && next <= 90 ? 1 /* Upper */ : 0 /* NonWord */)
-                : ((ch = fromCodePoint(next)) != ch.toLowerCase() ? 1 /* Upper */ : ch != ch.toUpperCase() ? 2 /* Lower */ : 0 /* NonWord */);
-            if ((type == 1 /* Upper */ && hasLower || prevType == 0 /* NonWord */ && type != 0 /* NonWord */) &&
-                (chars[byWordTo] == next || (folded[byWordTo] == next && (byWordFolded = true))))
-                byWord[byWordTo++] = i;
-            prevType = type;
-            i += codePointSize(next);
-        }
-        if (byWordTo == len && byWord[0] == 0)
-            return this.result(-100 /* ByWord */ + (byWordFolded ? -200 /* CaseFold */ : 0), byWord, word);
-        if (adjacentTo == len && adjacentStart == 0)
-            return [-200 /* CaseFold */, 0, adjacentEnd];
-        if (direct > -1)
-            return [-700 /* NotStart */, direct, direct + this.pattern.length];
-        if (adjacentTo == len)
-            return [-200 /* CaseFold */ + -700 /* NotStart */, adjacentStart, adjacentEnd];
-        if (byWordTo == len)
-            return this.result(-100 /* ByWord */ + (byWordFolded ? -200 /* CaseFold */ : 0) + -700 /* NotStart */, byWord, word);
-        return chars.length == 2 ? null : this.result((any[0] ? -700 /* NotStart */ : 0) + -200 /* CaseFold */ + -1100 /* Gap */, any, word);
-    }
-    result(score, positions, word) {
-        let result = [score], i = 1;
-        for (let pos of positions) {
-            let to = pos + (this.astral ? codePointSize(codePointAt(word, pos)) : 1);
-            if (i > 1 && result[i - 1] == pos)
-                result[i - 1] = to;
-            else {
-                result[i++] = pos;
-                result[i++] = to;
-            }
-        }
-        return result;
-    }
-}
-
-const completionConfig = /*@__PURE__*/Facet.define({
-    combine(configs) {
-        return combineConfig(configs, {
-            activateOnTyping: true,
-            override: null,
-            maxRenderedOptions: 100,
-            defaultKeymap: true,
-            optionClass: () => "",
-            aboveCursor: false,
-            icons: true,
-            addToOptions: []
-        }, {
-            defaultKeymap: (a, b) => a && b,
-            icons: (a, b) => a && b,
-            optionClass: (a, b) => c => joinClass(a(c), b(c)),
-            addToOptions: (a, b) => a.concat(b)
-        });
-    }
-});
-function joinClass(a, b) {
-    return a ? b ? a + " " + b : a : b;
-}
-
-function optionContent(config) {
-    let content = config.addToOptions.slice();
-    if (config.icons)
-        content.push({
-            render(completion) {
-                let icon = document.createElement("div");
-                icon.classList.add("cm-completionIcon");
-                if (completion.type)
-                    icon.classList.add(...completion.type.split(/\s+/g).map(cls => "cm-completionIcon-" + cls));
-                icon.setAttribute("aria-hidden", "true");
-                return icon;
-            },
-            position: 20
-        });
-    content.push({
-        render(completion, _s, match) {
-            let labelElt = document.createElement("span");
-            labelElt.className = "cm-completionLabel";
-            let { label } = completion, off = 0;
-            for (let j = 1; j < match.length;) {
-                let from = match[j++], to = match[j++];
-                if (from > off)
-                    labelElt.appendChild(document.createTextNode(label.slice(off, from)));
-                let span = labelElt.appendChild(document.createElement("span"));
-                span.appendChild(document.createTextNode(label.slice(from, to)));
-                span.className = "cm-completionMatchedText";
-                off = to;
-            }
-            if (off < label.length)
-                labelElt.appendChild(document.createTextNode(label.slice(off)));
-            return labelElt;
-        },
-        position: 50
-    }, {
-        render(completion) {
-            if (!completion.detail)
-                return null;
-            let detailElt = document.createElement("span");
-            detailElt.className = "cm-completionDetail";
-            detailElt.textContent = completion.detail;
-            return detailElt;
-        },
-        position: 80
-    });
-    return content.sort((a, b) => a.position - b.position).map(a => a.render);
-}
-function createInfoDialog(option, view) {
-    let dom = document.createElement("div");
-    dom.className = "cm-tooltip cm-completionInfo";
-    let { info } = option.completion;
-    if (typeof info == "string") {
-        dom.textContent = info;
-    }
-    else {
-        let content = info(option.completion);
-        if (content.then)
-            content.then(node => dom.appendChild(node), e => logException(view.state, e, "completion info"));
-        else
-            dom.appendChild(content);
-    }
-    return dom;
-}
-function rangeAroundSelected(total, selected, max) {
-    if (total <= max)
-        return { from: 0, to: total };
-    if (selected <= (total >> 1)) {
-        let off = Math.floor(selected / max);
-        return { from: off * max, to: (off + 1) * max };
-    }
-    let off = Math.floor((total - selected) / max);
-    return { from: total - (off + 1) * max, to: total - off * max };
-}
-class CompletionTooltip {
-    constructor(view, stateField) {
-        this.view = view;
-        this.stateField = stateField;
-        this.info = null;
-        this.placeInfo = {
-            read: () => this.measureInfo(),
-            write: (pos) => this.positionInfo(pos),
-            key: this
-        };
-        let cState = view.state.field(stateField);
-        let { options, selected } = cState.open;
-        let config = view.state.facet(completionConfig);
-        this.optionContent = optionContent(config);
-        this.optionClass = config.optionClass;
-        this.range = rangeAroundSelected(options.length, selected, config.maxRenderedOptions);
-        this.dom = document.createElement("div");
-        this.dom.className = "cm-tooltip-autocomplete";
-        this.dom.addEventListener("mousedown", (e) => {
-            for (let dom = e.target, match; dom && dom != this.dom; dom = dom.parentNode) {
-                if (dom.nodeName == "LI" && (match = /-(\d+)$/.exec(dom.id)) && +match[1] < options.length) {
-                    applyCompletion(view, options[+match[1]]);
-                    e.preventDefault();
-                    return;
-                }
-            }
-        });
-        this.list = this.dom.appendChild(this.createListBox(options, cState.id, this.range));
-        this.list.addEventListener("scroll", () => {
-            if (this.info)
-                this.view.requestMeasure(this.placeInfo);
-        });
-    }
-    mount() { this.updateSel(); }
-    update(update) {
-        if (update.state.field(this.stateField) != update.startState.field(this.stateField))
-            this.updateSel();
-    }
-    positioned() {
-        if (this.info)
-            this.view.requestMeasure(this.placeInfo);
-    }
-    updateSel() {
-        let cState = this.view.state.field(this.stateField), open = cState.open;
-        if (open.selected < this.range.from || open.selected >= this.range.to) {
-            this.range = rangeAroundSelected(open.options.length, open.selected, this.view.state.facet(completionConfig).maxRenderedOptions);
-            this.list.remove();
-            this.list = this.dom.appendChild(this.createListBox(open.options, cState.id, this.range));
-            this.list.addEventListener("scroll", () => {
-                if (this.info)
-                    this.view.requestMeasure(this.placeInfo);
-            });
-        }
-        if (this.updateSelectedOption(open.selected)) {
-            if (this.info) {
-                this.info.remove();
-                this.info = null;
-            }
-            let option = open.options[open.selected];
-            if (option.completion.info) {
-                this.info = this.dom.appendChild(createInfoDialog(option, this.view));
-                this.view.requestMeasure(this.placeInfo);
-            }
-        }
-    }
-    updateSelectedOption(selected) {
-        let set = null;
-        for (let opt = this.list.firstChild, i = this.range.from; opt; opt = opt.nextSibling, i++) {
-            if (i == selected) {
-                if (!opt.hasAttribute("aria-selected")) {
-                    opt.setAttribute("aria-selected", "true");
-                    set = opt;
-                }
-            }
-            else {
-                if (opt.hasAttribute("aria-selected"))
-                    opt.removeAttribute("aria-selected");
-            }
-        }
-        if (set)
-            scrollIntoView(this.list, set);
-        return set;
-    }
-    measureInfo() {
-        let sel = this.dom.querySelector("[aria-selected]");
-        if (!sel || !this.info)
-            return null;
-        let rect = this.dom.getBoundingClientRect(), infoRect = this.info.getBoundingClientRect();
-        if (rect.top > innerHeight - 10 || rect.bottom < 10)
-            return null;
-        let top = Math.max(0, Math.min(sel.getBoundingClientRect().top, innerHeight - infoRect.height)) - rect.top;
-        let left = this.view.textDirection == Direction.RTL;
-        let spaceLeft = rect.left, spaceRight = innerWidth - rect.right;
-        if (left && spaceLeft < Math.min(infoRect.width, spaceRight))
-            left = false;
-        else if (!left && spaceRight < Math.min(infoRect.width, spaceLeft))
-            left = true;
-        return { top, left };
-    }
-    positionInfo(pos) {
-        if (this.info) {
-            this.info.style.top = (pos ? pos.top : -1e6) + "px";
-            if (pos) {
-                this.info.classList.toggle("cm-completionInfo-left", pos.left);
-                this.info.classList.toggle("cm-completionInfo-right", !pos.left);
-            }
-        }
-    }
-    createListBox(options, id, range) {
-        const ul = document.createElement("ul");
-        ul.id = id;
-        ul.setAttribute("role", "listbox");
-        for (let i = range.from; i < range.to; i++) {
-            let { completion, match } = options[i];
-            const li = ul.appendChild(document.createElement("li"));
-            li.id = id + "-" + i;
-            li.setAttribute("role", "option");
-            let cls = this.optionClass(completion);
-            if (cls)
-                li.className = cls;
-            for (let source of this.optionContent) {
-                let node = source(completion, this.view.state, match);
-                if (node)
-                    li.appendChild(node);
-            }
-        }
-        if (range.from)
-            ul.classList.add("cm-completionListIncompleteTop");
-        if (range.to < options.length)
-            ul.classList.add("cm-completionListIncompleteBottom");
-        return ul;
-    }
-}
-// We allocate a new function instance every time the completion
-// changes to force redrawing/repositioning of the tooltip
-function completionTooltip(stateField) {
-    return (view) => new CompletionTooltip(view, stateField);
-}
-function scrollIntoView(container, element) {
-    let parent = container.getBoundingClientRect();
-    let self = element.getBoundingClientRect();
-    if (self.top < parent.top)
-        container.scrollTop -= parent.top - self.top;
-    else if (self.bottom > parent.bottom)
-        container.scrollTop += self.bottom - parent.bottom;
-}
-
-const MaxOptions = 300;
-// Used to pick a preferred option when two options with the same
-// label occur in the result.
-function score(option) {
-    return (option.boost || 0) * 100 + (option.apply ? 10 : 0) + (option.info ? 5 : 0) +
-        (option.type ? 1 : 0);
-}
-function sortOptions(active, state) {
-    let options = [], i = 0;
-    for (let a of active)
-        if (a.hasResult()) {
-            if (a.result.filter === false) {
-                for (let option of a.result.options)
-                    options.push(new Option(option, a, [1e9 - i++]));
-            }
-            else {
-                let matcher = new FuzzyMatcher(state.sliceDoc(a.from, a.to)), match;
-                for (let option of a.result.options)
-                    if (match = matcher.match(option.label)) {
-                        if (option.boost != null)
-                            match[0] += option.boost;
-                        options.push(new Option(option, a, match));
-                    }
-            }
-        }
-    options.sort(cmpOption);
-    let result = [], prev = null;
-    for (let opt of options.sort(cmpOption)) {
-        if (result.length == MaxOptions)
-            break;
-        if (!prev || prev.label != opt.completion.label || prev.detail != opt.completion.detail ||
-            prev.type != opt.completion.type || prev.apply != opt.completion.apply)
-            result.push(opt);
-        else if (score(opt.completion) > score(prev))
-            result[result.length - 1] = opt;
-        prev = opt.completion;
-    }
-    return result;
-}
-class CompletionDialog {
-    constructor(options, attrs, tooltip, timestamp, selected) {
-        this.options = options;
-        this.attrs = attrs;
-        this.tooltip = tooltip;
-        this.timestamp = timestamp;
-        this.selected = selected;
-    }
-    setSelected(selected, id) {
-        return selected == this.selected || selected >= this.options.length ? this
-            : new CompletionDialog(this.options, makeAttrs(id, selected), this.tooltip, this.timestamp, selected);
-    }
-    static build(active, state, id, prev, conf) {
-        let options = sortOptions(active, state);
-        if (!options.length)
-            return null;
-        let selected = 0;
-        if (prev && prev.selected) {
-            let selectedValue = prev.options[prev.selected].completion;
-            for (let i = 0; i < options.length && !selected; i++) {
-                if (options[i].completion == selectedValue)
-                    selected = i;
-            }
-        }
-        return new CompletionDialog(options, makeAttrs(id, selected), {
-            pos: active.reduce((a, b) => b.hasResult() ? Math.min(a, b.from) : a, 1e8),
-            create: completionTooltip(completionState),
-            above: conf.aboveCursor,
-        }, prev ? prev.timestamp : Date.now(), selected);
-    }
-    map(changes) {
-        return new CompletionDialog(this.options, this.attrs, Object.assign(Object.assign({}, this.tooltip), { pos: changes.mapPos(this.tooltip.pos) }), this.timestamp, this.selected);
-    }
-}
-class CompletionState {
-    constructor(active, id, open) {
-        this.active = active;
-        this.id = id;
-        this.open = open;
-    }
-    static start() {
-        return new CompletionState(none$2, "cm-ac-" + Math.floor(Math.random() * 2e6).toString(36), null);
-    }
-    update(tr) {
-        let { state } = tr, conf = state.facet(completionConfig);
-        let sources = conf.override ||
-            state.languageDataAt("autocomplete", cur(state)).map(asSource);
-        let active = sources.map(source => {
-            let value = this.active.find(s => s.source == source) ||
-                new ActiveSource(source, this.active.some(a => a.state != 0 /* Inactive */) ? 1 /* Pending */ : 0 /* Inactive */);
-            return value.update(tr, conf);
-        });
-        if (active.length == this.active.length && active.every((a, i) => a == this.active[i]))
-            active = this.active;
-        let open = tr.selection || active.some(a => a.hasResult() && tr.changes.touchesRange(a.from, a.to)) ||
-            !sameResults(active, this.active) ? CompletionDialog.build(active, state, this.id, this.open, conf)
-            : this.open && tr.docChanged ? this.open.map(tr.changes) : this.open;
-        if (!open && active.every(a => a.state != 1 /* Pending */) && active.some(a => a.hasResult()))
-            active = active.map(a => a.hasResult() ? new ActiveSource(a.source, 0 /* Inactive */) : a);
-        for (let effect of tr.effects)
-            if (effect.is(setSelectedEffect))
-                open = open && open.setSelected(effect.value, this.id);
-        return active == this.active && open == this.open ? this : new CompletionState(active, this.id, open);
-    }
-    get tooltip() { return this.open ? this.open.tooltip : null; }
-    get attrs() { return this.open ? this.open.attrs : baseAttrs; }
-}
-function sameResults(a, b) {
-    if (a == b)
-        return true;
-    for (let iA = 0, iB = 0;;) {
-        while (iA < a.length && !a[iA].hasResult)
-            iA++;
-        while (iB < b.length && !b[iB].hasResult)
-            iB++;
-        let endA = iA == a.length, endB = iB == b.length;
-        if (endA || endB)
-            return endA == endB;
-        if (a[iA++].result != b[iB++].result)
-            return false;
-    }
-}
-const baseAttrs = {
-    "aria-autocomplete": "list",
-    "aria-expanded": "false"
-};
-function makeAttrs(id, selected) {
-    return {
-        "aria-autocomplete": "list",
-        "aria-expanded": "true",
-        "aria-activedescendant": id + "-" + selected,
-        "aria-controls": id
-    };
-}
-const none$2 = [];
-function cmpOption(a, b) {
-    let dScore = b.match[0] - a.match[0];
-    if (dScore)
-        return dScore;
-    return a.completion.label.localeCompare(b.completion.label);
-}
-function getUserEvent(tr) {
-    return tr.isUserEvent("input.type") ? "input" : tr.isUserEvent("delete.backward") ? "delete" : null;
-}
-class ActiveSource {
-    constructor(source, state, explicitPos = -1) {
-        this.source = source;
-        this.state = state;
-        this.explicitPos = explicitPos;
-    }
-    hasResult() { return false; }
-    update(tr, conf) {
-        let event = getUserEvent(tr), value = this;
-        if (event)
-            value = value.handleUserEvent(tr, event, conf);
-        else if (tr.docChanged)
-            value = value.handleChange(tr);
-        else if (tr.selection && value.state != 0 /* Inactive */)
-            value = new ActiveSource(value.source, 0 /* Inactive */);
-        for (let effect of tr.effects) {
-            if (effect.is(startCompletionEffect))
-                value = new ActiveSource(value.source, 1 /* Pending */, effect.value ? cur(tr.state) : -1);
-            else if (effect.is(closeCompletionEffect))
-                value = new ActiveSource(value.source, 0 /* Inactive */);
-            else if (effect.is(setActiveEffect))
-                for (let active of effect.value)
-                    if (active.source == value.source)
-                        value = active;
-        }
-        return value;
-    }
-    handleUserEvent(tr, type, conf) {
-        return type == "delete" || !conf.activateOnTyping ? this.map(tr.changes) : new ActiveSource(this.source, 1 /* Pending */);
-    }
-    handleChange(tr) {
-        return tr.changes.touchesRange(cur(tr.startState)) ? new ActiveSource(this.source, 0 /* Inactive */) : this.map(tr.changes);
-    }
-    map(changes) {
-        return changes.empty || this.explicitPos < 0 ? this : new ActiveSource(this.source, this.state, changes.mapPos(this.explicitPos));
-    }
-}
-class ActiveResult extends ActiveSource {
-    constructor(source, explicitPos, result, from, to, span) {
-        super(source, 2 /* Result */, explicitPos);
-        this.result = result;
-        this.from = from;
-        this.to = to;
-        this.span = span;
-    }
-    hasResult() { return true; }
-    handleUserEvent(tr, type, conf) {
-        let from = tr.changes.mapPos(this.from), to = tr.changes.mapPos(this.to, 1);
-        let pos = cur(tr.state);
-        if ((this.explicitPos > -1 ? pos < from : pos <= from) || pos > to)
-            return new ActiveSource(this.source, type == "input" && conf.activateOnTyping ? 1 /* Pending */ : 0 /* Inactive */);
-        let explicitPos = this.explicitPos < 0 ? -1 : tr.changes.mapPos(this.explicitPos);
-        if (this.span && (from == to || this.span.test(tr.state.sliceDoc(from, to))))
-            return new ActiveResult(this.source, explicitPos, this.result, from, to, this.span);
-        return new ActiveSource(this.source, 1 /* Pending */, explicitPos);
-    }
-    handleChange(tr) {
-        return tr.changes.touchesRange(this.from, this.to) ? new ActiveSource(this.source, 0 /* Inactive */) : this.map(tr.changes);
-    }
-    map(mapping) {
-        return mapping.empty ? this :
-            new ActiveResult(this.source, this.explicitPos < 0 ? -1 : mapping.mapPos(this.explicitPos), this.result, mapping.mapPos(this.from), mapping.mapPos(this.to, 1), this.span);
-    }
-}
-const startCompletionEffect = /*@__PURE__*/StateEffect.define();
-const closeCompletionEffect = /*@__PURE__*/StateEffect.define();
-const setActiveEffect = /*@__PURE__*/StateEffect.define({
-    map(sources, mapping) { return sources.map(s => s.map(mapping)); }
-});
-const setSelectedEffect = /*@__PURE__*/StateEffect.define();
-const completionState = /*@__PURE__*/StateField.define({
-    create() { return CompletionState.start(); },
-    update(value, tr) { return value.update(tr); },
-    provide: f => [
-        showTooltip.from(f, val => val.tooltip),
-        EditorView.contentAttributes.from(f, state => state.attrs)
-    ]
-});
-
-const CompletionInteractMargin = 75;
-/**
-Returns a command that moves the completion selection forward or
-backward by the given amount.
-*/
-function moveCompletionSelection(forward, by = "option") {
-    return (view) => {
-        let cState = view.state.field(completionState, false);
-        if (!cState || !cState.open || Date.now() - cState.open.timestamp < CompletionInteractMargin)
-            return false;
-        let step = 1, tooltip;
-        if (by == "page" && (tooltip = view.dom.querySelector(".cm-tooltip-autocomplete")))
-            step = Math.max(2, Math.floor(tooltip.offsetHeight / tooltip.firstChild.offsetHeight));
-        let selected = cState.open.selected + step * (forward ? 1 : -1), { length } = cState.open.options;
-        if (selected < 0)
-            selected = by == "page" ? 0 : length - 1;
-        else if (selected >= length)
-            selected = by == "page" ? length - 1 : 0;
-        view.dispatch({ effects: setSelectedEffect.of(selected) });
-        return true;
-    };
-}
-/**
-Accept the current completion.
-*/
-const acceptCompletion = (view) => {
-    let cState = view.state.field(completionState, false);
-    if (view.state.readOnly || !cState || !cState.open || Date.now() - cState.open.timestamp < CompletionInteractMargin)
-        return false;
-    applyCompletion(view, cState.open.options[cState.open.selected]);
-    return true;
-};
-/**
-Explicitly start autocompletion.
-*/
-const startCompletion = (view) => {
-    let cState = view.state.field(completionState, false);
-    if (!cState)
-        return false;
-    view.dispatch({ effects: startCompletionEffect.of(true) });
-    return true;
-};
-/**
-Close the currently active completion.
-*/
-const closeCompletion = (view) => {
-    let cState = view.state.field(completionState, false);
-    if (!cState || !cState.active.some(a => a.state != 0 /* Inactive */))
-        return false;
-    view.dispatch({ effects: closeCompletionEffect.of(null) });
-    return true;
-};
-class RunningQuery {
-    constructor(active, context) {
-        this.active = active;
-        this.context = context;
-        this.time = Date.now();
-        this.updates = [];
-        // Note that 'undefined' means 'not done yet', whereas 'null' means
-        // 'query returned null'.
-        this.done = undefined;
-    }
-}
-const DebounceTime = 50, MaxUpdateCount = 50, MinAbortTime = 1000;
-const completionPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
-    constructor(view) {
-        this.view = view;
-        this.debounceUpdate = -1;
-        this.running = [];
-        this.debounceAccept = -1;
-        this.composing = 0 /* None */;
-        for (let active of view.state.field(completionState).active)
-            if (active.state == 1 /* Pending */)
-                this.startQuery(active);
-    }
-    update(update) {
-        let cState = update.state.field(completionState);
-        if (!update.selectionSet && !update.docChanged && update.startState.field(completionState) == cState)
-            return;
-        let doesReset = update.transactions.some(tr => {
-            return (tr.selection || tr.docChanged) && !getUserEvent(tr);
-        });
-        for (let i = 0; i < this.running.length; i++) {
-            let query = this.running[i];
-            if (doesReset ||
-                query.updates.length + update.transactions.length > MaxUpdateCount && query.time - Date.now() > MinAbortTime) {
-                for (let handler of query.context.abortListeners) {
-                    try {
-                        handler();
-                    }
-                    catch (e) {
-                        logException(this.view.state, e);
-                    }
-                }
-                query.context.abortListeners = null;
-                this.running.splice(i--, 1);
-            }
-            else {
-                query.updates.push(...update.transactions);
-            }
-        }
-        if (this.debounceUpdate > -1)
-            clearTimeout(this.debounceUpdate);
-        this.debounceUpdate = cState.active.some(a => a.state == 1 /* Pending */ && !this.running.some(q => q.active.source == a.source))
-            ? setTimeout(() => this.startUpdate(), DebounceTime) : -1;
-        if (this.composing != 0 /* None */)
-            for (let tr of update.transactions) {
-                if (getUserEvent(tr) == "input")
-                    this.composing = 2 /* Changed */;
-                else if (this.composing == 2 /* Changed */ && tr.selection)
-                    this.composing = 3 /* ChangedAndMoved */;
-            }
-    }
-    startUpdate() {
-        this.debounceUpdate = -1;
-        let { state } = this.view, cState = state.field(completionState);
-        for (let active of cState.active) {
-            if (active.state == 1 /* Pending */ && !this.running.some(r => r.active.source == active.source))
-                this.startQuery(active);
-        }
-    }
-    startQuery(active) {
-        let { state } = this.view, pos = cur(state);
-        let context = new CompletionContext(state, pos, active.explicitPos == pos);
-        let pending = new RunningQuery(active, context);
-        this.running.push(pending);
-        Promise.resolve(active.source(context)).then(result => {
-            if (!pending.context.aborted) {
-                pending.done = result || null;
-                this.scheduleAccept();
-            }
-        }, err => {
-            this.view.dispatch({ effects: closeCompletionEffect.of(null) });
-            logException(this.view.state, err);
-        });
-    }
-    scheduleAccept() {
-        if (this.running.every(q => q.done !== undefined))
-            this.accept();
-        else if (this.debounceAccept < 0)
-            this.debounceAccept = setTimeout(() => this.accept(), DebounceTime);
-    }
-    // For each finished query in this.running, try to create a result
-    // or, if appropriate, restart the query.
-    accept() {
-        var _a;
-        if (this.debounceAccept > -1)
-            clearTimeout(this.debounceAccept);
-        this.debounceAccept = -1;
-        let updated = [];
-        let conf = this.view.state.facet(completionConfig);
-        for (let i = 0; i < this.running.length; i++) {
-            let query = this.running[i];
-            if (query.done === undefined)
-                continue;
-            this.running.splice(i--, 1);
-            if (query.done) {
-                let active = new ActiveResult(query.active.source, query.active.explicitPos, query.done, query.done.from, (_a = query.done.to) !== null && _a !== void 0 ? _a : cur(query.updates.length ? query.updates[0].startState : this.view.state), query.done.span && query.done.filter !== false ? ensureAnchor(query.done.span, true) : null);
-                // Replay the transactions that happened since the start of
-                // the request and see if that preserves the result
-                for (let tr of query.updates)
-                    active = active.update(tr, conf);
-                if (active.hasResult()) {
-                    updated.push(active);
-                    continue;
-                }
-            }
-            let current = this.view.state.field(completionState).active.find(a => a.source == query.active.source);
-            if (current && current.state == 1 /* Pending */) {
-                if (query.done == null) {
-                    // Explicitly failed. Should clear the pending status if it
-                    // hasn't been re-set in the meantime.
-                    let active = new ActiveSource(query.active.source, 0 /* Inactive */);
-                    for (let tr of query.updates)
-                        active = active.update(tr, conf);
-                    if (active.state != 1 /* Pending */)
-                        updated.push(active);
-                }
-                else {
-                    // Cleared by subsequent transactions. Restart.
-                    this.startQuery(current);
-                }
-            }
-        }
-        if (updated.length)
-            this.view.dispatch({ effects: setActiveEffect.of(updated) });
-    }
-}, {
-    eventHandlers: {
-        compositionstart() {
-            this.composing = 1 /* Started */;
-        },
-        compositionend() {
-            if (this.composing == 3 /* ChangedAndMoved */) {
-                // Safari fires compositionend events synchronously, possibly
-                // from inside an update, so dispatch asynchronously to avoid reentrancy
-                setTimeout(() => this.view.dispatch({ effects: startCompletionEffect.of(false) }), 20);
-            }
-            this.composing = 0 /* None */;
-        }
-    }
-});
-
-const baseTheme$6 = /*@__PURE__*/EditorView.baseTheme({
-    ".cm-tooltip.cm-tooltip-autocomplete": {
-        "& > ul": {
-            fontFamily: "monospace",
-            whiteSpace: "nowrap",
-            overflow: "hidden auto",
-            maxWidth_fallback: "700px",
-            maxWidth: "min(700px, 95vw)",
-            minWidth: "250px",
-            maxHeight: "10em",
-            listStyle: "none",
-            margin: 0,
-            padding: 0,
-            "& > li": {
-                overflowX: "hidden",
-                textOverflow: "ellipsis",
-                cursor: "pointer",
-                padding: "1px 3px",
-                lineHeight: 1.2
-            },
-        }
-    },
-    "&light .cm-tooltip-autocomplete ul li[aria-selected]": {
-        background: "#39e",
-        color: "white",
-    },
-    "&dark .cm-tooltip-autocomplete ul li[aria-selected]": {
-        background: "#347",
-        color: "white",
-    },
-    ".cm-completionListIncompleteTop:before, .cm-completionListIncompleteBottom:after": {
-        content: '"···"',
-        opacity: 0.5,
-        display: "block",
-        textAlign: "center"
-    },
-    ".cm-tooltip.cm-completionInfo": {
-        position: "absolute",
-        padding: "3px 9px",
-        width: "max-content",
-        maxWidth: "300px",
-    },
-    ".cm-completionInfo.cm-completionInfo-left": { right: "100%" },
-    ".cm-completionInfo.cm-completionInfo-right": { left: "100%" },
-    "&light .cm-snippetField": { backgroundColor: "#00000022" },
-    "&dark .cm-snippetField": { backgroundColor: "#ffffff22" },
-    ".cm-snippetFieldPosition": {
-        verticalAlign: "text-top",
-        width: 0,
-        height: "1.15em",
-        margin: "0 -0.7px -.7em",
-        borderLeft: "1.4px dotted #888"
-    },
-    ".cm-completionMatchedText": {
-        textDecoration: "underline"
-    },
-    ".cm-completionDetail": {
-        marginLeft: "0.5em",
-        fontStyle: "italic"
-    },
-    ".cm-completionIcon": {
-        fontSize: "90%",
-        width: ".8em",
-        display: "inline-block",
-        textAlign: "center",
-        paddingRight: ".6em",
-        opacity: "0.6"
-    },
-    ".cm-completionIcon-function, .cm-completionIcon-method": {
-        "&:after": { content: "'ƒ'" }
-    },
-    ".cm-completionIcon-class": {
-        "&:after": { content: "'○'" }
-    },
-    ".cm-completionIcon-interface": {
-        "&:after": { content: "'◌'" }
-    },
-    ".cm-completionIcon-variable": {
-        "&:after": { content: "'𝑥'" }
-    },
-    ".cm-completionIcon-constant": {
-        "&:after": { content: "'𝐶'" }
-    },
-    ".cm-completionIcon-type": {
-        "&:after": { content: "'𝑡'" }
-    },
-    ".cm-completionIcon-enum": {
-        "&:after": { content: "'∪'" }
-    },
-    ".cm-completionIcon-property": {
-        "&:after": { content: "'□'" }
-    },
-    ".cm-completionIcon-keyword": {
-        "&:after": { content: "'🔑\uFE0E'" } // Disable emoji rendering
-    },
-    ".cm-completionIcon-namespace": {
-        "&:after": { content: "'▢'" }
-    },
-    ".cm-completionIcon-text": {
-        "&:after": { content: "'abc'", fontSize: "50%", verticalAlign: "middle" }
-    }
-});
-
-class FieldPos {
-    constructor(field, line, from, to) {
-        this.field = field;
-        this.line = line;
-        this.from = from;
-        this.to = to;
-    }
-}
-class FieldRange {
-    constructor(field, from, to) {
-        this.field = field;
-        this.from = from;
-        this.to = to;
-    }
-    map(changes) {
-        return new FieldRange(this.field, changes.mapPos(this.from, -1), changes.mapPos(this.to, 1));
-    }
-}
-class Snippet {
-    constructor(lines, fieldPositions) {
-        this.lines = lines;
-        this.fieldPositions = fieldPositions;
-    }
-    instantiate(state, pos) {
-        let text = [], lineStart = [pos];
-        let lineObj = state.doc.lineAt(pos), baseIndent = /^\s*/.exec(lineObj.text)[0];
-        for (let line of this.lines) {
-            if (text.length) {
-                let indent = baseIndent, tabs = /^\t*/.exec(line)[0].length;
-                for (let i = 0; i < tabs; i++)
-                    indent += state.facet(indentUnit);
-                lineStart.push(pos + indent.length - tabs);
-                line = indent + line.slice(tabs);
-            }
-            text.push(line);
-            pos += line.length + 1;
-        }
-        let ranges = this.fieldPositions.map(pos => new FieldRange(pos.field, lineStart[pos.line] + pos.from, lineStart[pos.line] + pos.to));
-        return { text, ranges };
-    }
-    static parse(template) {
-        let fields = [];
-        let lines = [], positions = [], m;
-        for (let line of template.split(/\r\n?|\n/)) {
-            while (m = /[#$]\{(?:(\d+)(?::([^}]*))?|([^}]*))\}/.exec(line)) {
-                let seq = m[1] ? +m[1] : null, name = m[2] || m[3] || "", found = -1;
-                for (let i = 0; i < fields.length; i++) {
-                    if (seq != null ? fields[i].seq == seq : name ? fields[i].name == name : false)
-                        found = i;
-                }
-                if (found < 0) {
-                    let i = 0;
-                    while (i < fields.length && (seq == null || (fields[i].seq != null && fields[i].seq < seq)))
-                        i++;
-                    fields.splice(i, 0, { seq, name });
-                    found = i;
-                    for (let pos of positions)
-                        if (pos.field >= found)
-                            pos.field++;
-                }
-                positions.push(new FieldPos(found, lines.length, m.index, m.index + name.length));
-                line = line.slice(0, m.index) + name + line.slice(m.index + m[0].length);
-            }
-            lines.push(line);
-        }
-        return new Snippet(lines, positions);
-    }
-}
-let fieldMarker = /*@__PURE__*/Decoration.widget({ widget: /*@__PURE__*/new class extends WidgetType {
-        toDOM() {
-            let span = document.createElement("span");
-            span.className = "cm-snippetFieldPosition";
-            return span;
-        }
-        ignoreEvent() { return false; }
-    } });
-let fieldRange = /*@__PURE__*/Decoration.mark({ class: "cm-snippetField" });
-class ActiveSnippet {
-    constructor(ranges, active) {
-        this.ranges = ranges;
-        this.active = active;
-        this.deco = Decoration.set(ranges.map(r => (r.from == r.to ? fieldMarker : fieldRange).range(r.from, r.to)));
-    }
-    map(changes) {
-        return new ActiveSnippet(this.ranges.map(r => r.map(changes)), this.active);
-    }
-    selectionInsideField(sel) {
-        return sel.ranges.every(range => this.ranges.some(r => r.field == this.active && r.from <= range.from && r.to >= range.to));
-    }
-}
-const setActive = /*@__PURE__*/StateEffect.define({
-    map(value, changes) { return value && value.map(changes); }
-});
-const moveToField = /*@__PURE__*/StateEffect.define();
-const snippetState = /*@__PURE__*/StateField.define({
-    create() { return null; },
-    update(value, tr) {
-        for (let effect of tr.effects) {
-            if (effect.is(setActive))
-                return effect.value;
-            if (effect.is(moveToField) && value)
-                return new ActiveSnippet(value.ranges, effect.value);
-        }
-        if (value && tr.docChanged)
-            value = value.map(tr.changes);
-        if (value && tr.selection && !value.selectionInsideField(tr.selection))
-            value = null;
-        return value;
-    },
-    provide: f => EditorView.decorations.from(f, val => val ? val.deco : Decoration.none)
-});
-function fieldSelection(ranges, field) {
-    return EditorSelection.create(ranges.filter(r => r.field == field).map(r => EditorSelection.range(r.from, r.to)));
-}
-/**
-Convert a snippet template to a function that can apply it.
-Snippets are written using syntax like this:
-
-    "for (let ${index} = 0; ${index} < ${end}; ${index}++) {\n\t${}\n}"
-
-Each `${}` placeholder (you may also use `#{}`) indicates a field
-that the user can fill in. Its name, if any, will be the default
-content for the field.
-
-When the snippet is activated by calling the returned function,
-the code is inserted at the given position. Newlines in the
-template are indented by the indentation of the start line, plus
-one [indent unit](https://codemirror.net/6/docs/ref/#language.indentUnit) per tab character after
-the newline.
-
-On activation, (all instances of) the first field are selected.
-The user can move between fields with Tab and Shift-Tab as long as
-the fields are active. Moving to the last field or moving the
-cursor out of the current field deactivates the fields.
-
-The order of fields defaults to textual order, but you can add
-numbers to placeholders (`${1}` or `${1:defaultText}`) to provide
-a custom order.
-*/
-function snippet(template) {
-    let snippet = Snippet.parse(template);
-    return (editor, _completion, from, to) => {
-        let { text, ranges } = snippet.instantiate(editor.state, from);
-        let spec = { changes: { from, to, insert: Text.of(text) } };
-        if (ranges.length)
-            spec.selection = fieldSelection(ranges, 0);
-        if (ranges.length > 1) {
-            let active = new ActiveSnippet(ranges, 0);
-            let effects = spec.effects = [setActive.of(active)];
-            if (editor.state.field(snippetState, false) === undefined)
-                effects.push(StateEffect.appendConfig.of([snippetState, addSnippetKeymap, snippetPointerHandler, baseTheme$6]));
-        }
-        editor.dispatch(editor.state.update(spec));
-    };
-}
-function moveField(dir) {
-    return ({ state, dispatch }) => {
-        let active = state.field(snippetState, false);
-        if (!active || dir < 0 && active.active == 0)
-            return false;
-        let next = active.active + dir, last = dir > 0 && !active.ranges.some(r => r.field == next + dir);
-        dispatch(state.update({
-            selection: fieldSelection(active.ranges, next),
-            effects: setActive.of(last ? null : new ActiveSnippet(active.ranges, next))
-        }));
-        return true;
-    };
-}
-/**
-A command that clears the active snippet, if any.
-*/
-const clearSnippet = ({ state, dispatch }) => {
-    let active = state.field(snippetState, false);
-    if (!active)
-        return false;
-    dispatch(state.update({ effects: setActive.of(null) }));
-    return true;
-};
-/**
-Move to the next snippet field, if available.
-*/
-const nextSnippetField = /*@__PURE__*/moveField(1);
-/**
-Move to the previous snippet field, if available.
-*/
-const prevSnippetField = /*@__PURE__*/moveField(-1);
-const defaultSnippetKeymap = [
-    { key: "Tab", run: nextSnippetField, shift: prevSnippetField },
-    { key: "Escape", run: clearSnippet }
-];
-/**
-A facet that can be used to configure the key bindings used by
-snippets. The default binds Tab to
-[`nextSnippetField`](https://codemirror.net/6/docs/ref/#autocomplete.nextSnippetField), Shift-Tab to
-[`prevSnippetField`](https://codemirror.net/6/docs/ref/#autocomplete.prevSnippetField), and Escape
-to [`clearSnippet`](https://codemirror.net/6/docs/ref/#autocomplete.clearSnippet).
-*/
-const snippetKeymap = /*@__PURE__*/Facet.define({
-    combine(maps) { return maps.length ? maps[0] : defaultSnippetKeymap; }
-});
-const addSnippetKeymap = /*@__PURE__*/Prec.highest(/*@__PURE__*/keymap.compute([snippetKeymap], state => state.facet(snippetKeymap)));
-/**
-Create a completion from a snippet. Returns an object with the
-properties from `completion`, plus an `apply` function that
-applies the snippet.
-*/
-function snippetCompletion(template, completion) {
-    return Object.assign(Object.assign({}, completion), { apply: snippet(template) });
-}
-const snippetPointerHandler = /*@__PURE__*/EditorView.domEventHandlers({
-    mousedown(event, view) {
-        let active = view.state.field(snippetState, false), pos;
-        if (!active || (pos = view.posAtCoords({ x: event.clientX, y: event.clientY })) == null)
-            return false;
-        let match = active.ranges.find(r => r.from <= pos && r.to >= pos);
-        if (!match || match.field == active.active)
-            return false;
-        view.dispatch({
-            selection: fieldSelection(active.ranges, match.field),
-            effects: setActive.of(active.ranges.some(r => r.field > match.field) ? new ActiveSnippet(active.ranges, match.field) : null)
-        });
-        return true;
-    }
-});
-
-function wordRE(wordChars) {
-    let escaped = wordChars.replace(/[\\[.+*?(){|^$]/g, "\\$&");
-    try {
-        return new RegExp(`[\\p{Alphabetic}\\p{Number}_${escaped}]+`, "ug");
-    }
-    catch (_a) {
-        return new RegExp(`[\w${escaped}]`, "g");
-    }
-}
-function mapRE(re, f) {
-    return new RegExp(f(re.source), re.unicode ? "u" : "");
-}
-const wordCaches = /*@__PURE__*/Object.create(null);
-function wordCache(wordChars) {
-    return wordCaches[wordChars] || (wordCaches[wordChars] = new WeakMap);
-}
-function storeWords(doc, wordRE, result, seen, ignoreAt) {
-    for (let lines = doc.iterLines(), pos = 0; !lines.next().done;) {
-        let { value } = lines, m;
-        wordRE.lastIndex = 0;
-        while (m = wordRE.exec(value)) {
-            if (!seen[m[0]] && pos + m.index != ignoreAt) {
-                result.push({ type: "text", label: m[0] });
-                seen[m[0]] = true;
-                if (result.length >= 2000 /* MaxList */)
-                    return;
-            }
-        }
-        pos += value.length + 1;
-    }
-}
-function collectWords(doc, cache, wordRE, to, ignoreAt) {
-    let big = doc.length >= 1000 /* MinCacheLen */;
-    let cached = big && cache.get(doc);
-    if (cached)
-        return cached;
-    let result = [], seen = Object.create(null);
-    if (doc.children) {
-        let pos = 0;
-        for (let ch of doc.children) {
-            if (ch.length >= 1000 /* MinCacheLen */) {
-                for (let c of collectWords(ch, cache, wordRE, to - pos, ignoreAt - pos)) {
-                    if (!seen[c.label]) {
-                        seen[c.label] = true;
-                        result.push(c);
-                    }
-                }
-            }
-            else {
-                storeWords(ch, wordRE, result, seen, ignoreAt - pos);
-            }
-            pos += ch.length + 1;
-        }
-    }
-    else {
-        storeWords(doc, wordRE, result, seen, ignoreAt);
-    }
-    if (big && result.length < 2000 /* MaxList */)
-        cache.set(doc, result);
-    return result;
-}
-/**
-A completion source that will scan the document for words (using a
-[character categorizer](https://codemirror.net/6/docs/ref/#state.EditorState.charCategorizer)), and
-return those as completions.
-*/
-const completeAnyWord = context => {
-    let wordChars = context.state.languageDataAt("wordChars", context.pos).join("");
-    let re = wordRE(wordChars);
-    let token = context.matchBefore(mapRE(re, s => s + "$"));
-    if (!token && !context.explicit)
-        return null;
-    let from = token ? token.from : context.pos;
-    let options = collectWords(context.state.doc, wordCache(wordChars), re, 50000 /* Range */, from);
-    return { from, options, span: mapRE(re, s => "^" + s) };
-};
-
-/**
-Returns an extension that enables autocompletion.
-*/
-function autocompletion$1(config = {}) {
-    return [
-        completionState,
-        completionConfig.of(config),
-        completionPlugin,
-        completionKeymapExt,
-        baseTheme$6
-    ];
-}
-/**
-Basic keybindings for autocompletion.
-
- - Ctrl-Space: [`startCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.startCompletion)
- - Escape: [`closeCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.closeCompletion)
- - ArrowDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true)`
- - ArrowUp: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(false)`
- - PageDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true, "page")`
- - PageDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true, "page")`
- - Enter: [`acceptCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.acceptCompletion)
-*/
-const completionKeymap$1 = [
-    { key: "Ctrl-Space", run: startCompletion },
-    { key: "Escape", run: closeCompletion },
-    { key: "ArrowDown", run: /*@__PURE__*/moveCompletionSelection(true) },
-    { key: "ArrowUp", run: /*@__PURE__*/moveCompletionSelection(false) },
-    { key: "PageDown", run: /*@__PURE__*/moveCompletionSelection(true, "page") },
-    { key: "PageUp", run: /*@__PURE__*/moveCompletionSelection(false, "page") },
-    { key: "Enter", run: acceptCompletion }
-];
-const completionKeymapExt = /*@__PURE__*/Prec.highest(/*@__PURE__*/keymap.computeN([completionConfig], state => state.facet(completionConfig).defaultKeymap ? [completionKeymap$1] : []));
-/**
-Get the current completion status. When completions are available,
-this will return `"active"`. When completions are pending (in the
-process of being queried), this returns `"pending"`. Otherwise, it
-returns `null`.
-*/
-function completionStatus(state) {
-    let cState = state.field(completionState, false);
-    return cState && cState.active.some(a => a.state == 1 /* Pending */) ? "pending"
-        : cState && cState.active.some(a => a.state != 0 /* Inactive */) ? "active" : null;
-}
-/**
-Returns the available completions as an array.
-*/
-function currentCompletions(state) {
-    var _a;
-    let open = (_a = state.field(completionState, false)) === null || _a === void 0 ? void 0 : _a.open;
-    return open ? open.options.map(o => o.completion) : [];
-}
-/**
-Return the currently selected completion, if any.
-*/
-function selectedCompletion(state) {
-    var _a;
-    let open = (_a = state.field(completionState, false)) === null || _a === void 0 ? void 0 : _a.open;
-    return open ? open.options[open.selected].completion : null;
-}
-
-var index = /*#__PURE__*/Object.freeze({
-    __proto__: null,
-    CompletionContext: CompletionContext,
-    acceptCompletion: acceptCompletion,
-    autocompletion: autocompletion$1,
-    clearSnippet: clearSnippet,
-    closeCompletion: closeCompletion,
-    completeAnyWord: completeAnyWord,
-    completeFromList: completeFromList,
-    completionKeymap: completionKeymap$1,
-    completionStatus: completionStatus,
-    currentCompletions: currentCompletions,
-    ifIn: ifIn,
-    ifNotIn: ifNotIn,
-    moveCompletionSelection: moveCompletionSelection,
-    nextSnippetField: nextSnippetField,
-    pickedCompletion: pickedCompletion,
-    prevSnippetField: prevSnippetField,
-    selectedCompletion: selectedCompletion,
-    snippet: snippet,
-    snippetCompletion: snippetCompletion,
-    snippetKeymap: snippetKeymap,
-    startCompletion: startCompletion
-});
-
 function delimitedStrategy(context, units, closing) {
     let after = context.textAfter;
     let space = after.match(/^\s*/)[0].length;
@@ -19301,7 +20694,7 @@ determined by their extension priority.
 function gutter(config) {
     return [gutters(), activeGutters.of(Object.assign(Object.assign({}, defaults$2), config))];
 }
-const baseTheme$5 = /*@__PURE__*/EditorView.baseTheme({
+const baseTheme$4 = /*@__PURE__*/EditorView.baseTheme({
     ".cm-gutters": {
         display: "flex",
         height: "100%",
@@ -19358,7 +20751,7 @@ sticky`](https://developer.mozilla.org/en-US/docs/Web/CSS/position#sticky)).
 function gutters(config) {
     let result = [
         gutterView,
-        baseTheme$5
+        baseTheme$4
     ];
     if (config && config.fixed === false)
         result.push(unfixGutters.of(true));
@@ -19968,959 +21361,6 @@ const historyKeymap = [
     { key: "Mod-u", run: undoSelection, preventDefault: true },
     { key: "Alt-u", mac: "Mod-Shift-u", run: redoSelection, preventDefault: true }
 ];
-
-const baseTheme$4 = /*@__PURE__*/EditorView.baseTheme({
-    ".cm-matchingBracket": { backgroundColor: "#328c8252" },
-    ".cm-nonmatchingBracket": { backgroundColor: "#bb555544" }
-});
-const DefaultScanDist = 10000, DefaultBrackets = "()[]{}";
-const bracketMatchingConfig = /*@__PURE__*/Facet.define({
-    combine(configs) {
-        return combineConfig(configs, {
-            afterCursor: true,
-            brackets: DefaultBrackets,
-            maxScanDistance: DefaultScanDist
-        });
-    }
-});
-const matchingMark = /*@__PURE__*/Decoration.mark({ class: "cm-matchingBracket" }), nonmatchingMark = /*@__PURE__*/Decoration.mark({ class: "cm-nonmatchingBracket" });
-const bracketMatchingState = /*@__PURE__*/StateField.define({
-    create() { return Decoration.none; },
-    update(deco, tr) {
-        if (!tr.docChanged && !tr.selection)
-            return deco;
-        let decorations = [];
-        let config = tr.state.facet(bracketMatchingConfig);
-        for (let range of tr.state.selection.ranges) {
-            if (!range.empty)
-                continue;
-            let match = matchBrackets(tr.state, range.head, -1, config)
-                || (range.head > 0 && matchBrackets(tr.state, range.head - 1, 1, config))
-                || (config.afterCursor &&
-                    (matchBrackets(tr.state, range.head, 1, config) ||
-                        (range.head < tr.state.doc.length && matchBrackets(tr.state, range.head + 1, -1, config))));
-            if (!match)
-                continue;
-            let mark = match.matched ? matchingMark : nonmatchingMark;
-            decorations.push(mark.range(match.start.from, match.start.to));
-            if (match.end)
-                decorations.push(mark.range(match.end.from, match.end.to));
-        }
-        return Decoration.set(decorations, true);
-    },
-    provide: f => EditorView.decorations.from(f)
-});
-const bracketMatchingUnique = [
-    bracketMatchingState,
-    baseTheme$4
-];
-/**
-Create an extension that enables bracket matching. Whenever the
-cursor is next to a bracket, that bracket and the one it matches
-are highlighted. Or, when no matching bracket is found, another
-highlighting style is used to indicate this.
-*/
-function bracketMatching(config = {}) {
-    return [bracketMatchingConfig.of(config), bracketMatchingUnique];
-}
-function matchingNodes(node, dir, brackets) {
-    let byProp = node.prop(dir < 0 ? NodeProp.openedBy : NodeProp.closedBy);
-    if (byProp)
-        return byProp;
-    if (node.name.length == 1) {
-        let index = brackets.indexOf(node.name);
-        if (index > -1 && index % 2 == (dir < 0 ? 1 : 0))
-            return [brackets[index + dir]];
-    }
-    return null;
-}
-/**
-Find the matching bracket for the token at `pos`, scanning
-direction `dir`. Only the `brackets` and `maxScanDistance`
-properties are used from `config`, if given. Returns null if no
-bracket was found at `pos`, or a match result otherwise.
-*/
-function matchBrackets(state, pos, dir, config = {}) {
-    let maxScanDistance = config.maxScanDistance || DefaultScanDist, brackets = config.brackets || DefaultBrackets;
-    let tree = syntaxTree(state), node = tree.resolveInner(pos, dir);
-    for (let cur = node; cur; cur = cur.parent) {
-        let matches = matchingNodes(cur.type, dir, brackets);
-        if (matches && cur.from < cur.to)
-            return matchMarkedBrackets(state, pos, dir, cur, matches, brackets);
-    }
-    return matchPlainBrackets(state, pos, dir, tree, node.type, maxScanDistance, brackets);
-}
-function matchMarkedBrackets(_state, _pos, dir, token, matching, brackets) {
-    let parent = token.parent, firstToken = { from: token.from, to: token.to };
-    let depth = 0, cursor = parent === null || parent === void 0 ? void 0 : parent.cursor;
-    if (cursor && (dir < 0 ? cursor.childBefore(token.from) : cursor.childAfter(token.to)))
-        do {
-            if (dir < 0 ? cursor.to <= token.from : cursor.from >= token.to) {
-                if (depth == 0 && matching.indexOf(cursor.type.name) > -1 && cursor.from < cursor.to) {
-                    return { start: firstToken, end: { from: cursor.from, to: cursor.to }, matched: true };
-                }
-                else if (matchingNodes(cursor.type, dir, brackets)) {
-                    depth++;
-                }
-                else if (matchingNodes(cursor.type, -dir, brackets)) {
-                    depth--;
-                    if (depth == 0)
-                        return {
-                            start: firstToken,
-                            end: cursor.from == cursor.to ? undefined : { from: cursor.from, to: cursor.to },
-                            matched: false
-                        };
-                }
-            }
-        } while (dir < 0 ? cursor.prevSibling() : cursor.nextSibling());
-    return { start: firstToken, matched: false };
-}
-function matchPlainBrackets(state, pos, dir, tree, tokenType, maxScanDistance, brackets) {
-    let startCh = dir < 0 ? state.sliceDoc(pos - 1, pos) : state.sliceDoc(pos, pos + 1);
-    let bracket = brackets.indexOf(startCh);
-    if (bracket < 0 || (bracket % 2 == 0) != (dir > 0))
-        return null;
-    let startToken = { from: dir < 0 ? pos - 1 : pos, to: dir > 0 ? pos + 1 : pos };
-    let iter = state.doc.iterRange(pos, dir > 0 ? state.doc.length : 0), depth = 0;
-    for (let distance = 0; !(iter.next()).done && distance <= maxScanDistance;) {
-        let text = iter.value;
-        if (dir < 0)
-            distance += text.length;
-        let basePos = pos + distance * dir;
-        for (let pos = dir > 0 ? 0 : text.length - 1, end = dir > 0 ? text.length : -1; pos != end; pos += dir) {
-            let found = brackets.indexOf(text[pos]);
-            if (found < 0 || tree.resolve(basePos + pos, 1).type != tokenType)
-                continue;
-            if ((found % 2 == 0) == (dir > 0)) {
-                depth++;
-            }
-            else if (depth == 1) { // Closing
-                return { start: startToken, end: { from: basePos + pos, to: basePos + pos + 1 }, matched: (found >> 1) == (bracket >> 1) };
-            }
-            else {
-                depth--;
-            }
-        }
-        if (dir > 0)
-            distance += text.length;
-    }
-    return iter.done ? { start: startToken, matched: false } : null;
-}
-
-function updateSel(sel, by) {
-    return EditorSelection.create(sel.ranges.map(by), sel.mainIndex);
-}
-function setSel(state, selection) {
-    return state.update({ selection, scrollIntoView: true, userEvent: "select" });
-}
-function moveSel({ state, dispatch }, how) {
-    let selection = updateSel(state.selection, how);
-    if (selection.eq(state.selection))
-        return false;
-    dispatch(setSel(state, selection));
-    return true;
-}
-function rangeEnd(range, forward) {
-    return EditorSelection.cursor(forward ? range.to : range.from);
-}
-function cursorByChar(view, forward) {
-    return moveSel(view, range => range.empty ? view.moveByChar(range, forward) : rangeEnd(range, forward));
-}
-/**
-Move the selection one character to the left (which is backward in
-left-to-right text, forward in right-to-left text).
-*/
-const cursorCharLeft = view => cursorByChar(view, view.textDirection != Direction.LTR);
-/**
-Move the selection one character to the right.
-*/
-const cursorCharRight = view => cursorByChar(view, view.textDirection == Direction.LTR);
-function cursorByGroup(view, forward) {
-    return moveSel(view, range => range.empty ? view.moveByGroup(range, forward) : rangeEnd(range, forward));
-}
-/**
-Move the selection to the left across one group of word or
-non-word (but also non-space) characters.
-*/
-const cursorGroupLeft = view => cursorByGroup(view, view.textDirection != Direction.LTR);
-/**
-Move the selection one group to the right.
-*/
-const cursorGroupRight = view => cursorByGroup(view, view.textDirection == Direction.LTR);
-function interestingNode(state, node, bracketProp) {
-    if (node.type.prop(bracketProp))
-        return true;
-    let len = node.to - node.from;
-    return len && (len > 2 || /[^\s,.;:]/.test(state.sliceDoc(node.from, node.to))) || node.firstChild;
-}
-function moveBySyntax(state, start, forward) {
-    let pos = syntaxTree(state).resolveInner(start.head);
-    let bracketProp = forward ? NodeProp.closedBy : NodeProp.openedBy;
-    // Scan forward through child nodes to see if there's an interesting
-    // node ahead.
-    for (let at = start.head;;) {
-        let next = forward ? pos.childAfter(at) : pos.childBefore(at);
-        if (!next)
-            break;
-        if (interestingNode(state, next, bracketProp))
-            pos = next;
-        else
-            at = forward ? next.to : next.from;
-    }
-    let bracket = pos.type.prop(bracketProp), match, newPos;
-    if (bracket && (match = forward ? matchBrackets(state, pos.from, 1) : matchBrackets(state, pos.to, -1)) && match.matched)
-        newPos = forward ? match.end.to : match.end.from;
-    else
-        newPos = forward ? pos.to : pos.from;
-    return EditorSelection.cursor(newPos, forward ? -1 : 1);
-}
-/**
-Move the cursor over the next syntactic element to the left.
-*/
-const cursorSyntaxLeft = view => moveSel(view, range => moveBySyntax(view.state, range, view.textDirection != Direction.LTR));
-/**
-Move the cursor over the next syntactic element to the right.
-*/
-const cursorSyntaxRight = view => moveSel(view, range => moveBySyntax(view.state, range, view.textDirection == Direction.LTR));
-function cursorByLine(view, forward) {
-    return moveSel(view, range => {
-        if (!range.empty)
-            return rangeEnd(range, forward);
-        let moved = view.moveVertically(range, forward);
-        return moved.head != range.head ? moved : view.moveToLineBoundary(range, forward);
-    });
-}
-/**
-Move the selection one line up.
-*/
-const cursorLineUp = view => cursorByLine(view, false);
-/**
-Move the selection one line down.
-*/
-const cursorLineDown = view => cursorByLine(view, true);
-function cursorByPage(view, forward) {
-    return moveSel(view, range => range.empty ? view.moveVertically(range, forward, view.dom.clientHeight) : rangeEnd(range, forward));
-}
-/**
-Move the selection one page up.
-*/
-const cursorPageUp = view => cursorByPage(view, false);
-/**
-Move the selection one page down.
-*/
-const cursorPageDown = view => cursorByPage(view, true);
-function moveByLineBoundary(view, start, forward) {
-    let line = view.visualLineAt(start.head), moved = view.moveToLineBoundary(start, forward);
-    if (moved.head == start.head && moved.head != (forward ? line.to : line.from))
-        moved = view.moveToLineBoundary(start, forward, false);
-    if (!forward && moved.head == line.from && line.length) {
-        let space = /^\s*/.exec(view.state.sliceDoc(line.from, Math.min(line.from + 100, line.to)))[0].length;
-        if (space && start.head != line.from + space)
-            moved = EditorSelection.cursor(line.from + space);
-    }
-    return moved;
-}
-/**
-Move the selection to the next line wrap point, or to the end of
-the line if there isn't one left on this line.
-*/
-const cursorLineBoundaryForward = view => moveSel(view, range => moveByLineBoundary(view, range, true));
-/**
-Move the selection to previous line wrap point, or failing that to
-the start of the line. If the line is indented, and the cursor
-isn't already at the end of the indentation, this will move to the
-end of the indentation instead of the start of the line.
-*/
-const cursorLineBoundaryBackward = view => moveSel(view, range => moveByLineBoundary(view, range, false));
-/**
-Move the selection to the start of the line.
-*/
-const cursorLineStart = view => moveSel(view, range => EditorSelection.cursor(view.visualLineAt(range.head).from, 1));
-/**
-Move the selection to the end of the line.
-*/
-const cursorLineEnd = view => moveSel(view, range => EditorSelection.cursor(view.visualLineAt(range.head).to, -1));
-function toMatchingBracket(state, dispatch, extend) {
-    let found = false, selection = updateSel(state.selection, range => {
-        let matching = matchBrackets(state, range.head, -1)
-            || matchBrackets(state, range.head, 1)
-            || (range.head > 0 && matchBrackets(state, range.head - 1, 1))
-            || (range.head < state.doc.length && matchBrackets(state, range.head + 1, -1));
-        if (!matching || !matching.end)
-            return range;
-        found = true;
-        let head = matching.start.from == range.head ? matching.end.to : matching.end.from;
-        return extend ? EditorSelection.range(range.anchor, head) : EditorSelection.cursor(head);
-    });
-    if (!found)
-        return false;
-    dispatch(setSel(state, selection));
-    return true;
-}
-/**
-Move the selection to the bracket matching the one it is currently
-on, if any.
-*/
-const cursorMatchingBracket = ({ state, dispatch }) => toMatchingBracket(state, dispatch, false);
-function extendSel(view, how) {
-    let selection = updateSel(view.state.selection, range => {
-        let head = how(range);
-        return EditorSelection.range(range.anchor, head.head, head.goalColumn);
-    });
-    if (selection.eq(view.state.selection))
-        return false;
-    view.dispatch(setSel(view.state, selection));
-    return true;
-}
-function selectByChar(view, forward) {
-    return extendSel(view, range => view.moveByChar(range, forward));
-}
-/**
-Move the selection head one character to the left, while leaving
-the anchor in place.
-*/
-const selectCharLeft = view => selectByChar(view, view.textDirection != Direction.LTR);
-/**
-Move the selection head one character to the right.
-*/
-const selectCharRight = view => selectByChar(view, view.textDirection == Direction.LTR);
-function selectByGroup(view, forward) {
-    return extendSel(view, range => view.moveByGroup(range, forward));
-}
-/**
-Move the selection head one [group](https://codemirror.net/6/docs/ref/#commands.cursorGroupLeft) to
-the left.
-*/
-const selectGroupLeft = view => selectByGroup(view, view.textDirection != Direction.LTR);
-/**
-Move the selection head one group to the right.
-*/
-const selectGroupRight = view => selectByGroup(view, view.textDirection == Direction.LTR);
-/**
-Move the selection head over the next syntactic element to the left.
-*/
-const selectSyntaxLeft = view => extendSel(view, range => moveBySyntax(view.state, range, view.textDirection != Direction.LTR));
-/**
-Move the selection head over the next syntactic element to the right.
-*/
-const selectSyntaxRight = view => extendSel(view, range => moveBySyntax(view.state, range, view.textDirection == Direction.LTR));
-function selectByLine(view, forward) {
-    return extendSel(view, range => view.moveVertically(range, forward));
-}
-/**
-Move the selection head one line up.
-*/
-const selectLineUp = view => selectByLine(view, false);
-/**
-Move the selection head one line down.
-*/
-const selectLineDown = view => selectByLine(view, true);
-function selectByPage(view, forward) {
-    return extendSel(view, range => view.moveVertically(range, forward, view.dom.clientHeight));
-}
-/**
-Move the selection head one page up.
-*/
-const selectPageUp = view => selectByPage(view, false);
-/**
-Move the selection head one page down.
-*/
-const selectPageDown = view => selectByPage(view, true);
-/**
-Move the selection head to the next line boundary.
-*/
-const selectLineBoundaryForward = view => extendSel(view, range => moveByLineBoundary(view, range, true));
-/**
-Move the selection head to the previous line boundary.
-*/
-const selectLineBoundaryBackward = view => extendSel(view, range => moveByLineBoundary(view, range, false));
-/**
-Move the selection head to the start of the line.
-*/
-const selectLineStart = view => extendSel(view, range => EditorSelection.cursor(view.visualLineAt(range.head).from));
-/**
-Move the selection head to the end of the line.
-*/
-const selectLineEnd = view => extendSel(view, range => EditorSelection.cursor(view.visualLineAt(range.head).to));
-/**
-Move the selection to the start of the document.
-*/
-const cursorDocStart = ({ state, dispatch }) => {
-    dispatch(setSel(state, { anchor: 0 }));
-    return true;
-};
-/**
-Move the selection to the end of the document.
-*/
-const cursorDocEnd = ({ state, dispatch }) => {
-    dispatch(setSel(state, { anchor: state.doc.length }));
-    return true;
-};
-/**
-Move the selection head to the start of the document.
-*/
-const selectDocStart = ({ state, dispatch }) => {
-    dispatch(setSel(state, { anchor: state.selection.main.anchor, head: 0 }));
-    return true;
-};
-/**
-Move the selection head to the end of the document.
-*/
-const selectDocEnd = ({ state, dispatch }) => {
-    dispatch(setSel(state, { anchor: state.selection.main.anchor, head: state.doc.length }));
-    return true;
-};
-/**
-Select the entire document.
-*/
-const selectAll = ({ state, dispatch }) => {
-    dispatch(state.update({ selection: { anchor: 0, head: state.doc.length }, userEvent: "select" }));
-    return true;
-};
-/**
-Expand the selection to cover entire lines.
-*/
-const selectLine = ({ state, dispatch }) => {
-    let ranges = selectedLineBlocks(state).map(({ from, to }) => EditorSelection.range(from, Math.min(to + 1, state.doc.length)));
-    dispatch(state.update({ selection: EditorSelection.create(ranges), userEvent: "select" }));
-    return true;
-};
-/**
-Select the next syntactic construct that is larger than the
-selection. Note that this will only work insofar as the language
-[provider](https://codemirror.net/6/docs/ref/#language.language) you use builds up a full
-syntax tree.
-*/
-const selectParentSyntax = ({ state, dispatch }) => {
-    let selection = updateSel(state.selection, range => {
-        var _a;
-        let context = syntaxTree(state).resolveInner(range.head, 1);
-        while (!((context.from < range.from && context.to >= range.to) ||
-            (context.to > range.to && context.from <= range.from) ||
-            !((_a = context.parent) === null || _a === void 0 ? void 0 : _a.parent)))
-            context = context.parent;
-        return EditorSelection.range(context.to, context.from);
-    });
-    dispatch(setSel(state, selection));
-    return true;
-};
-/**
-Simplify the current selection. When multiple ranges are selected,
-reduce it to its main range. Otherwise, if the selection is
-non-empty, convert it to a cursor selection.
-*/
-const simplifySelection = ({ state, dispatch }) => {
-    let cur = state.selection, selection = null;
-    if (cur.ranges.length > 1)
-        selection = EditorSelection.create([cur.main]);
-    else if (!cur.main.empty)
-        selection = EditorSelection.create([EditorSelection.cursor(cur.main.head)]);
-    if (!selection)
-        return false;
-    dispatch(setSel(state, selection));
-    return true;
-};
-function deleteBy({ state, dispatch }, by) {
-    if (state.readOnly)
-        return false;
-    let event = "delete.selection";
-    let changes = state.changeByRange(range => {
-        let { from, to } = range;
-        if (from == to) {
-            let towards = by(from);
-            if (towards < from)
-                event = "delete.backward";
-            else if (towards > from)
-                event = "delete.forward";
-            from = Math.min(from, towards);
-            to = Math.max(to, towards);
-        }
-        return from == to ? { range } : { changes: { from, to }, range: EditorSelection.cursor(from) };
-    });
-    if (changes.changes.empty)
-        return false;
-    dispatch(state.update(changes, { scrollIntoView: true, userEvent: event }));
-    return true;
-}
-function skipAtomic(target, pos, forward) {
-    if (target instanceof EditorView)
-        for (let ranges of target.pluginField(PluginField.atomicRanges))
-            ranges.between(pos, pos, (from, to) => {
-                if (from < pos && to > pos)
-                    pos = forward ? to : from;
-            });
-    return pos;
-}
-const deleteByChar = (target, forward) => deleteBy(target, pos => {
-    let { state } = target, line = state.doc.lineAt(pos), before, targetPos;
-    if (!forward && pos > line.from && pos < line.from + 200 &&
-        !/[^ \t]/.test(before = line.text.slice(0, pos - line.from))) {
-        if (before[before.length - 1] == "\t")
-            return pos - 1;
-        let col = countColumn(before, state.tabSize), drop = col % getIndentUnit(state) || getIndentUnit(state);
-        for (let i = 0; i < drop && before[before.length - 1 - i] == " "; i++)
-            pos--;
-        targetPos = pos;
-    }
-    else {
-        targetPos = findClusterBreak(line.text, pos - line.from, forward) + line.from;
-        if (targetPos == pos && line.number != (forward ? state.doc.lines : 1))
-            targetPos += forward ? 1 : -1;
-    }
-    return skipAtomic(target, targetPos, forward);
-});
-/**
-Delete the selection, or, for cursor selections, the character
-before the cursor.
-*/
-const deleteCharBackward = view => deleteByChar(view, false);
-/**
-Delete the selection or the character after the cursor.
-*/
-const deleteCharForward = view => deleteByChar(view, true);
-const deleteByGroup = (target, forward) => deleteBy(target, start => {
-    let pos = start, { state } = target, line = state.doc.lineAt(pos);
-    let categorize = state.charCategorizer(pos);
-    for (let cat = null;;) {
-        if (pos == (forward ? line.to : line.from)) {
-            if (pos == start && line.number != (forward ? state.doc.lines : 1))
-                pos += forward ? 1 : -1;
-            break;
-        }
-        let next = findClusterBreak(line.text, pos - line.from, forward) + line.from;
-        let nextChar = line.text.slice(Math.min(pos, next) - line.from, Math.max(pos, next) - line.from);
-        let nextCat = categorize(nextChar);
-        if (cat != null && nextCat != cat)
-            break;
-        if (nextChar != " " || pos != start)
-            cat = nextCat;
-        pos = next;
-    }
-    return skipAtomic(target, pos, forward);
-});
-/**
-Delete the selection or backward until the end of the next
-[group](https://codemirror.net/6/docs/ref/#view.EditorView.moveByGroup), only skipping groups of
-whitespace when they consist of a single space.
-*/
-const deleteGroupBackward = target => deleteByGroup(target, false);
-/**
-Delete the selection or forward until the end of the next group.
-*/
-const deleteGroupForward = target => deleteByGroup(target, true);
-/**
-Delete the selection, or, if it is a cursor selection, delete to
-the end of the line. If the cursor is directly at the end of the
-line, delete the line break after it.
-*/
-const deleteToLineEnd = view => deleteBy(view, pos => {
-    let lineEnd = view.visualLineAt(pos).to;
-    return skipAtomic(view, pos < lineEnd ? lineEnd : Math.min(view.state.doc.length, pos + 1), true);
-});
-/**
-Delete the selection, or, if it is a cursor selection, delete to
-the start of the line. If the cursor is directly at the start of the
-line, delete the line break before it.
-*/
-const deleteToLineStart = view => deleteBy(view, pos => {
-    let lineStart = view.visualLineAt(pos).from;
-    return skipAtomic(view, pos > lineStart ? lineStart : Math.max(0, pos - 1), false);
-});
-/**
-Replace each selection range with a line break, leaving the cursor
-on the line before the break.
-*/
-const splitLine = ({ state, dispatch }) => {
-    if (state.readOnly)
-        return false;
-    let changes = state.changeByRange(range => {
-        return { changes: { from: range.from, to: range.to, insert: Text.of(["", ""]) },
-            range: EditorSelection.cursor(range.from) };
-    });
-    dispatch(state.update(changes, { scrollIntoView: true, userEvent: "input" }));
-    return true;
-};
-/**
-Flip the characters before and after the cursor(s).
-*/
-const transposeChars = ({ state, dispatch }) => {
-    if (state.readOnly)
-        return false;
-    let changes = state.changeByRange(range => {
-        if (!range.empty || range.from == 0 || range.from == state.doc.length)
-            return { range };
-        let pos = range.from, line = state.doc.lineAt(pos);
-        let from = pos == line.from ? pos - 1 : findClusterBreak(line.text, pos - line.from, false) + line.from;
-        let to = pos == line.to ? pos + 1 : findClusterBreak(line.text, pos - line.from, true) + line.from;
-        return { changes: { from, to, insert: state.doc.slice(pos, to).append(state.doc.slice(from, pos)) },
-            range: EditorSelection.cursor(to) };
-    });
-    if (changes.changes.empty)
-        return false;
-    dispatch(state.update(changes, { scrollIntoView: true, userEvent: "move.character" }));
-    return true;
-};
-function selectedLineBlocks(state) {
-    let blocks = [], upto = -1;
-    for (let range of state.selection.ranges) {
-        let startLine = state.doc.lineAt(range.from), endLine = state.doc.lineAt(range.to);
-        if (!range.empty && range.to == endLine.from)
-            endLine = state.doc.lineAt(range.to - 1);
-        if (upto >= startLine.number) {
-            let prev = blocks[blocks.length - 1];
-            prev.to = endLine.to;
-            prev.ranges.push(range);
-        }
-        else {
-            blocks.push({ from: startLine.from, to: endLine.to, ranges: [range] });
-        }
-        upto = endLine.number + 1;
-    }
-    return blocks;
-}
-function moveLine(state, dispatch, forward) {
-    if (state.readOnly)
-        return false;
-    let changes = [], ranges = [];
-    for (let block of selectedLineBlocks(state)) {
-        if (forward ? block.to == state.doc.length : block.from == 0)
-            continue;
-        let nextLine = state.doc.lineAt(forward ? block.to + 1 : block.from - 1);
-        let size = nextLine.length + 1;
-        if (forward) {
-            changes.push({ from: block.to, to: nextLine.to }, { from: block.from, insert: nextLine.text + state.lineBreak });
-            for (let r of block.ranges)
-                ranges.push(EditorSelection.range(Math.min(state.doc.length, r.anchor + size), Math.min(state.doc.length, r.head + size)));
-        }
-        else {
-            changes.push({ from: nextLine.from, to: block.from }, { from: block.to, insert: state.lineBreak + nextLine.text });
-            for (let r of block.ranges)
-                ranges.push(EditorSelection.range(r.anchor - size, r.head - size));
-        }
-    }
-    if (!changes.length)
-        return false;
-    dispatch(state.update({
-        changes,
-        scrollIntoView: true,
-        selection: EditorSelection.create(ranges, state.selection.mainIndex),
-        userEvent: "move.line"
-    }));
-    return true;
-}
-/**
-Move the selected lines up one line.
-*/
-const moveLineUp = ({ state, dispatch }) => moveLine(state, dispatch, false);
-/**
-Move the selected lines down one line.
-*/
-const moveLineDown = ({ state, dispatch }) => moveLine(state, dispatch, true);
-function copyLine(state, dispatch, forward) {
-    if (state.readOnly)
-        return false;
-    let changes = [];
-    for (let block of selectedLineBlocks(state)) {
-        if (forward)
-            changes.push({ from: block.from, insert: state.doc.slice(block.from, block.to) + state.lineBreak });
-        else
-            changes.push({ from: block.to, insert: state.lineBreak + state.doc.slice(block.from, block.to) });
-    }
-    dispatch(state.update({ changes, scrollIntoView: true, userEvent: "input.copyline" }));
-    return true;
-}
-/**
-Create a copy of the selected lines. Keep the selection in the top copy.
-*/
-const copyLineUp = ({ state, dispatch }) => copyLine(state, dispatch, false);
-/**
-Create a copy of the selected lines. Keep the selection in the bottom copy.
-*/
-const copyLineDown = ({ state, dispatch }) => copyLine(state, dispatch, true);
-/**
-Delete selected lines.
-*/
-const deleteLine = view => {
-    if (view.state.readOnly)
-        return false;
-    let { state } = view, changes = state.changes(selectedLineBlocks(state).map(({ from, to }) => {
-        if (from > 0)
-            from--;
-        else if (to < state.doc.length)
-            to++;
-        return { from, to };
-    }));
-    let selection = updateSel(state.selection, range => view.moveVertically(range, true)).map(changes);
-    view.dispatch({ changes, selection, scrollIntoView: true, userEvent: "delete.line" });
-    return true;
-};
-function isBetweenBrackets(state, pos) {
-    if (/\(\)|\[\]|\{\}/.test(state.sliceDoc(pos - 1, pos + 1)))
-        return { from: pos, to: pos };
-    let context = syntaxTree(state).resolveInner(pos);
-    let before = context.childBefore(pos), after = context.childAfter(pos), closedBy;
-    if (before && after && before.to <= pos && after.from >= pos &&
-        (closedBy = before.type.prop(NodeProp.closedBy)) && closedBy.indexOf(after.name) > -1 &&
-        state.doc.lineAt(before.to).from == state.doc.lineAt(after.from).from)
-        return { from: before.to, to: after.from };
-    return null;
-}
-/**
-Replace the selection with a newline and indent the newly created
-line(s). If the current line consists only of whitespace, this
-will also delete that whitespace. When the cursor is between
-matching brackets, an additional newline will be inserted after
-the cursor.
-*/
-const insertNewlineAndIndent = /*@__PURE__*/newlineAndIndent(false);
-/**
-Create a blank, indented line below the current line.
-*/
-const insertBlankLine = /*@__PURE__*/newlineAndIndent(true);
-function newlineAndIndent(atEof) {
-    return ({ state, dispatch }) => {
-        if (state.readOnly)
-            return false;
-        let changes = state.changeByRange(range => {
-            let { from, to } = range, line = state.doc.lineAt(from);
-            let explode = !atEof && from == to && isBetweenBrackets(state, from);
-            if (atEof)
-                from = to = (to <= line.to ? line : state.doc.lineAt(to)).to;
-            let cx = new IndentContext(state, { simulateBreak: from, simulateDoubleBreak: !!explode });
-            let indent = getIndentation(cx, from);
-            if (indent == null)
-                indent = /^\s*/.exec(state.doc.lineAt(from).text)[0].length;
-            while (to < line.to && /\s/.test(line.text[to - line.from]))
-                to++;
-            if (explode)
-                ({ from, to } = explode);
-            else if (from > line.from && from < line.from + 100 && !/\S/.test(line.text.slice(0, from)))
-                from = line.from;
-            let insert = ["", indentString(state, indent)];
-            if (explode)
-                insert.push(indentString(state, cx.lineIndent(line.from, -1)));
-            return { changes: { from, to, insert: Text.of(insert) },
-                range: EditorSelection.cursor(from + 1 + insert[1].length) };
-        });
-        dispatch(state.update(changes, { scrollIntoView: true, userEvent: "input" }));
-        return true;
-    };
-}
-function changeBySelectedLine(state, f) {
-    let atLine = -1;
-    return state.changeByRange(range => {
-        let changes = [];
-        for (let pos = range.from; pos <= range.to;) {
-            let line = state.doc.lineAt(pos);
-            if (line.number > atLine && (range.empty || range.to > line.from)) {
-                f(line, changes, range);
-                atLine = line.number;
-            }
-            pos = line.to + 1;
-        }
-        let changeSet = state.changes(changes);
-        return { changes,
-            range: EditorSelection.range(changeSet.mapPos(range.anchor, 1), changeSet.mapPos(range.head, 1)) };
-    });
-}
-/**
-Auto-indent the selected lines. This uses the [indentation service
-facet](https://codemirror.net/6/docs/ref/#language.indentService) as source for auto-indent
-information.
-*/
-const indentSelection = ({ state, dispatch }) => {
-    if (state.readOnly)
-        return false;
-    let updated = Object.create(null);
-    let context = new IndentContext(state, { overrideIndentation: start => {
-            let found = updated[start];
-            return found == null ? -1 : found;
-        } });
-    let changes = changeBySelectedLine(state, (line, changes, range) => {
-        let indent = getIndentation(context, line.from);
-        if (indent == null)
-            return;
-        if (!/\S/.test(line.text))
-            indent = 0;
-        let cur = /^\s*/.exec(line.text)[0];
-        let norm = indentString(state, indent);
-        if (cur != norm || range.from < line.from + cur.length) {
-            updated[line.from] = indent;
-            changes.push({ from: line.from, to: line.from + cur.length, insert: norm });
-        }
-    });
-    if (!changes.changes.empty)
-        dispatch(state.update(changes, { userEvent: "indent" }));
-    return true;
-};
-/**
-Add a [unit](https://codemirror.net/6/docs/ref/#language.indentUnit) of indentation to all selected
-lines.
-*/
-const indentMore = ({ state, dispatch }) => {
-    if (state.readOnly)
-        return false;
-    dispatch(state.update(changeBySelectedLine(state, (line, changes) => {
-        changes.push({ from: line.from, insert: state.facet(indentUnit) });
-    }), { userEvent: "input.indent" }));
-    return true;
-};
-/**
-Remove a [unit](https://codemirror.net/6/docs/ref/#language.indentUnit) of indentation from all
-selected lines.
-*/
-const indentLess = ({ state, dispatch }) => {
-    if (state.readOnly)
-        return false;
-    dispatch(state.update(changeBySelectedLine(state, (line, changes) => {
-        let space = /^\s*/.exec(line.text)[0];
-        if (!space)
-            return;
-        let col = countColumn(space, state.tabSize), keep = 0;
-        let insert = indentString(state, Math.max(0, col - getIndentUnit(state)));
-        while (keep < space.length && keep < insert.length && space.charCodeAt(keep) == insert.charCodeAt(keep))
-            keep++;
-        changes.push({ from: line.from + keep, to: line.from + space.length, insert: insert.slice(keep) });
-    }), { userEvent: "delete.dedent" }));
-    return true;
-};
-/**
-Array of key bindings containing the Emacs-style bindings that are
-available on macOS by default.
-
- - Ctrl-b: [`cursorCharLeft`](https://codemirror.net/6/docs/ref/#commands.cursorCharLeft) ([`selectCharLeft`](https://codemirror.net/6/docs/ref/#commands.selectCharLeft) with Shift)
- - Ctrl-f: [`cursorCharRight`](https://codemirror.net/6/docs/ref/#commands.cursorCharRight) ([`selectCharRight`](https://codemirror.net/6/docs/ref/#commands.selectCharRight) with Shift)
- - Ctrl-p: [`cursorLineUp`](https://codemirror.net/6/docs/ref/#commands.cursorLineUp) ([`selectLineUp`](https://codemirror.net/6/docs/ref/#commands.selectLineUp) with Shift)
- - Ctrl-n: [`cursorLineDown`](https://codemirror.net/6/docs/ref/#commands.cursorLineDown) ([`selectLineDown`](https://codemirror.net/6/docs/ref/#commands.selectLineDown) with Shift)
- - Ctrl-a: [`cursorLineStart`](https://codemirror.net/6/docs/ref/#commands.cursorLineStart) ([`selectLineStart`](https://codemirror.net/6/docs/ref/#commands.selectLineStart) with Shift)
- - Ctrl-e: [`cursorLineEnd`](https://codemirror.net/6/docs/ref/#commands.cursorLineEnd) ([`selectLineEnd`](https://codemirror.net/6/docs/ref/#commands.selectLineEnd) with Shift)
- - Ctrl-d: [`deleteCharForward`](https://codemirror.net/6/docs/ref/#commands.deleteCharForward)
- - Ctrl-h: [`deleteCharBackward`](https://codemirror.net/6/docs/ref/#commands.deleteCharBackward)
- - Ctrl-k: [`deleteToLineEnd`](https://codemirror.net/6/docs/ref/#commands.deleteToLineEnd)
- - Ctrl-Alt-h: [`deleteGroupBackward`](https://codemirror.net/6/docs/ref/#commands.deleteGroupBackward)
- - Ctrl-o: [`splitLine`](https://codemirror.net/6/docs/ref/#commands.splitLine)
- - Ctrl-t: [`transposeChars`](https://codemirror.net/6/docs/ref/#commands.transposeChars)
- - Alt-<: [`cursorDocStart`](https://codemirror.net/6/docs/ref/#commands.cursorDocStart)
- - Alt->: [`cursorDocEnd`](https://codemirror.net/6/docs/ref/#commands.cursorDocEnd)
- - Ctrl-v: [`cursorPageDown`](https://codemirror.net/6/docs/ref/#commands.cursorPageDown)
- - Alt-v: [`cursorPageUp`](https://codemirror.net/6/docs/ref/#commands.cursorPageUp)
-*/
-const emacsStyleKeymap = [
-    { key: "Ctrl-b", run: cursorCharLeft, shift: selectCharLeft, preventDefault: true },
-    { key: "Ctrl-f", run: cursorCharRight, shift: selectCharRight },
-    { key: "Ctrl-p", run: cursorLineUp, shift: selectLineUp },
-    { key: "Ctrl-n", run: cursorLineDown, shift: selectLineDown },
-    { key: "Ctrl-a", run: cursorLineStart, shift: selectLineStart },
-    { key: "Ctrl-e", run: cursorLineEnd, shift: selectLineEnd },
-    { key: "Ctrl-d", run: deleteCharForward },
-    { key: "Ctrl-h", run: deleteCharBackward },
-    { key: "Ctrl-k", run: deleteToLineEnd },
-    { key: "Ctrl-Alt-h", run: deleteGroupBackward },
-    { key: "Ctrl-o", run: splitLine },
-    { key: "Ctrl-t", run: transposeChars },
-    { key: "Alt-<", run: cursorDocStart },
-    { key: "Alt->", run: cursorDocEnd },
-    { key: "Ctrl-v", run: cursorPageDown },
-    { key: "Alt-v", run: cursorPageUp },
-];
-/**
-An array of key bindings closely sticking to platform-standard or
-widely used bindings. (This includes the bindings from
-[`emacsStyleKeymap`](https://codemirror.net/6/docs/ref/#commands.emacsStyleKeymap), with their `key`
-property changed to `mac`.)
-
- - ArrowLeft: [`cursorCharLeft`](https://codemirror.net/6/docs/ref/#commands.cursorCharLeft) ([`selectCharLeft`](https://codemirror.net/6/docs/ref/#commands.selectCharLeft) with Shift)
- - ArrowRight: [`cursorCharRight`](https://codemirror.net/6/docs/ref/#commands.cursorCharRight) ([`selectCharRight`](https://codemirror.net/6/docs/ref/#commands.selectCharRight) with Shift)
- - Ctrl-ArrowLeft (Alt-ArrowLeft on macOS): [`cursorGroupLeft`](https://codemirror.net/6/docs/ref/#commands.cursorGroupLeft) ([`selectGroupLeft`](https://codemirror.net/6/docs/ref/#commands.selectGroupLeft) with Shift)
- - Ctrl-ArrowRight (Alt-ArrowRight on macOS): [`cursorGroupRight`](https://codemirror.net/6/docs/ref/#commands.cursorGroupRight) ([`selectGroupRight`](https://codemirror.net/6/docs/ref/#commands.selectGroupRight) with Shift)
- - Cmd-ArrowLeft (on macOS): [`cursorLineStart`](https://codemirror.net/6/docs/ref/#commands.cursorLineStart) ([`selectLineStart`](https://codemirror.net/6/docs/ref/#commands.selectLineStart) with Shift)
- - Cmd-ArrowRight (on macOS): [`cursorLineEnd`](https://codemirror.net/6/docs/ref/#commands.cursorLineEnd) ([`selectLineEnd`](https://codemirror.net/6/docs/ref/#commands.selectLineEnd) with Shift)
- - ArrowUp: [`cursorLineUp`](https://codemirror.net/6/docs/ref/#commands.cursorLineUp) ([`selectLineUp`](https://codemirror.net/6/docs/ref/#commands.selectLineUp) with Shift)
- - ArrowDown: [`cursorLineDown`](https://codemirror.net/6/docs/ref/#commands.cursorLineDown) ([`selectLineDown`](https://codemirror.net/6/docs/ref/#commands.selectLineDown) with Shift)
- - Cmd-ArrowUp (on macOS): [`cursorDocStart`](https://codemirror.net/6/docs/ref/#commands.cursorDocStart) ([`selectDocStart`](https://codemirror.net/6/docs/ref/#commands.selectDocStart) with Shift)
- - Cmd-ArrowDown (on macOS): [`cursorDocEnd`](https://codemirror.net/6/docs/ref/#commands.cursorDocEnd) ([`selectDocEnd`](https://codemirror.net/6/docs/ref/#commands.selectDocEnd) with Shift)
- - Ctrl-ArrowUp (on macOS): [`cursorPageUp`](https://codemirror.net/6/docs/ref/#commands.cursorPageUp) ([`selectPageUp`](https://codemirror.net/6/docs/ref/#commands.selectPageUp) with Shift)
- - Ctrl-ArrowDown (on macOS): [`cursorPageDown`](https://codemirror.net/6/docs/ref/#commands.cursorPageDown) ([`selectPageDown`](https://codemirror.net/6/docs/ref/#commands.selectPageDown) with Shift)
- - PageUp: [`cursorPageUp`](https://codemirror.net/6/docs/ref/#commands.cursorPageUp) ([`selectPageUp`](https://codemirror.net/6/docs/ref/#commands.selectPageUp) with Shift)
- - PageDown: [`cursorPageDown`](https://codemirror.net/6/docs/ref/#commands.cursorPageDown) ([`selectPageDown`](https://codemirror.net/6/docs/ref/#commands.selectPageDown) with Shift)
- - Home: [`cursorLineBoundaryBackward`](https://codemirror.net/6/docs/ref/#commands.cursorLineBoundaryBackward) ([`selectLineBoundaryBackward`](https://codemirror.net/6/docs/ref/#commands.selectLineBoundaryBackward) with Shift)
- - End: [`cursorLineBoundaryForward`](https://codemirror.net/6/docs/ref/#commands.cursorLineBoundaryForward) ([`selectLineBoundaryForward`](https://codemirror.net/6/docs/ref/#commands.selectLineBoundaryForward) with Shift)
- - Ctrl-Home (Cmd-Home on macOS): [`cursorDocStart`](https://codemirror.net/6/docs/ref/#commands.cursorDocStart) ([`selectDocStart`](https://codemirror.net/6/docs/ref/#commands.selectDocStart) with Shift)
- - Ctrl-End (Cmd-Home on macOS): [`cursorDocEnd`](https://codemirror.net/6/docs/ref/#commands.cursorDocEnd) ([`selectDocEnd`](https://codemirror.net/6/docs/ref/#commands.selectDocEnd) with Shift)
- - Enter: [`insertNewlineAndIndent`](https://codemirror.net/6/docs/ref/#commands.insertNewlineAndIndent)
- - Ctrl-a (Cmd-a on macOS): [`selectAll`](https://codemirror.net/6/docs/ref/#commands.selectAll)
- - Backspace: [`deleteCharBackward`](https://codemirror.net/6/docs/ref/#commands.deleteCharBackward)
- - Delete: [`deleteCharForward`](https://codemirror.net/6/docs/ref/#commands.deleteCharForward)
- - Ctrl-Backspace (Alt-Backspace on macOS): [`deleteGroupBackward`](https://codemirror.net/6/docs/ref/#commands.deleteGroupBackward)
- - Ctrl-Delete (Alt-Delete on macOS): [`deleteGroupForward`](https://codemirror.net/6/docs/ref/#commands.deleteGroupForward)
- - Cmd-Backspace (macOS): [`deleteToLineStart`](https://codemirror.net/6/docs/ref/#commands.deleteToLineStart).
- - Cmd-Delete (macOS): [`deleteToLineEnd`](https://codemirror.net/6/docs/ref/#commands.deleteToLineEnd).
-*/
-const standardKeymap = /*@__PURE__*/[
-    { key: "ArrowLeft", run: cursorCharLeft, shift: selectCharLeft, preventDefault: true },
-    { key: "Mod-ArrowLeft", mac: "Alt-ArrowLeft", run: cursorGroupLeft, shift: selectGroupLeft },
-    { mac: "Cmd-ArrowLeft", run: cursorLineBoundaryBackward, shift: selectLineBoundaryBackward },
-    { key: "ArrowRight", run: cursorCharRight, shift: selectCharRight, preventDefault: true },
-    { key: "Mod-ArrowRight", mac: "Alt-ArrowRight", run: cursorGroupRight, shift: selectGroupRight },
-    { mac: "Cmd-ArrowRight", run: cursorLineBoundaryForward, shift: selectLineBoundaryForward },
-    { key: "ArrowUp", run: cursorLineUp, shift: selectLineUp, preventDefault: true },
-    { mac: "Cmd-ArrowUp", run: cursorDocStart, shift: selectDocStart },
-    { mac: "Ctrl-ArrowUp", run: cursorPageUp, shift: selectPageUp },
-    { key: "ArrowDown", run: cursorLineDown, shift: selectLineDown, preventDefault: true },
-    { mac: "Cmd-ArrowDown", run: cursorDocEnd, shift: selectDocEnd },
-    { mac: "Ctrl-ArrowDown", run: cursorPageDown, shift: selectPageDown },
-    { key: "PageUp", run: cursorPageUp, shift: selectPageUp },
-    { key: "PageDown", run: cursorPageDown, shift: selectPageDown },
-    { key: "Home", run: cursorLineBoundaryBackward, shift: selectLineBoundaryBackward },
-    { key: "Mod-Home", run: cursorDocStart, shift: selectDocStart },
-    { key: "End", run: cursorLineBoundaryForward, shift: selectLineBoundaryForward },
-    { key: "Mod-End", run: cursorDocEnd, shift: selectDocEnd },
-    { key: "Enter", run: insertNewlineAndIndent },
-    { key: "Mod-a", run: selectAll },
-    { key: "Backspace", run: deleteCharBackward, shift: deleteCharBackward },
-    { key: "Delete", run: deleteCharForward, shift: deleteCharForward },
-    { key: "Mod-Backspace", mac: "Alt-Backspace", run: deleteGroupBackward },
-    { key: "Mod-Delete", mac: "Alt-Delete", run: deleteGroupForward },
-    { mac: "Mod-Backspace", run: deleteToLineStart },
-    { mac: "Mod-Delete", run: deleteToLineEnd }
-].concat(/*@__PURE__*/emacsStyleKeymap.map(b => ({ mac: b.key, run: b.run, shift: b.shift })));
-/**
-The default keymap. Includes all bindings from
-[`standardKeymap`](https://codemirror.net/6/docs/ref/#commands.standardKeymap) plus the following:
-
-- Alt-ArrowLeft (Ctrl-ArrowLeft on macOS): [`cursorSyntaxLeft`](https://codemirror.net/6/docs/ref/#commands.cursorSyntaxLeft) ([`selectSyntaxLeft`](https://codemirror.net/6/docs/ref/#commands.selectSyntaxLeft) with Shift)
-- Alt-ArrowRight (Ctrl-ArrowRight on macOS): [`cursorSyntaxRight`](https://codemirror.net/6/docs/ref/#commands.cursorSyntaxRight) ([`selectSyntaxRight`](https://codemirror.net/6/docs/ref/#commands.selectSyntaxRight) with Shift)
-- Alt-ArrowUp: [`moveLineUp`](https://codemirror.net/6/docs/ref/#commands.moveLineUp)
-- Alt-ArrowDown: [`moveLineDown`](https://codemirror.net/6/docs/ref/#commands.moveLineDown)
-- Shift-Alt-ArrowUp: [`copyLineUp`](https://codemirror.net/6/docs/ref/#commands.copyLineUp)
-- Shift-Alt-ArrowDown: [`copyLineDown`](https://codemirror.net/6/docs/ref/#commands.copyLineDown)
-- Escape: [`simplifySelection`](https://codemirror.net/6/docs/ref/#commands.simplifySelection)
-- Ctrl-Enter (Comd-Enter on macOS): [`insertBlankLine`](https://codemirror.net/6/docs/ref/#commands.insertBlankLine)
-- Alt-l (Ctrl-l on macOS): [`selectLine`](https://codemirror.net/6/docs/ref/#commands.selectLine)
-- Ctrl-i (Cmd-i on macOS): [`selectParentSyntax`](https://codemirror.net/6/docs/ref/#commands.selectParentSyntax)
-- Ctrl-[ (Cmd-[ on macOS): [`indentLess`](https://codemirror.net/6/docs/ref/#commands.indentLess)
-- Ctrl-] (Cmd-] on macOS): [`indentMore`](https://codemirror.net/6/docs/ref/#commands.indentMore)
-- Ctrl-Alt-\\ (Cmd-Alt-\\ on macOS): [`indentSelection`](https://codemirror.net/6/docs/ref/#commands.indentSelection)
-- Shift-Ctrl-k (Shift-Cmd-k on macOS): [`deleteLine`](https://codemirror.net/6/docs/ref/#commands.deleteLine)
-- Shift-Ctrl-\\ (Shift-Cmd-\\ on macOS): [`cursorMatchingBracket`](https://codemirror.net/6/docs/ref/#commands.cursorMatchingBracket)
-*/
-const defaultKeymap = /*@__PURE__*/[
-    { key: "Alt-ArrowLeft", mac: "Ctrl-ArrowLeft", run: cursorSyntaxLeft, shift: selectSyntaxLeft },
-    { key: "Alt-ArrowRight", mac: "Ctrl-ArrowRight", run: cursorSyntaxRight, shift: selectSyntaxRight },
-    { key: "Alt-ArrowUp", run: moveLineUp },
-    { key: "Shift-Alt-ArrowUp", run: copyLineUp },
-    { key: "Alt-ArrowDown", run: moveLineDown },
-    { key: "Shift-Alt-ArrowDown", run: copyLineDown },
-    { key: "Escape", run: simplifySelection },
-    { key: "Mod-Enter", run: insertBlankLine },
-    { key: "Alt-l", mac: "Ctrl-l", run: selectLine },
-    { key: "Mod-i", run: selectParentSyntax, preventDefault: true },
-    { key: "Mod-[", run: indentLess },
-    { key: "Mod-]", run: indentMore },
-    { key: "Mod-Alt-\\", run: indentSelection },
-    { key: "Shift-Mod-k", run: deleteLine },
-    { key: "Shift-Mod-\\", run: cursorMatchingBracket }
-].concat(standardKeymap);
 
 // Don't compute precise column positions for line offsets above this
 // (since it could get expensive). Assume offset==column for them.
@@ -27269,4 +27709,4 @@ function python() {
 let autocompletion = autocompletion$1;
 let completionKeymap = completionKeymap$1;
 
-export { Compartment, Decoration, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, NodeProp, PluginField, PostgreSQL, Prec, SelectionRange, StateEffect, StateField, StreamLanguage, Text, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, index as autocomplete, autocompletion, bracketMatching, closeBrackets, closeBracketsKeymap, combineConfig, commentKeymap, completionKeymap, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, javascript, javascriptLanguage, julia as julia_andrey, julia$1 as julia_legacy, keymap, lineNumbers, markdown, markdownLanguage, parseMixed, placeholder, python, pythonLanguage, rectangularSelection, searchKeymap, sql, syntaxTree, tags$1 as tags };
+export { PostgreSQL, StreamLanguage, index$2 as autocomplete, autocompletion, bracketMatching, closeBrackets, closeBracketsKeymap, index as commands, commentKeymap, completionKeymap, foldGutter, foldKeymap, index$1 as highlight, highlightSelectionMatches, history, historyKeymap, html, htmlLanguage, javascript, javascriptLanguage, julia as julia_andrey, julia$1 as julia_legacy, index$3 as language, index$4 as lezer_common, lineNumbers, markdown, markdownLanguage, python, pythonLanguage, rectangularSelection, searchKeymap, sql, index$6 as state, index$5 as view };
