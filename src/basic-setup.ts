@@ -50,6 +50,10 @@ import { javascript, javascriptLanguage } from "@codemirror/lang-javascript";
 import { sql, PostgreSQL } from "@codemirror/lang-sql";
 import { python, pythonLanguage } from "@codemirror/lang-python";
 
+// autocomplete exports we used to export - TODO REMOVE
+export let autocompletion = autocomplete.autocompletion;
+export let completionKeymap = autocomplete.completionKeymap;
+
 export {
   Facet,
   StateField,

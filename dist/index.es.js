@@ -19012,7 +19012,7 @@ const completeAnyWord = context => {
 /**
 Returns an extension that enables autocompletion.
 */
-function autocompletion(config = {}) {
+function autocompletion$1(config = {}) {
     return [
         completionState,
         completionConfig.of(config),
@@ -19032,7 +19032,7 @@ Basic keybindings for autocompletion.
  - PageDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true, "page")`
  - Enter: [`acceptCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.acceptCompletion)
 */
-const completionKeymap = [
+const completionKeymap$1 = [
     { key: "Ctrl-Space", run: startCompletion },
     { key: "Escape", run: closeCompletion },
     { key: "ArrowDown", run: /*@__PURE__*/moveCompletionSelection(true) },
@@ -19041,7 +19041,7 @@ const completionKeymap = [
     { key: "PageUp", run: /*@__PURE__*/moveCompletionSelection(false, "page") },
     { key: "Enter", run: acceptCompletion }
 ];
-const completionKeymapExt = /*@__PURE__*/Prec.override(/*@__PURE__*/keymap.computeN([completionConfig], state => state.facet(completionConfig).defaultKeymap ? [completionKeymap] : []));
+const completionKeymapExt = /*@__PURE__*/Prec.override(/*@__PURE__*/keymap.computeN([completionConfig], state => state.facet(completionConfig).defaultKeymap ? [completionKeymap$1] : []));
 /**
 Get the current completion status. When completions are available,
 this will return `"active"`. When completions are pending (in the
@@ -19066,12 +19066,12 @@ var index = /*#__PURE__*/Object.freeze({
     __proto__: null,
     CompletionContext: CompletionContext,
     acceptCompletion: acceptCompletion,
-    autocompletion: autocompletion,
+    autocompletion: autocompletion$1,
     clearSnippet: clearSnippet,
     closeCompletion: closeCompletion,
     completeAnyWord: completeAnyWord,
     completeFromList: completeFromList,
-    completionKeymap: completionKeymap,
+    completionKeymap: completionKeymap$1,
     completionStatus: completionStatus,
     currentCompletions: currentCompletions,
     ifIn: ifIn,
@@ -27201,4 +27201,8 @@ function python() {
     return new LanguageSupport(pythonLanguage);
 }
 
-export { Compartment, Decoration, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, NodeProp, PluginField, PostgreSQL, Prec, SelectionRange, StateEffect, StateField, StreamLanguage, Text, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, index as autocomplete, bracketMatching, closeBrackets, closeBracketsKeymap, combineConfig, commentKeymap, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, javascript, javascriptLanguage, julia as julia_andrey, julia$1 as julia_legacy, keymap, lineNumbers, markdown, markdownLanguage, parseMixed, placeholder, python, pythonLanguage, rectangularSelection, searchKeymap, sql, syntaxTree, tags$1 as tags };
+// autocomplete exports we used to export - TODO REMOVE
+let autocompletion = autocompletion$1;
+let completionKeymap = completionKeymap$1;
+
+export { Compartment, Decoration, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, NodeProp, PluginField, PostgreSQL, Prec, SelectionRange, StateEffect, StateField, StreamLanguage, Text, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, index as autocomplete, autocompletion, bracketMatching, closeBrackets, closeBracketsKeymap, combineConfig, commentKeymap, completionKeymap, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, javascript, javascriptLanguage, julia as julia_andrey, julia$1 as julia_legacy, keymap, lineNumbers, markdown, markdownLanguage, parseMixed, placeholder, python, pythonLanguage, rectangularSelection, searchKeymap, sql, syntaxTree, tags$1 as tags };
