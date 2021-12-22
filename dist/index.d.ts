@@ -1975,6 +1975,11 @@ declare abstract class WidgetType {
     events.
     */
     ignoreEvent(_event: Event): boolean;
+    /**
+    This is called when the an instance of the widget is removed
+    from the editor view.
+    */
+    destroy(_dom: HTMLElement): void;
 }
 /**
 A decoration set represents a collection of decorated ranges,

@@ -2459,9 +2459,9 @@ function extendTransaction(tr) {
     }
     return spec == tr ? tr : new Transaction(state, tr.changes, tr.selection, spec.effects, spec.annotations, spec.scrollIntoView);
 }
-const none$5 = [];
+const none$4 = [];
 function asArray$1(value) {
-    return value == null ? none$5 : Array.isArray(value) ? value : [value];
+    return value == null ? none$4 : Array.isArray(value) ? value : [value];
 }
 
 /**
@@ -6026,7 +6026,7 @@ class DOMPos {
     static before(dom, precise) { return new DOMPos(dom.parentNode, domIndex(dom), precise); }
     static after(dom, precise) { return new DOMPos(dom.parentNode, domIndex(dom) + 1, precise); }
 }
-const none$3 = [];
+const noChildren = [];
 class ContentView {
     constructor() {
         this.parent = null;
@@ -6192,12 +6192,12 @@ class ContentView {
             v = parent;
         }
     }
-    replaceChildren(from, to, children = none$3) {
+    replaceChildren(from, to, children = noChildren) {
         this.markDirty();
         for (let i = from; i < to; i++) {
             let child = this.children[i];
             if (child.parent == this)
-                child.parent = null;
+                child.destroy();
         }
         this.children.splice(from, to - from, ...children);
         for (let i = 0; i < children.length; i++)
@@ -6219,6 +6219,17 @@ class ContentView {
     }
     static get(node) { return node.cmView; }
     get isEditable() { return true; }
+    merge(from, to, source, hasStart, openStart, openEnd) {
+        return false;
+    }
+    become(other) { return false; }
+    // When this is a zero-length view with a side, this should return a
+    // number <= 0 to indicate it is before its position, or a
+    // number > 0 when after its position.
+    getSide() { return 0; }
+    destroy() {
+        this.parent = null;
+    }
 }
 ContentView.prototype.breakAfter = 0;
 // Remove a DOM node and return its next sibling.
@@ -6245,6 +6256,94 @@ class ChildCursor {
             this.pos -= next.length + next.breakAfter;
         }
     }
+}
+function replaceRange(parent, fromI, fromOff, toI, toOff, insert, breakAtStart, openStart, openEnd) {
+    let { children } = parent;
+    let before = children.length ? children[fromI] : null;
+    let last = insert.length ? insert[insert.length - 1] : null;
+    let breakAtEnd = last ? last.breakAfter : breakAtStart;
+    // Change within a single child
+    if (fromI == toI && before && !breakAtStart && !breakAtEnd && insert.length < 2 &&
+        before.merge(fromOff, toOff, insert.length ? last : null, fromOff == 0, openStart, openEnd))
+        return;
+    if (toI < children.length) {
+        let after = children[toI];
+        // Make sure the end of the child after the update is preserved in `after`
+        if (after && toOff < after.length) {
+            // If we're splitting a child, separate part of it to avoid that
+            // being mangled when updating the child before the update.
+            if (fromI == toI) {
+                after = after.split(toOff);
+                toOff = 0;
+            }
+            // If the element after the replacement should be merged with
+            // the last replacing element, update `content`
+            if (!breakAtEnd && last && after.merge(0, toOff, last, true, 0, openEnd)) {
+                insert[insert.length - 1] = after;
+            }
+            else {
+                // Remove the start of the after element, if necessary, and
+                // add it to `content`.
+                if (toOff)
+                    after.merge(0, toOff, null, false, 0, openEnd);
+                insert.push(after);
+            }
+        }
+        else if (after === null || after === void 0 ? void 0 : after.breakAfter) {
+            // The element at `toI` is entirely covered by this range.
+            // Preserve its line break, if any.
+            if (last)
+                last.breakAfter = 1;
+            else
+                breakAtStart = 1;
+        }
+        // Since we've handled the next element from the current elements
+        // now, make sure `toI` points after that.
+        toI++;
+    }
+    if (before) {
+        before.breakAfter = breakAtStart;
+        if (fromOff > 0) {
+            if (!breakAtStart && insert.length && before.merge(fromOff, before.length, insert[0], false, openStart, 0)) {
+                before.breakAfter = insert.shift().breakAfter;
+            }
+            else if (fromOff < before.length || before.children.length && before.children[before.children.length - 1].length == 0) {
+                before.merge(fromOff, before.length, null, false, openStart, 0);
+            }
+            fromI++;
+        }
+    }
+    // Try to merge widgets on the boundaries of the replacement
+    while (fromI < toI && insert.length) {
+        if (children[toI - 1].become(insert[insert.length - 1])) {
+            toI--;
+            insert.pop();
+            openEnd = insert.length ? 0 : openStart;
+        }
+        else if (children[fromI].become(insert[0])) {
+            fromI++;
+            insert.shift();
+            openStart = insert.length ? 0 : openEnd;
+        }
+        else {
+            break;
+        }
+    }
+    if (!insert.length && fromI && toI < children.length && !children[fromI - 1].breakAfter &&
+        children[toI].merge(0, 0, children[fromI - 1], false, openStart, openEnd))
+        fromI--;
+    if (fromI < toI || insert.length)
+        parent.replaceChildren(fromI, toI, insert);
+}
+function mergeChildrenInto(parent, from, to, insert, openStart, openEnd) {
+    let cur = parent.childCursor();
+    let { i: toI, off: toOff } = cur.findPos(to, 1);
+    let { i: fromI, off: fromOff } = cur.findPos(from, -1);
+    let dLen = from - to;
+    for (let view of insert)
+        dLen += view.length;
+    parent.length += dLen;
+    replaceRange(parent, fromI, fromOff, toI, toOff, insert, 0, openStart, openEnd);
 }
 
 let [nav, doc] = typeof navigator != "undefined"
@@ -6277,21 +6376,8 @@ var browser = {
     tabSize: doc.documentElement.style.tabSize != null ? "tab-size" : "-moz-tab-size"
 };
 
-const none$2$1 = [];
-class InlineView extends ContentView {
-    /**
-    Return true when this view is equivalent to `other` and can take
-    on its role.
-    */
-    become(_other) { return false; }
-    // When this is a zero-length view with a side, this should return a
-    // negative number to indicate it is before its position, or a
-    // positive number when after its position.
-    getSide() { return 0; }
-}
-InlineView.prototype.children = none$2$1;
 const MaxJoinLen = 256;
-class TextView extends InlineView {
+class TextView extends ContentView {
     constructor(text) {
         super();
         this.text = text;
@@ -6322,7 +6408,7 @@ class TextView extends InlineView {
         this.markDirty();
         return true;
     }
-    slice(from) {
+    split(from) {
         let result = new TextView(this.text.slice(from));
         this.text = this.text.slice(0, from);
         return result;
@@ -6338,7 +6424,7 @@ class TextView extends InlineView {
         return textCoords(this.dom, pos, side);
     }
 }
-class MarkView extends InlineView {
+class MarkView extends ContentView {
     constructor(mark, children = [], length = 0) {
         super();
         this.mark = mark;
@@ -6361,20 +6447,20 @@ class MarkView extends InlineView {
             this.createDOM();
         super.sync(track);
     }
-    merge(from, to, source, openStart, openEnd) {
+    merge(from, to, source, _hasStart, openStart, openEnd) {
         if (source && (!(source instanceof MarkView && source.mark.eq(this.mark)) ||
             (from && openStart <= 0) || (to < this.length && openEnd <= 0)))
             return false;
-        mergeInlineChildren(this, from, to, source ? source.children : none$2$1, openStart - 1, openEnd - 1);
+        mergeChildrenInto(this, from, to, source ? source.children : [], openStart - 1, openEnd - 1);
         this.markDirty();
         return true;
     }
-    slice(from) {
+    split(from) {
         let result = [], off = 0, detachFrom = -1, i = 0;
         for (let elt of this.children) {
             let end = off + elt.length;
             if (end > from)
-                result.push(off < from ? elt.slice(from - off) : elt);
+                result.push(off < from ? elt.split(from - off) : elt);
             if (detachFrom < 0 && off >= from)
                 detachFrom = i;
             off = end;
@@ -6382,8 +6468,10 @@ class MarkView extends InlineView {
         }
         let length = this.length - from;
         this.length = from;
-        if (detachFrom > -1)
-            this.replaceChildren(detachFrom, this.children.length);
+        if (detachFrom > -1) {
+            this.children.length = detachFrom;
+            this.markDirty();
+        }
         return new MarkView(this.mark, result, length);
     }
     domAtPos(pos) {
@@ -6425,7 +6513,7 @@ function textCoords(text, pos, side) {
     return flatten ? flattenRect(rect, flatten < 0) : rect || null;
 }
 // Also used for collapsed ranges that don't have a placeholder widget!
-class WidgetView extends InlineView {
+class WidgetView extends ContentView {
     constructor(widget, length, side) {
         super();
         this.widget = widget;
@@ -6435,7 +6523,7 @@ class WidgetView extends InlineView {
     static create(widget, length, side) {
         return new (widget.customView || WidgetView)(widget, length, side);
     }
-    slice(from) {
+    split(from) {
         let result = WidgetView.create(this.widget, this.length - from, this.side);
         this.length -= from;
         return result;
@@ -6447,7 +6535,7 @@ class WidgetView extends InlineView {
         }
     }
     getSide() { return this.side; }
-    merge(from, to, source, openStart, openEnd) {
+    merge(from, to, source, hasStart, openStart, openEnd) {
         if (source && (!(source instanceof WidgetView) || !this.widget.compare(source.widget) ||
             from > 0 && openStart <= 0 || to < this.length && openEnd <= 0))
             return false;
@@ -6492,6 +6580,11 @@ class WidgetView extends InlineView {
         return (pos == 0 && side > 0 || pos == this.length && side <= 0) ? rect : flattenRect(rect, pos == 0);
     }
     get isEditable() { return false; }
+    destroy() {
+        super.destroy();
+        if (this.dom)
+            this.widget.destroy(this.dom);
+    }
 }
 class CompositionView extends WidgetView {
     domAtPos(pos) { return new DOMPos(this.widget.text, pos); }
@@ -6508,7 +6601,7 @@ class CompositionView extends WidgetView {
 // These are drawn around uneditable widgets to avoid a number of
 // browser bugs that show up when the cursor is directly next to
 // uneditable inline content.
-class WidgetBufferView extends InlineView {
+class WidgetBufferView extends ContentView {
     constructor(side) {
         super();
         this.side = side;
@@ -6518,7 +6611,7 @@ class WidgetBufferView extends InlineView {
     become(other) {
         return other instanceof WidgetBufferView && other.side == this.side;
     }
-    slice() { return new WidgetBufferView(this.side); }
+    split() { return new WidgetBufferView(this.side); }
     sync() {
         if (!this.dom)
             this.setDOM(document.createTextNode("\u200b"));
@@ -6536,90 +6629,7 @@ class WidgetBufferView extends InlineView {
         return Text.of([this.dom.nodeValue.replace(/\u200b/g, "")]);
     }
 }
-function mergeInlineChildren(parent, from, to, elts, openStart, openEnd) {
-    let cur = parent.childCursor();
-    let { i: toI, off: toOff } = cur.findPos(to, 1);
-    let { i: fromI, off: fromOff } = cur.findPos(from, -1);
-    let dLen = from - to;
-    for (let view of elts)
-        dLen += view.length;
-    parent.length += dLen;
-    let { children } = parent;
-    // Both from and to point into the same child view
-    if (fromI == toI && fromOff) {
-        let start = children[fromI];
-        // Maybe just update that view and be done
-        if (elts.length == 1 && start.merge(fromOff, toOff, elts[0], openStart, openEnd))
-            return;
-        if (elts.length == 0) {
-            start.merge(fromOff, toOff, null, openStart, openEnd);
-            return;
-        }
-        // Otherwise split it, so that we don't have to worry about aliasing front/end afterwards
-        let after = start.slice(toOff);
-        if (after.merge(0, 0, elts[elts.length - 1], 0, openEnd))
-            elts[elts.length - 1] = after;
-        else
-            elts.push(after);
-        toI++;
-        openEnd = toOff = 0;
-    }
-    // Make sure start and end positions fall on node boundaries
-    // (fromOff/toOff are no longer used after this), and that if the
-    // start or end of the elts can be merged with adjacent nodes,
-    // this is done
-    if (toOff) {
-        let end = children[toI];
-        if (elts.length && end.merge(0, toOff, elts[elts.length - 1], 0, openEnd)) {
-            elts.pop();
-            openEnd = elts.length ? 0 : openStart;
-        }
-        else {
-            end.merge(0, toOff, null, 0, 0);
-        }
-    }
-    else if (toI < children.length && elts.length &&
-        children[toI].merge(0, 0, elts[elts.length - 1], 0, openEnd)) {
-        elts.pop();
-        openEnd = elts.length ? 0 : openStart;
-    }
-    if (fromOff) {
-        let start = children[fromI];
-        if (elts.length && start.merge(fromOff, start.length, elts[0], openStart, 0)) {
-            elts.shift();
-            openStart = elts.length ? 0 : openEnd;
-        }
-        else {
-            start.merge(fromOff, start.length, null, 0, 0);
-        }
-        fromI++;
-    }
-    else if (fromI && elts.length) {
-        let end = children[fromI - 1];
-        if (end.merge(end.length, end.length, elts[0], openStart, 0)) {
-            elts.shift();
-            openStart = elts.length ? 0 : openEnd;
-        }
-    }
-    // Then try to merge any mergeable nodes at the start and end of
-    // the changed range
-    while (fromI < toI && elts.length && children[toI - 1].become(elts[elts.length - 1])) {
-        elts.pop();
-        toI--;
-        openEnd = elts.length ? 0 : openStart;
-    }
-    while (fromI < toI && elts.length && children[fromI].become(elts[0])) {
-        elts.shift();
-        fromI++;
-        openStart = elts.length ? 0 : openEnd;
-    }
-    if (!elts.length && fromI && toI < children.length &&
-        children[toI].merge(0, 0, children[fromI - 1], openStart, openEnd))
-        fromI--;
-    // And if anything remains, splice the child array to insert the new elts
-    if (elts.length || fromI != toI)
-        parent.replaceChildren(fromI, toI, elts);
-}
+TextView.prototype.children = WidgetView.prototype.children = WidgetBufferView.prototype.children = noChildren;
 function inlineDOMAtPos(dom, children, pos) {
     let i = 0;
     for (let off = 0; i < children.length; i++) {
@@ -6760,6 +6770,11 @@ class WidgetType {
     @internal
     */
     get customView() { return null; }
+    /**
+    This is called when the an instance of the widget is removed
+    from the editor view.
+    */
+    destroy(_dom) { }
 }
 /**
 The different types of blocks that can occur in an editor view.
@@ -6919,12 +6934,12 @@ class PointDecoration extends Decoration {
         super(startSide, endSide, widget, spec);
         this.block = block;
         this.isReplace = isReplace;
-        this.mapMode = !block ? MapMode.TrackDel : startSide < 0 ? MapMode.TrackBefore : MapMode.TrackAfter;
+        this.mapMode = !block ? MapMode.TrackDel : startSide <= 0 ? MapMode.TrackBefore : MapMode.TrackAfter;
     }
     // Only relevant when this.block == true
     get type() {
         return this.startSide < this.endSide ? BlockType.WidgetRange
-            : this.startSide < 0 ? BlockType.WidgetBefore : BlockType.WidgetAfter;
+            : this.startSide <= 0 ? BlockType.WidgetBefore : BlockType.WidgetAfter;
     }
     get heightRelevant() { return this.block || !!this.widget && this.widget.estimatedHeight >= 5; }
     eq(other) {
@@ -6934,7 +6949,7 @@ class PointDecoration extends Decoration {
             this.startSide == other.startSide && this.endSide == other.endSide;
     }
     range(from, to = from) {
-        if (this.isReplace && (from > to || (from == to && this.startSide > 0 && this.endSide < 0)))
+        if (this.isReplace && (from > to || (from == to && this.startSide > 0 && this.endSide <= 0)))
             throw new RangeError("Invalid range for replacement decoration");
         if (!this.isReplace && to != from)
             throw new RangeError("Widget decorations can only have zero-length ranges");
@@ -6971,16 +6986,16 @@ class LineView extends ContentView {
         this.breakAfter = 0;
     }
     // Consumes source
-    merge(from, to, source, takeDeco, openStart, openEnd) {
+    merge(from, to, source, hasStart, openStart, openEnd) {
         if (source) {
             if (!(source instanceof LineView))
                 return false;
             if (!this.dom)
                 source.transferDOM(this); // Reuse source.dom when appropriate
         }
-        if (takeDeco)
+        if (hasStart)
             this.setDeco(source ? source.attrs : null);
-        mergeInlineChildren(this, from, to, source ? source.children : none$1$1, openStart, openEnd);
+        mergeChildrenInto(this, from, to, source ? source.children : [], openStart, openEnd);
         return true;
     }
     split(at) {
@@ -6990,16 +7005,14 @@ class LineView extends ContentView {
             return end;
         let { i, off } = this.childPos(at);
         if (off) {
-            end.append(this.children[i].slice(off), 0);
-            this.children[i].merge(off, this.children[i].length, null, 0, 0);
+            end.append(this.children[i].split(off), 0);
+            this.children[i].merge(off, this.children[i].length, null, false, 0, 0);
             i++;
         }
         for (let j = i; j < this.children.length; j++)
             end.append(this.children[j], 0);
-        while (i > 0 && this.children[i - 1].length == 0) {
-            this.children[i - 1].parent = null;
-            i--;
-        }
+        while (i > 0 && this.children[i - 1].length == 0)
+            this.children[--i].destroy();
         this.children.length = i;
         this.markDirty();
         this.length = at;
@@ -7022,7 +7035,6 @@ class LineView extends ContentView {
             this.attrs = attrs;
         }
     }
-    // Only called when building a line view in ContentBuilder
     append(child, openStart) {
         joinInlineInto(this, child, openStart);
     }
@@ -7079,7 +7091,7 @@ class LineView extends ContentView {
     coordsAt(pos, side) {
         return coordsInChildren(this, pos, side);
     }
-    match(_other) { return false; }
+    become(_other) { return false; }
     get type() { return BlockType.Text; }
     static find(docView, pos) {
         for (let i = 0, off = 0;; i++) {
@@ -7094,7 +7106,6 @@ class LineView extends ContentView {
         }
     }
 }
-const none$1$1 = [];
 class BlockWidgetView extends ContentView {
     constructor(widget, length, type) {
         super();
@@ -7120,7 +7131,7 @@ class BlockWidgetView extends ContentView {
         end.breakAfter = this.breakAfter;
         return end;
     }
-    get children() { return none$1$1; }
+    get children() { return noChildren; }
     sync() {
         if (!this.dom || !this.widget.updateDOM(this.dom)) {
             this.setDOM(this.widget.toDOM(this.editorView));
@@ -7131,7 +7142,7 @@ class BlockWidgetView extends ContentView {
         return this.parent ? this.parent.view.state.doc.slice(this.posAtStart, this.posAtEnd) : Text.empty;
     }
     domBoundsAround() { return null; }
-    match(other) {
+    become(other) {
         if (other instanceof BlockWidgetView && other.type == this.type &&
             other.widget.constructor == this.widget.constructor) {
             if (!other.widget.eq(this.widget))
@@ -7145,6 +7156,11 @@ class BlockWidgetView extends ContentView {
     }
     ignoreMutation() { return true; }
     ignoreEvent(event) { return this.widget.ignoreEvent(event); }
+    destroy() {
+        super.destroy();
+        if (this.dom)
+            this.widget.destroy(this.dom);
+    }
 }
 
 class ContentBuilder {
@@ -7304,7 +7320,7 @@ class NullWidget extends WidgetType {
     updateDOM(elt) { return elt.nodeName.toLowerCase() == this.tag; }
 }
 
-const none$4 = [];
+const none$3 = [];
 const clickAddsSelectionRange = /*@__PURE__*/Facet.define();
 const dragMovesSelection$1 = /*@__PURE__*/Facet.define();
 const mouseSelectionStyle = /*@__PURE__*/Facet.define();
@@ -7606,7 +7622,7 @@ class ViewUpdate {
     /**
     The transactions involved in the update. May be empty.
     */
-    transactions = none$4) {
+    transactions = none$3) {
         this.view = view;
         this.state = state;
         this.transactions = transactions;
@@ -7797,70 +7813,8 @@ class DocView extends ContentView {
             let { content, breakAtStart, openStart, openEnd } = ContentBuilder.build(this.view.state.doc, fromB, toB, deco);
             let { i: toI, off: toOff } = cursor.findPos(toA, 1);
             let { i: fromI, off: fromOff } = cursor.findPos(fromA, -1);
-            this.replaceRange(fromI, fromOff, toI, toOff, content, breakAtStart, openStart, openEnd);
+            replaceRange(this, fromI, fromOff, toI, toOff, content, breakAtStart, openStart, openEnd);
         }
-    }
-    replaceRange(fromI, fromOff, toI, toOff, content, breakAtStart, openStart, openEnd) {
-        let before = this.children[fromI], last = content.length ? content[content.length - 1] : null;
-        let breakAtEnd = last ? last.breakAfter : breakAtStart;
-        // Change within a single line
-        if (fromI == toI && !breakAtStart && !breakAtEnd && content.length < 2 &&
-            before.merge(fromOff, toOff, content.length ? last : null, fromOff == 0, openStart, openEnd))
-            return;
-        let after = this.children[toI];
-        // Make sure the end of the line after the update is preserved in `after`
-        if (toOff < after.length) {
-            // If we're splitting a line, separate part of the start line to
-            // avoid that being mangled when updating the start line.
-            if (fromI == toI) {
-                after = after.split(toOff);
-                toOff = 0;
-            }
-            // If the element after the replacement should be merged with
-            // the last replacing element, update `content`
-            if (!breakAtEnd && last && after.merge(0, toOff, last, true, 0, openEnd)) {
-                content[content.length - 1] = after;
-            }
-            else {
-                // Remove the start of the after element, if necessary, and
-                // add it to `content`.
-                if (toOff)
-                    after.merge(0, toOff, null, false, 0, openEnd);
-                content.push(after);
-            }
-        }
-        else if (after.breakAfter) {
-            // The element at `toI` is entirely covered by this range.
-            // Preserve its line break, if any.
-            if (last)
-                last.breakAfter = 1;
-            else
-                breakAtStart = 1;
-        }
-        // Since we've handled the next element from the current elements
-        // now, make sure `toI` points after that.
-        toI++;
-        before.breakAfter = breakAtStart;
-        if (fromOff > 0) {
-            if (!breakAtStart && content.length && before.merge(fromOff, before.length, content[0], false, openStart, 0)) {
-                before.breakAfter = content.shift().breakAfter;
-            }
-            else if (fromOff < before.length || before.children.length && before.children[before.children.length - 1].length == 0) {
-                before.merge(fromOff, before.length, null, false, openStart, 0);
-            }
-            fromI++;
-        }
-        // Try to merge widgets on the boundaries of the replacement
-        while (fromI < toI && content.length) {
-            if (this.children[toI - 1].match(content[content.length - 1]))
-                toI--, content.pop();
-            else if (this.children[fromI].match(content[0]))
-                fromI++, content.shift();
-            else
-                break;
-        }
-        if (fromI < toI || content.length)
-            this.replaceChildren(fromI, toI, content);
     }
     // Sync the DOM selection to this.state.selection
     updateSelection(mustRead = false, fromPointer = false) {
@@ -8124,15 +8078,10 @@ function computeCompositionDeco(view, changes) {
     if (!textNode)
         return Decoration.none;
     let cView = view.docView.nearest(textNode);
+    if (!cView)
+        return Decoration.none;
     let from, to, topNode = textNode;
-    if (cView instanceof InlineView) {
-        while (cView.parent instanceof InlineView)
-            cView = cView.parent;
-        from = cView.posAtStart;
-        to = from + cView.length;
-        topNode = cView.dom;
-    }
-    else if (cView instanceof LineView) {
+    if (cView instanceof LineView) {
         while (topNode.parentNode != cView.dom)
             topNode = topNode.parentNode;
         let prev = topNode.previousSibling;
@@ -8141,7 +8090,17 @@ function computeCompositionDeco(view, changes) {
         from = to = prev ? ContentView.get(prev).posAtEnd : cView.posAtStart;
     }
     else {
-        return Decoration.none;
+        for (;;) {
+            let { parent } = cView;
+            if (!parent)
+                return Decoration.none;
+            if (parent instanceof LineView)
+                break;
+            cView = parent;
+        }
+        from = cView.posAtStart;
+        to = from + cView.length;
+        topNode = cView.dom;
     }
     let newFrom = changes.mapPos(from, 1), newTo = Math.max(newFrom, changes.mapPos(to, -1));
     let text = textNode.nodeValue, { state } = view;
