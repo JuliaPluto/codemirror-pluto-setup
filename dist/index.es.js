@@ -7333,7 +7333,7 @@ class ContentBuilder {
             return true;
         if (value.block)
             throw new RangeError("Block decorations may not be specified via plugins");
-        return to < this.doc.lineAt(this.pos).to;
+        return to <= this.doc.lineAt(this.pos).to;
     }
     static build(text, from, to, decorations, pluginDecorationLength) {
         let builder = new ContentBuilder(text, from, to, pluginDecorationLength);
