@@ -1810,11 +1810,11 @@ type StyleSpec = {
   [propOrSelector: string]: string | number | StyleSpec | null
 }
 
-declare type Attrs$3 = {
+declare type Attrs = {
     [name: string]: string;
 };
 
-interface MarkDecorationSpec$3 {
+interface MarkDecorationSpec {
     /**
     Whether the mark covers its start and end position or not. This
     influences whether content inserted at those positions becomes
@@ -1855,11 +1855,11 @@ interface MarkDecorationSpec$3 {
     */
     [other: string]: any;
 }
-interface WidgetDecorationSpec$3 {
+interface WidgetDecorationSpec {
     /**
     The type of widget to draw here.
     */
-    widget: WidgetType$3;
+    widget: WidgetType;
     /**
     Which side of the given position the widget is on. When this is
     positive, the widget will be drawn after the cursor if the
@@ -1886,12 +1886,12 @@ interface WidgetDecorationSpec$3 {
     */
     [other: string]: any;
 }
-interface ReplaceDecorationSpec$3 {
+interface ReplaceDecorationSpec {
     /**
     An optional widget to drawn in the place of the replaced
     content.
     */
-    widget?: WidgetType$3;
+    widget?: WidgetType;
     /**
     Whether this range covers the positions on its sides. This
     influences whether new content becomes part of the range and
@@ -1916,7 +1916,7 @@ interface ReplaceDecorationSpec$3 {
     */
     [other: string]: any;
 }
-interface LineDecorationSpec$3 {
+interface LineDecorationSpec {
     /**
     DOM attributes to add to the element wrapping the line.
     */
@@ -1939,11 +1939,11 @@ delay creating of the DOM structure for a widget until it is
 needed, and to avoid redrawing widgets even when the decorations
 that define them are recreated.
 */
-declare abstract class WidgetType$3 {
+declare abstract class WidgetType {
     /**
     Build the DOM structure for this widget instance.
     */
-    abstract toDOM(view: EditorView$3): HTMLElement;
+    abstract toDOM(view: EditorView): HTMLElement;
     /**
     Compare this instance to another instance of the same type.
     (TypeScript can't express this, but only instances of the same
@@ -1953,7 +1953,7 @@ declare abstract class WidgetType$3 {
     returns `false`, which will cause new instances of the widget to
     always be redrawn.
     */
-    eq(_widget: WidgetType$3): boolean;
+    eq(_widget: WidgetType): boolean;
     /**
     Update a DOM element created by a widget of the same type (but
     different, non-`eq` content) to reflect this widget. May return
@@ -1975,17 +1975,22 @@ declare abstract class WidgetType$3 {
     events.
     */
     ignoreEvent(_event: Event): boolean;
+    /**
+    This is called when the an instance of the widget is removed
+    from the editor view.
+    */
+    destroy(_dom: HTMLElement): void;
 }
 /**
 A decoration set represents a collection of decorated ranges,
 organized for efficient access and mapping. See
 [`RangeSet`](https://codemirror.net/6/docs/ref/#rangeset.RangeSet) for its methods.
 */
-declare type DecorationSet$3 = RangeSet<Decoration$3>;
+declare type DecorationSet = RangeSet<Decoration>;
 /**
 The different types of blocks that can occur in an editor view.
 */
-declare enum BlockType$3 {
+declare enum BlockType {
     /**
     A line of text.
     */
@@ -2008,14 +2013,14 @@ A decoration provides information on how to draw or style a piece
 of content. You'll usually use it wrapped in a
 [`Range`](https://codemirror.net/6/docs/ref/#rangeset.Range), which adds a start and end position.
 */
-declare abstract class Decoration$3 extends RangeValue {
+declare abstract class Decoration extends RangeValue {
     /**
     The config object used to create this decoration. You can
     include additional properties in there to store metadata about
     your decoration.
     */
     readonly spec: any;
-    abstract eq(other: Decoration$3): boolean;
+    abstract eq(other: Decoration): boolean;
     /**
     Create a mark decoration, which influences the styling of the
     content in its range. Nested mark decorations will cause nested
@@ -2026,38 +2031,38 @@ declare abstract class Decoration$3 extends RangeValue {
     on line boundaries and on the boundaries of higher-precedence
     decorations.
     */
-    static mark(spec: MarkDecorationSpec$3): Decoration$3;
+    static mark(spec: MarkDecorationSpec): Decoration;
     /**
     Create a widget decoration, which adds an element at the given
     position.
     */
-    static widget(spec: WidgetDecorationSpec$3): Decoration$3;
+    static widget(spec: WidgetDecorationSpec): Decoration;
     /**
     Create a replace decoration which replaces the given range with
     a widget, or simply hides it.
     */
-    static replace(spec: ReplaceDecorationSpec$3): Decoration$3;
+    static replace(spec: ReplaceDecorationSpec): Decoration;
     /**
     Create a line decoration, which can add DOM attributes to the
     line starting at the given position.
     */
-    static line(spec: LineDecorationSpec$3): Decoration$3;
+    static line(spec: LineDecorationSpec): Decoration;
     /**
     Build a [`DecorationSet`](https://codemirror.net/6/docs/ref/#view.DecorationSet) from the given
     decorated range or ranges. If the ranges aren't already sorted,
     pass `true` for `sort` to make the library sort them for you.
     */
-    static set(of: Range<Decoration$3> | readonly Range<Decoration$3>[], sort?: boolean): DecorationSet$3;
+    static set(of: Range<Decoration> | readonly Range<Decoration>[], sort?: boolean): DecorationSet;
     /**
     The empty set of decorations.
     */
-    static none: DecorationSet$3;
+    static none: DecorationSet;
 }
 
 /**
 Basic rectangle type.
 */
-interface Rect$3 {
+interface Rect {
     readonly left: number;
     readonly right: number;
     readonly top: number;
@@ -2071,11 +2076,11 @@ apply to the editor, and if it can, perform it as a side effect
 (which usually means [dispatching](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) a
 transaction) and return `true`.
 */
-declare type Command$2 = (target: EditorView$3) => boolean;
+declare type Command = (target: EditorView) => boolean;
 /**
 This is the interface plugin objects conform to.
 */
-interface PluginValue$3 {
+interface PluginValue {
     /**
     Notifies the plugin of an update that happened in the view. This
     is called _before_ the view updates its own DOM. It is
@@ -2086,38 +2091,38 @@ interface PluginValue$3 {
     [`requestMeasure`](https://codemirror.net/6/docs/ref/#view.EditorView.requestMeasure) to schedule
     your code in a DOM reading phase if you need to.
     */
-    update?(_update: ViewUpdate$3): void;
+    update?(_update: ViewUpdate): void;
     /**
     Called when the plugin is no longer going to be used. Should
     revert any changes the plugin made to the DOM.
     */
     destroy?(): void;
 }
-declare const isFieldProvider$3: unique symbol;
+declare const isFieldProvider: unique symbol;
 /**
 Used to [declare](https://codemirror.net/6/docs/ref/#view.PluginSpec.provide) which
 [fields](https://codemirror.net/6/docs/ref/#view.PluginValue) a [view plugin](https://codemirror.net/6/docs/ref/#view.ViewPlugin)
 provides.
 */
-declare class PluginFieldProvider$3<V> {
-    private [isFieldProvider$3];
+declare class PluginFieldProvider<V> {
+    private [isFieldProvider];
 }
 /**
 Plugin fields are a mechanism for allowing plugins to provide
 values that can be retrieved through the
 [`pluginField`](https://codemirror.net/6/docs/ref/#view.EditorView.pluginField) view method.
 */
-declare class PluginField$3<T> {
+declare class PluginField<T> {
     /**
     Create a [provider](https://codemirror.net/6/docs/ref/#view.PluginFieldProvider) for this field,
     to use with a plugin's [provide](https://codemirror.net/6/docs/ref/#view.PluginSpec.provide)
     option.
     */
-    from<V extends PluginValue$3>(get: (value: V) => T): PluginFieldProvider$3<V>;
+    from<V extends PluginValue>(get: (value: V) => T): PluginFieldProvider<V>;
     /**
     Define a new plugin field.
     */
-    static define<T>(): PluginField$3<T>;
+    static define<T>(): PluginField<T>;
     /**
     This field can be used by plugins to provide
     [decorations](https://codemirror.net/6/docs/ref/#view.Decoration).
@@ -2131,7 +2136,7 @@ declare class PluginField$3<T> {
     not this plugin field. Specifically, replacing decorations that
     cross line boundaries will break if provided through a plugin.
     */
-    static decorations: PluginField$3<DecorationSet$3>;
+    static decorations: PluginField<DecorationSet>;
     /**
     Used to provide ranges that should be treated as atoms as far as
     cursor motion is concerned. This causes methods like
@@ -2143,7 +2148,7 @@ declare class PluginField$3<T> {
     updates](https://codemirror.net/6/docs/ref/#state.TransactionSpec.selection) from moving into such
     regions.
     */
-    static atomicRanges: PluginField$3<RangeSet<any>>;
+    static atomicRanges: PluginField<RangeSet<any>>;
     /**
     Plugins can provide additional scroll margins (space around the
     sides of the scrolling element that should be considered
@@ -2151,20 +2156,20 @@ declare class PluginField$3<T> {
     plugin introduces elements that cover part of that element (for
     example a horizontally fixed gutter).
     */
-    static scrollMargins: PluginField$3<Partial<Rect$3> | null>;
+    static scrollMargins: PluginField<Partial<Rect> | null>;
 }
 /**
 Provides additional information when defining a [view
 plugin](https://codemirror.net/6/docs/ref/#view.ViewPlugin).
 */
-interface PluginSpec$3<V extends PluginValue$3> {
+interface PluginSpec<V extends PluginValue> {
     /**
     Register the given [event
     handlers](https://codemirror.net/6/docs/ref/#view.EditorView^domEventHandlers) for the plugin.
     When called, these will have their `this` bound to the plugin
     value.
     */
-    eventHandlers?: DOMEventHandlers$3<V>;
+    eventHandlers?: DOMEventHandlers<V>;
     /**
     Allow the plugin to provide decorations. When given, this should
     a function that take the plugin value and return a [decoration
@@ -2172,21 +2177,21 @@ interface PluginSpec$3<V extends PluginValue$3> {
     [layout-changing decorations](https://codemirror.net/6/docs/ref/#view.PluginField^decorations)
     from plugins.
     */
-    decorations?: (value: V) => DecorationSet$3;
+    decorations?: (value: V) => DecorationSet;
     /**
     Specify that the plugin provides [plugin
     field](https://codemirror.net/6/docs/ref/#view.PluginField) values. Use a field's
     [`from`](https://codemirror.net/6/docs/ref/#view.PluginField.from) method to create these
     providers.
     */
-    provide?: PluginFieldProvider$3<V> | readonly PluginFieldProvider$3<V>[];
+    provide?: PluginFieldProvider<V> | readonly PluginFieldProvider<V>[];
 }
 /**
 View plugins associate stateful values with a view. They can
 influence the way the content is drawn, and are notified of things
 that happen in the view.
 */
-declare class ViewPlugin$3<V extends PluginValue$3> {
+declare class ViewPlugin<V extends PluginValue> {
     /**
     Instances of this class act as extensions.
     */
@@ -2196,41 +2201,42 @@ declare class ViewPlugin$3<V extends PluginValue$3> {
     Define a plugin from a constructor function that creates the
     plugin's value, given an editor view.
     */
-    static define<V extends PluginValue$3>(create: (view: EditorView$3) => V, spec?: PluginSpec$3<V>): ViewPlugin$3<V>;
+    static define<V extends PluginValue>(create: (view: EditorView) => V, spec?: PluginSpec<V>): ViewPlugin<V>;
     /**
     Create a plugin for a class whose constructor takes a single
     editor view as argument.
     */
-    static fromClass<V extends PluginValue$3>(cls: {
-        new (view: EditorView$3): V;
-    }, spec?: PluginSpec$3<V>): ViewPlugin$3<V>;
+    static fromClass<V extends PluginValue>(cls: {
+        new (view: EditorView): V;
+    }, spec?: PluginSpec<V>): ViewPlugin<V>;
 }
-interface MeasureRequest$3<T> {
+interface MeasureRequest<T> {
     /**
     Called in a DOM read phase to gather information that requires
     DOM layout. Should _not_ mutate the document.
     */
-    read(view: EditorView$3): T;
+    read(view: EditorView): T;
     /**
     Called in a DOM write phase to update the document. Should _not_
     do anything that triggers DOM layout.
     */
-    write(measure: T, view: EditorView$3): void;
+    write?(measure: T, view: EditorView): void;
     /**
     When multiple requests with the same key are scheduled, only the
     last one will actually be ran.
     */
     key?: any;
 }
+declare type AttrSource = Attrs | ((view: EditorView) => Attrs | null);
 /**
 View [plugins](https://codemirror.net/6/docs/ref/#view.ViewPlugin) are given instances of this
 class, which describe what happened, whenever the view is updated.
 */
-declare class ViewUpdate$3 {
+declare class ViewUpdate {
     /**
     The editor view that the update is associated with.
     */
-    readonly view: EditorView$3;
+    readonly view: EditorView;
     /**
     The new editor state.
     */
@@ -2281,7 +2287,7 @@ Interface that objects registered with
 [`EditorView.mouseSelectionStyle`](https://codemirror.net/6/docs/ref/#view.EditorView^mouseSelectionStyle)
 must conform to.
 */
-interface MouseSelectionStyle$3 {
+interface MouseSelectionStyle {
     /**
     Return a new selection for the mouse gesture that starts with
     the event that was originally given to the constructor, and ends
@@ -2306,14 +2312,14 @@ interface MouseSelectionStyle$3 {
     using this (where `get` returns a new selection, which will
     trigger `update`, which schedules another `get` in response).
     */
-    update: (update: ViewUpdate$3) => boolean | void;
+    update: (update: ViewUpdate) => boolean | void;
 }
-declare type MakeSelectionStyle$3 = (view: EditorView$3, event: MouseEvent) => MouseSelectionStyle$3 | null;
+declare type MakeSelectionStyle = (view: EditorView, event: MouseEvent) => MouseSelectionStyle | null;
 
 /**
 Used to indicate [text direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection).
 */
-declare enum Direction$3 {
+declare enum Direction {
     /**
     Left-to-right.
     */
@@ -2327,7 +2333,7 @@ declare enum Direction$3 {
 Represents a contiguous range of text that has a single direction
 (as in left-to-right or right-to-left).
 */
-declare class BidiSpan$3 {
+declare class BidiSpan {
     /**
     The start of the span (relative to the start of the line).
     */
@@ -2347,14 +2353,14 @@ declare class BidiSpan$3 {
     /**
     The direction of this span.
     */
-    get dir(): Direction$3;
+    get dir(): Direction;
 }
 
 /**
 Record used to represent information about a block-level element
 in the editor view.
 */
-declare class BlockInfo$3 {
+declare class BlockInfo {
     /**
     The start of the element in the document.
     */
@@ -2364,7 +2370,8 @@ declare class BlockInfo$3 {
     */
     readonly length: number;
     /**
-    The top position of the element.
+    The top position of the element (relative to the top of the
+    document).
     */
     readonly top: number;
     /**
@@ -2375,7 +2382,7 @@ declare class BlockInfo$3 {
     The type of element this is. When querying lines, this may be
     an array of all the blocks that make up the line.
     */
-    readonly type: BlockType$3 | readonly BlockInfo$3[];
+    readonly type: BlockType | readonly BlockInfo[];
     /**
     The end of the element as a document position.
     */
@@ -2386,7 +2393,7 @@ declare class BlockInfo$3 {
     get bottom(): number;
 }
 
-interface EditorConfig$3 {
+interface EditorConfig {
     /**
     The view's initial state. Defaults to an extension-less state
     with an empty document.
@@ -2421,7 +2428,7 @@ the editable DOM surface, and possibly other elements such as the
 line number gutter. It handles events and dispatches state
 transactions for editing actions.
 */
-declare class EditorView$3 {
+declare class EditorView {
     /**
     The current editor state.
     */
@@ -2484,6 +2491,7 @@ declare class EditorView$3 {
     readonly contentDOM: HTMLElement;
     private announceDOM;
     private plugins;
+    private pluginMap;
     private editorAttrs;
     private contentAttrs;
     private styleModules;
@@ -2498,7 +2506,7 @@ declare class EditorView$3 {
     /**
     Initialization options.
     */
-    config?: EditorConfig$3);
+    config?: EditorConfig);
     /**
     All regular editor state updates should go through this. It
     takes a transaction or transaction spec and updates the view to
@@ -2544,19 +2552,32 @@ declare class EditorView$3 {
     drawing done by other components is synchronized, avoiding
     unnecessary DOM layout computations.
     */
-    requestMeasure<T>(request?: MeasureRequest$3<T>): void;
+    requestMeasure<T>(request?: MeasureRequest<T>): void;
     /**
     Collect all values provided by the active plugins for a given
     field.
     */
-    pluginField<T>(field: PluginField$3<T>): readonly T[];
+    pluginField<T>(field: PluginField<T>): readonly T[];
     /**
     Get the value of a specific plugin, if present. Note that
     plugins that crash can be dropped from a view, so even when you
     know you registered a given plugin, it is recommended to check
     the return value of this method.
     */
-    plugin<T>(plugin: ViewPlugin$3<T>): T | null;
+    plugin<T>(plugin: ViewPlugin<T>): T | null;
+    /**
+    The top position of the document, in screen coordinates. This
+    may be negative when the editor is scrolled down. Points
+    directly to the top of the first line, not above the padding.
+    */
+    get documentTop(): number;
+    /**
+    Reports the padding above and below the document.
+    */
+    get documentPadding(): {
+        top: number;
+        bottom: number;
+    };
     /**
     Find the line or block widget at the given vertical position.
     
@@ -2567,8 +2588,16 @@ declare class EditorView$3 {
     position, or a precomputed document top
     (`view.contentDOM.getBoundingClientRect().top`) to limit layout
     queries.
+    
+    *Deprecated: use `blockAtHeight` instead.*
     */
-    blockAtHeight(height: number, docTop?: number): BlockInfo$3;
+    blockAtHeight(height: number, docTop?: number): BlockInfo;
+    /**
+    Find the text line or block widget at the given vertical
+    position (which is interpreted as relative to the [top of the
+    document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop)
+    */
+    elementAtHeight(height: number): BlockInfo;
     /**
     Find information for the visual line (see
     [`visualLineAt`](https://codemirror.net/6/docs/ref/#view.EditorView.visualLineAt)) at the given
@@ -2579,15 +2608,32 @@ declare class EditorView$3 {
     Defaults to treating `height` as a screen position. See
     [`blockAtHeight`](https://codemirror.net/6/docs/ref/#view.EditorView.blockAtHeight) for the
     interpretation of the `docTop` parameter.
+    
+    *Deprecated: use `lineBlockAtHeight` instead.*
     */
-    visualLineAtHeight(height: number, docTop?: number): BlockInfo$3;
+    visualLineAtHeight(height: number, docTop?: number): BlockInfo;
+    /**
+    Find the line block (see
+    [`lineBlockAt`](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) at the given
+    height.
+    */
+    lineBlockAtHeight(height: number): BlockInfo;
     /**
     Iterate over the height information of the visual lines in the
     viewport. The heights of lines are reported relative to the
     given document top, which defaults to the screen position of the
     document (forcing a layout).
+    
+    *Deprecated: use `viewportLineBlocks` instead.*
     */
-    viewportLines(f: (line: BlockInfo$3) => void, docTop?: number): void;
+    viewportLines(f: (line: BlockInfo) => void, docTop?: number): void;
+    /**
+    Get the extent and vertical position of all [line
+    blocks](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) in the viewport. Positions
+    are relative to the [top of the
+    document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop);
+    */
+    get viewportLineBlocks(): BlockInfo[];
     /**
     Find the extent and height of the visual line (a range delimited
     on both sides by either non-[hidden](https://codemirror.net/6/docs/ref/#view.Decoration^range)
@@ -2597,8 +2643,19 @@ declare class EditorView$3 {
     argument, which defaults to 0 for this method. You can pass
     `view.contentDOM.getBoundingClientRect().top` here to get screen
     coordinates.
+    
+    *Deprecated: use `lineBlockAt` instead.*
     */
-    visualLineAt(pos: number, docTop?: number): BlockInfo$3;
+    visualLineAt(pos: number, docTop?: number): BlockInfo;
+    /**
+    Find the line block around the given document position. A line
+    block is a range delimited on both sides by either a
+    non-[hidden](https://codemirror.net/6/docs/ref/#view.Decoration^range) line breaks, or the
+    start/end of the document. It will usually just hold a line of
+    text, but may be broken into multiple textblocks by block
+    widgets.
+    */
+    lineBlockAt(pos: number): BlockInfo;
     /**
     The editor's total content height.
     */
@@ -2683,7 +2740,7 @@ declare class EditorView$3 {
     available on the given side, the method will transparently use
     another strategy to get reasonable coordinates).
     */
-    coordsAtPos(pos: number, side?: -1 | 1): Rect$3 | null;
+    coordsAtPos(pos: number, side?: -1 | 1): Rect | null;
     /**
     The default width of a character in the editor. May not
     accurately reflect the width of all characters (given variable
@@ -2700,7 +2757,7 @@ declare class EditorView$3 {
     ([`direction`](https://developer.mozilla.org/en-US/docs/Web/CSS/direction)
     CSS property) of the editor.
     */
-    get textDirection(): Direction$3;
+    get textDirection(): Direction;
     /**
     Whether this editor [wraps lines](https://codemirror.net/6/docs/ref/#view.EditorView.lineWrapping)
     (as determined by the
@@ -2716,7 +2773,7 @@ declare class EditorView$3 {
     left-to-right, the leftmost spans come first, otherwise the
     rightmost spans come first.
     */
-    bidiSpans(line: Line$1): readonly BidiSpan$3[];
+    bidiSpans(line: Line$1): readonly BidiSpan[];
     /**
     Check whether the editor has focus.
     */
@@ -2762,7 +2819,7 @@ declare class EditorView$3 {
     element](https://codemirror.net/6/docs/ref/#view.EditorView.scrollDOM) or one of its parent nodes
     is scrolled.
     */
-    static domEventHandlers(handlers: DOMEventHandlers$3<any>): Extension;
+    static domEventHandlers(handlers: DOMEventHandlers<any>): Extension;
     /**
     An input handler can override the way changes to the editable
     DOM content are handled. Handlers are passed the document
@@ -2770,7 +2827,7 @@ declare class EditorView$3 {
     content. When one returns true, no further input handlers are
     called and the default behavior is prevented.
     */
-    static inputHandler: Facet<(view: EditorView$3, from: number, to: number, text: string) => boolean, readonly ((view: EditorView$3, from: number, to: number, text: string) => boolean)[]>;
+    static inputHandler: Facet<(view: EditorView, from: number, to: number, text: string) => boolean, readonly ((view: EditorView, from: number, to: number, text: string) => boolean)[]>;
     /**
     Allows you to provide a function that should be called when the
     library catches an exception from an extension (mostly from view
@@ -2783,7 +2840,7 @@ declare class EditorView$3 {
     A facet that can be used to register a function to be called
     every time the view updates.
     */
-    static updateListener: Facet<(update: ViewUpdate$3) => void, readonly ((update: ViewUpdate$3) => void)[]>;
+    static updateListener: Facet<(update: ViewUpdate) => void, readonly ((update: ViewUpdate) => void)[]>;
     /**
     Facet that controls whether the editor content DOM is editable.
     When its highest-precedence value is `false`, the element will
@@ -2799,7 +2856,7 @@ declare class EditorView$3 {
     on the editor, and can return an object that overrides the way a
     selection is computed from that mouse click or drag.
     */
-    static mouseSelectionStyle: Facet<MakeSelectionStyle$3, readonly MakeSelectionStyle$3[]>;
+    static mouseSelectionStyle: Facet<MakeSelectionStyle, readonly MakeSelectionStyle[]>;
     /**
     Facet used to configure whether a given selection drag event
     should move or copy the selection. The given predicate will be
@@ -2818,7 +2875,7 @@ declare class EditorView$3 {
     plugins](https://codemirror.net/6/docs/ref/#view.EditorView^decorations), which have a separate
     mechanism for providing decorations.
     */
-    static decorations: Facet<DecorationSet$3, readonly DecorationSet$3[]>;
+    static decorations: Facet<DecorationSet, readonly DecorationSet[]>;
     /**
     Create a theme extension. The first argument can be a
     [`style-mod`](https://github.com/marijnh/style-mod#documentation)
@@ -2856,12 +2913,12 @@ declare class EditorView$3 {
     Facet that provides additional DOM attributes for the editor's
     editable DOM element.
     */
-    static contentAttributes: Facet<Attrs$3, Attrs$3>;
+    static contentAttributes: Facet<AttrSource, readonly AttrSource[]>;
     /**
     Facet that provides DOM attributes for the editor's outer
     element.
     */
-    static editorAttributes: Facet<Attrs$3, Attrs$3>;
+    static editorAttributes: Facet<AttrSource, readonly AttrSource[]>;
     /**
     An extension that enables line wrapping in the editor (by
     setting CSS `white-space` to `pre-wrap` in the content).
@@ -2881,7 +2938,7 @@ declare class EditorView$3 {
 Helper type that maps event names to event object types, or the
 `any` type for unknown events.
 */
-interface DOMEventMap$3 extends HTMLElementEventMap {
+interface DOMEventMap extends HTMLElementEventMap {
     [other: string]: any;
 }
 /**
@@ -2891,8 +2948,8 @@ to hold the appropriate event object type. For unknown events, it
 is inferred to `any`, and should be explicitly set if you want type
 checking.
 */
-declare type DOMEventHandlers$3<This> = {
-    [event in keyof DOMEventMap$3]?: (this: This, event: DOMEventMap$3[event], view: EditorView$3) => boolean | void;
+declare type DOMEventHandlers<This> = {
+    [event in keyof DOMEventMap]?: (this: This, event: DOMEventMap[event], view: EditorView) => boolean | void;
 };
 
 /**
@@ -2919,7 +2976,7 @@ You can use `Mod-` as a shorthand for `Cmd-` on Mac and `Ctrl-` on
 other platforms. So `Mod-b` is `Ctrl-b` on Linux but `Cmd-b` on
 macOS.
 */
-interface KeyBinding$2 {
+interface KeyBinding {
     /**
     The key name to use for this binding. If the platform-specific
     property (`mac`, `win`, or `linux`) for the current platform is
@@ -2945,13 +3002,13 @@ interface KeyBinding$2 {
     command function returns `false`, further bindings will be tried
     for the key.
     */
-    run: Command$2;
+    run: Command;
     /**
     When given, this defines a second binding, using the (possibly
     platform-specific) key name prefixed with `Shift-` to activate
     this command.
     */
-    shift?: Command$2;
+    shift?: Command;
     /**
     By default, key bindings apply when focus is on the editor
     content (the `"editor"` scope). Some extensions, mostly those
@@ -2980,7 +3037,7 @@ determine their precedence (the ones specified early or with high
 priority get checked first). When a handler has returned `true`
 for a given key, no further handlers are called.
 */
-declare const keymap: Facet<readonly KeyBinding$2[], readonly (readonly KeyBinding$2[])[]>;
+declare const keymap: Facet<readonly KeyBinding[], readonly (readonly KeyBinding[])[]>;
 
 declare type SelectionConfig = {
     /**
@@ -3560,1188 +3617,8 @@ declare type JuliaLanguageConfig = {
 };
 declare function julia(config?: JuliaLanguageConfig): LanguageSupport;
 
-declare type Attrs$2 = {
-    [name: string]: string;
-};
-
-interface MarkDecorationSpec$2 {
-    /**
-    Whether the mark covers its start and end position or not. This
-    influences whether content inserted at those positions becomes
-    part of the mark. Defaults to false.
-    */
-    inclusive?: boolean;
-    /**
-    Specify whether the start position of the marked range should be
-    inclusive. Overrides `inclusive`, when both are present.
-    */
-    inclusiveStart?: boolean;
-    /**
-    Whether the end should be inclusive.
-    */
-    inclusiveEnd?: boolean;
-    /**
-    Add attributes to the DOM elements that hold the text in the
-    marked range.
-    */
-    attributes?: {
-        [key: string]: string;
-    };
-    /**
-    Shorthand for `{attributes: {class: value}}`.
-    */
-    class?: string;
-    /**
-    Add a wrapping element around the text in the marked range. Note
-    that there will not be a single element covering the entire
-    range—content is split on mark starts and ends, and each piece
-    gets its own element.
-    */
-    tagName?: string;
-    /**
-    Decoration specs allow extra properties, which can be retrieved
-    through the decoration's [`spec`](https://codemirror.net/6/docs/ref/#view.Decoration.spec)
-    property.
-    */
-    [other: string]: any;
-}
-interface WidgetDecorationSpec$2 {
-    /**
-    The type of widget to draw here.
-    */
-    widget: WidgetType$2;
-    /**
-    Which side of the given position the widget is on. When this is
-    positive, the widget will be drawn after the cursor if the
-    cursor is on the same position. Otherwise, it'll be drawn before
-    it. When multiple widgets sit at the same position, their `side`
-    values will determine their ordering—those with a lower value
-    come first. Defaults to 0.
-    */
-    side?: number;
-    /**
-    Determines whether this is a block widgets, which will be drawn
-    between lines, or an inline widget (the default) which is drawn
-    between the surrounding text.
-    
-    Note that block-level decorations should not have vertical
-    margins, and if you dynamically change their height, you should
-    make sure to call
-    [`requestMeasure`](https://codemirror.net/6/docs/ref/#view.EditorView.requestMeasure), so that the
-    editor can update its information about its vertical layout.
-    */
-    block?: boolean;
-    /**
-    Other properties are allowed.
-    */
-    [other: string]: any;
-}
-interface ReplaceDecorationSpec$2 {
-    /**
-    An optional widget to drawn in the place of the replaced
-    content.
-    */
-    widget?: WidgetType$2;
-    /**
-    Whether this range covers the positions on its sides. This
-    influences whether new content becomes part of the range and
-    whether the cursor can be drawn on its sides. Defaults to false
-    for inline replacements, and true for block replacements.
-    */
-    inclusive?: boolean;
-    /**
-    Set inclusivity at the start.
-    */
-    inclusiveStart?: boolean;
-    /**
-    Set inclusivity at the end.
-    */
-    inclusiveEnd?: boolean;
-    /**
-    Whether this is a block-level decoration. Defaults to false.
-    */
-    block?: boolean;
-    /**
-    Other properties are allowed.
-    */
-    [other: string]: any;
-}
-interface LineDecorationSpec$2 {
-    /**
-    DOM attributes to add to the element wrapping the line.
-    */
-    attributes?: {
-        [key: string]: string;
-    };
-    /**
-    Shorthand for `{attributes: {class: value}}`.
-    */
-    class?: string;
-    /**
-    Other properties are allowed.
-    */
-    [other: string]: any;
-}
-/**
-Widgets added to the content are described by subclasses of this
-class. Using a description object like that makes it possible to
-delay creating of the DOM structure for a widget until it is
-needed, and to avoid redrawing widgets even when the decorations
-that define them are recreated.
-*/
-declare abstract class WidgetType$2 {
-    /**
-    Build the DOM structure for this widget instance.
-    */
-    abstract toDOM(view: EditorView$2): HTMLElement;
-    /**
-    Compare this instance to another instance of the same type.
-    (TypeScript can't express this, but only instances of the same
-    specific class will be passed to this method.) This is used to
-    avoid redrawing widgets when they are replaced by a new
-    decoration of the same type. The default implementation just
-    returns `false`, which will cause new instances of the widget to
-    always be redrawn.
-    */
-    eq(_widget: WidgetType$2): boolean;
-    /**
-    Update a DOM element created by a widget of the same type (but
-    different, non-`eq` content) to reflect this widget. May return
-    true to indicate that it could update, false to indicate it
-    couldn't (in which case the widget will be redrawn). The default
-    implementation just returns false.
-    */
-    updateDOM(_dom: HTMLElement): boolean;
-    /**
-    The estimated height this widget will have, to be used when
-    estimating the height of content that hasn't been drawn. May
-    return -1 to indicate you don't know. The default implementation
-    returns -1.
-    */
-    get estimatedHeight(): number;
-    /**
-    Can be used to configure which kinds of events inside the widget
-    should be ignored by the editor. The default is to ignore all
-    events.
-    */
-    ignoreEvent(_event: Event): boolean;
-    /**
-    This is called when the an instance of the widget is removed
-    from the editor view.
-    */
-    destroy(_dom: HTMLElement): void;
-}
-/**
-A decoration set represents a collection of decorated ranges,
-organized for efficient access and mapping. See
-[`RangeSet`](https://codemirror.net/6/docs/ref/#rangeset.RangeSet) for its methods.
-*/
-declare type DecorationSet$2 = RangeSet<Decoration$2>;
-/**
-The different types of blocks that can occur in an editor view.
-*/
-declare enum BlockType$2 {
-    /**
-    A line of text.
-    */
-    Text = 0,
-    /**
-    A block widget associated with the position after it.
-    */
-    WidgetBefore = 1,
-    /**
-    A block widget associated with the position before it.
-    */
-    WidgetAfter = 2,
-    /**
-    A block widget [replacing](https://codemirror.net/6/docs/ref/#view.Decoration^replace) a range of content.
-    */
-    WidgetRange = 3
-}
-/**
-A decoration provides information on how to draw or style a piece
-of content. You'll usually use it wrapped in a
-[`Range`](https://codemirror.net/6/docs/ref/#rangeset.Range), which adds a start and end position.
-*/
-declare abstract class Decoration$2 extends RangeValue {
-    /**
-    The config object used to create this decoration. You can
-    include additional properties in there to store metadata about
-    your decoration.
-    */
-    readonly spec: any;
-    abstract eq(other: Decoration$2): boolean;
-    /**
-    Create a mark decoration, which influences the styling of the
-    content in its range. Nested mark decorations will cause nested
-    DOM elements to be created. Nesting order is determined by
-    precedence of the [facet](https://codemirror.net/6/docs/ref/#view.EditorView^decorations) or
-    (below the facet-provided decorations) [view
-    plugin](https://codemirror.net/6/docs/ref/#view.PluginSpec.decorations). Such elements are split
-    on line boundaries and on the boundaries of higher-precedence
-    decorations.
-    */
-    static mark(spec: MarkDecorationSpec$2): Decoration$2;
-    /**
-    Create a widget decoration, which adds an element at the given
-    position.
-    */
-    static widget(spec: WidgetDecorationSpec$2): Decoration$2;
-    /**
-    Create a replace decoration which replaces the given range with
-    a widget, or simply hides it.
-    */
-    static replace(spec: ReplaceDecorationSpec$2): Decoration$2;
-    /**
-    Create a line decoration, which can add DOM attributes to the
-    line starting at the given position.
-    */
-    static line(spec: LineDecorationSpec$2): Decoration$2;
-    /**
-    Build a [`DecorationSet`](https://codemirror.net/6/docs/ref/#view.DecorationSet) from the given
-    decorated range or ranges. If the ranges aren't already sorted,
-    pass `true` for `sort` to make the library sort them for you.
-    */
-    static set(of: Range<Decoration$2> | readonly Range<Decoration$2>[], sort?: boolean): DecorationSet$2;
-    /**
-    The empty set of decorations.
-    */
-    static none: DecorationSet$2;
-}
-
-/**
-Basic rectangle type.
-*/
-interface Rect$2 {
-    readonly left: number;
-    readonly right: number;
-    readonly top: number;
-    readonly bottom: number;
-}
-declare type ScrollStrategy$2 = "nearest" | "start" | "end" | "center";
-/**
-This is the interface plugin objects conform to.
-*/
-interface PluginValue$2 {
-    /**
-    Notifies the plugin of an update that happened in the view. This
-    is called _before_ the view updates its own DOM. It is
-    responsible for updating the plugin's internal state (including
-    any state that may be read by plugin fields) and _writing_ to
-    the DOM for the changes in the update. To avoid unnecessary
-    layout recomputations, it should _not_ read the DOM layout—use
-    [`requestMeasure`](https://codemirror.net/6/docs/ref/#view.EditorView.requestMeasure) to schedule
-    your code in a DOM reading phase if you need to.
-    */
-    update?(_update: ViewUpdate$2): void;
-    /**
-    Called when the plugin is no longer going to be used. Should
-    revert any changes the plugin made to the DOM.
-    */
-    destroy?(): void;
-}
-declare const isFieldProvider$2: unique symbol;
-/**
-Used to [declare](https://codemirror.net/6/docs/ref/#view.PluginSpec.provide) which
-[fields](https://codemirror.net/6/docs/ref/#view.PluginValue) a [view plugin](https://codemirror.net/6/docs/ref/#view.ViewPlugin)
-provides.
-*/
-declare class PluginFieldProvider$2<V> {
-    private [isFieldProvider$2];
-}
-/**
-Plugin fields are a mechanism for allowing plugins to provide
-values that can be retrieved through the
-[`pluginField`](https://codemirror.net/6/docs/ref/#view.EditorView.pluginField) view method.
-*/
-declare class PluginField$2<T> {
-    /**
-    Create a [provider](https://codemirror.net/6/docs/ref/#view.PluginFieldProvider) for this field,
-    to use with a plugin's [provide](https://codemirror.net/6/docs/ref/#view.PluginSpec.provide)
-    option.
-    */
-    from<V extends PluginValue$2>(get: (value: V) => T): PluginFieldProvider$2<V>;
-    /**
-    Define a new plugin field.
-    */
-    static define<T>(): PluginField$2<T>;
-    /**
-    This field can be used by plugins to provide
-    [decorations](https://codemirror.net/6/docs/ref/#view.Decoration).
-    
-    **Note**: For reasons of data flow (plugins are only updated
-    after the viewport is computed), decorations produced by plugins
-    are _not_ taken into account when predicting the vertical layout
-    structure of the editor. They **must not** introduce block
-    widgets (that will raise an error) or replacing decorations that
-    cover line breaks (these will be ignored if they occur). Such
-    decorations, or others that cause a large amount of vertical
-    size shift compared to the undecorated content, should be
-    provided through the state-level [`decorations`
-    facet](https://codemirror.net/6/docs/ref/#view.EditorView^decorations) instead.
-    */
-    static decorations: PluginField$2<DecorationSet$2>;
-    /**
-    Used to provide ranges that should be treated as atoms as far as
-    cursor motion is concerned. This causes methods like
-    [`moveByChar`](https://codemirror.net/6/docs/ref/#view.EditorView.moveByChar) and
-    [`moveVertically`](https://codemirror.net/6/docs/ref/#view.EditorView.moveVertically) (and the
-    commands built on top of them) to skip across such regions when
-    a selection endpoint would enter them. This does _not_ prevent
-    direct programmatic [selection
-    updates](https://codemirror.net/6/docs/ref/#state.TransactionSpec.selection) from moving into such
-    regions.
-    */
-    static atomicRanges: PluginField$2<RangeSet<any>>;
-    /**
-    Plugins can provide additional scroll margins (space around the
-    sides of the scrolling element that should be considered
-    invisible) through this field. This can be useful when the
-    plugin introduces elements that cover part of that element (for
-    example a horizontally fixed gutter).
-    */
-    static scrollMargins: PluginField$2<Partial<Rect$2> | null>;
-}
-/**
-Provides additional information when defining a [view
-plugin](https://codemirror.net/6/docs/ref/#view.ViewPlugin).
-*/
-interface PluginSpec$2<V extends PluginValue$2> {
-    /**
-    Register the given [event
-    handlers](https://codemirror.net/6/docs/ref/#view.EditorView^domEventHandlers) for the plugin.
-    When called, these will have their `this` bound to the plugin
-    value.
-    */
-    eventHandlers?: DOMEventHandlers$2<V>;
-    /**
-    Allow the plugin to provide decorations. When given, this should
-    a function that take the plugin value and return a [decoration
-    set](https://codemirror.net/6/docs/ref/#view.DecorationSet). See also the caveat about
-    [layout-changing decorations](https://codemirror.net/6/docs/ref/#view.PluginField^decorations)
-    from plugins.
-    */
-    decorations?: (value: V) => DecorationSet$2;
-    /**
-    Specify that the plugin provides [plugin
-    field](https://codemirror.net/6/docs/ref/#view.PluginField) values. Use a field's
-    [`from`](https://codemirror.net/6/docs/ref/#view.PluginField.from) method to create these
-    providers.
-    */
-    provide?: PluginFieldProvider$2<V> | readonly PluginFieldProvider$2<V>[];
-}
-/**
-View plugins associate stateful values with a view. They can
-influence the way the content is drawn, and are notified of things
-that happen in the view.
-*/
-declare class ViewPlugin$2<V extends PluginValue$2> {
-    /**
-    Instances of this class act as extensions.
-    */
-    extension: Extension;
-    private constructor();
-    /**
-    Define a plugin from a constructor function that creates the
-    plugin's value, given an editor view.
-    */
-    static define<V extends PluginValue$2>(create: (view: EditorView$2) => V, spec?: PluginSpec$2<V>): ViewPlugin$2<V>;
-    /**
-    Create a plugin for a class whose constructor takes a single
-    editor view as argument.
-    */
-    static fromClass<V extends PluginValue$2>(cls: {
-        new (view: EditorView$2): V;
-    }, spec?: PluginSpec$2<V>): ViewPlugin$2<V>;
-}
-interface MeasureRequest$2<T> {
-    /**
-    Called in a DOM read phase to gather information that requires
-    DOM layout. Should _not_ mutate the document.
-    */
-    read(view: EditorView$2): T;
-    /**
-    Called in a DOM write phase to update the document. Should _not_
-    do anything that triggers DOM layout.
-    */
-    write?(measure: T, view: EditorView$2): void;
-    /**
-    When multiple requests with the same key are scheduled, only the
-    last one will actually be ran.
-    */
-    key?: any;
-}
-declare type AttrSource$2 = Attrs$2 | ((view: EditorView$2) => Attrs$2 | null);
-/**
-View [plugins](https://codemirror.net/6/docs/ref/#view.ViewPlugin) are given instances of this
-class, which describe what happened, whenever the view is updated.
-*/
-declare class ViewUpdate$2 {
-    /**
-    The editor view that the update is associated with.
-    */
-    readonly view: EditorView$2;
-    /**
-    The new editor state.
-    */
-    readonly state: EditorState;
-    /**
-    The transactions involved in the update. May be empty.
-    */
-    readonly transactions: readonly Transaction[];
-    /**
-    The changes made to the document by this update.
-    */
-    readonly changes: ChangeSet;
-    /**
-    The previous editor state.
-    */
-    readonly startState: EditorState;
-    /**
-    Tells you whether the [viewport](https://codemirror.net/6/docs/ref/#view.EditorView.viewport) or
-    [visible ranges](https://codemirror.net/6/docs/ref/#view.EditorView.visibleRanges) changed in this
-    update.
-    */
-    get viewportChanged(): boolean;
-    /**
-    Indicates whether the height of an element in the editor changed
-    in this update.
-    */
-    get heightChanged(): boolean;
-    /**
-    Returns true when the document was modified or the size of the
-    editor, or elements within the editor, changed.
-    */
-    get geometryChanged(): boolean;
-    /**
-    True when this update indicates a focus change.
-    */
-    get focusChanged(): boolean;
-    /**
-    Whether the document changed in this update.
-    */
-    get docChanged(): boolean;
-    /**
-    Whether the selection was explicitly set in this update.
-    */
-    get selectionSet(): boolean;
-}
-
-/**
-Interface that objects registered with
-[`EditorView.mouseSelectionStyle`](https://codemirror.net/6/docs/ref/#view.EditorView^mouseSelectionStyle)
-must conform to.
-*/
-interface MouseSelectionStyle$2 {
-    /**
-    Return a new selection for the mouse gesture that starts with
-    the event that was originally given to the constructor, and ends
-    with the event passed here. In case of a plain click, those may
-    both be the `mousedown` event, in case of a drag gesture, the
-    latest `mousemove` event will be passed.
-    
-    When `extend` is true, that means the new selection should, if
-    possible, extend the start selection. If `multiple` is true, the
-    new selection should be added to the original selection.
-    */
-    get: (curEvent: MouseEvent, extend: boolean, multiple: boolean) => EditorSelection;
-    /**
-    Called when the view is updated while the gesture is in
-    progress. When the document changes, it may be necessary to map
-    some data (like the original selection or start position)
-    through the changes.
-    
-    This may return `true` to indicate that the `get` method should
-    get queried again after the update, because something in the
-    update could change its result. Be wary of infinite loops when
-    using this (where `get` returns a new selection, which will
-    trigger `update`, which schedules another `get` in response).
-    */
-    update: (update: ViewUpdate$2) => boolean | void;
-}
-declare type MakeSelectionStyle$2 = (view: EditorView$2, event: MouseEvent) => MouseSelectionStyle$2 | null;
-
-/**
-Used to indicate [text direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection).
-*/
-declare enum Direction$2 {
-    /**
-    Left-to-right.
-    */
-    LTR = 0,
-    /**
-    Right-to-left.
-    */
-    RTL = 1
-}
-/**
-Represents a contiguous range of text that has a single direction
-(as in left-to-right or right-to-left).
-*/
-declare class BidiSpan$2 {
-    /**
-    The start of the span (relative to the start of the line).
-    */
-    readonly from: number;
-    /**
-    The end of the span.
-    */
-    readonly to: number;
-    /**
-    The ["bidi
-    level"](https://unicode.org/reports/tr9/#Basic_Display_Algorithm)
-    of the span (in this context, 0 means
-    left-to-right, 1 means right-to-left, 2 means left-to-right
-    number inside right-to-left text).
-    */
-    readonly level: number;
-    /**
-    The direction of this span.
-    */
-    get dir(): Direction$2;
-}
-
-/**
-Record used to represent information about a block-level element
-in the editor view.
-*/
-declare class BlockInfo$2 {
-    /**
-    The start of the element in the document.
-    */
-    readonly from: number;
-    /**
-    The length of the element.
-    */
-    readonly length: number;
-    /**
-    The top position of the element (relative to the top of the
-    document).
-    */
-    readonly top: number;
-    /**
-    Its height.
-    */
-    readonly height: number;
-    /**
-    The type of element this is. When querying lines, this may be
-    an array of all the blocks that make up the line.
-    */
-    readonly type: BlockType$2 | readonly BlockInfo$2[];
-    /**
-    The end of the element as a document position.
-    */
-    get to(): number;
-    /**
-    The bottom position of the element.
-    */
-    get bottom(): number;
-}
-
-interface EditorConfig$2 {
-    /**
-    The view's initial state. Defaults to an extension-less state
-    with an empty document.
-    */
-    state?: EditorState;
-    /**
-    If the view is going to be mounted in a shadow root or document
-    other than the one held by the global variable `document` (the
-    default), you should pass it here. If you provide `parent`, but
-    not this option, the editor will automatically look up a root
-    from the parent.
-    */
-    root?: Document | ShadowRoot;
-    /**
-    Override the transaction [dispatch
-    function](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) for this editor view, which
-    is the way updates get routed to the view. Your implementation,
-    if provided, should probably call the view's [`update`
-    method](https://codemirror.net/6/docs/ref/#view.EditorView.update).
-    */
-    dispatch?: (tr: Transaction) => void;
-    /**
-    When given, the editor is immediately appended to the given
-    element on creation. (Otherwise, you'll have to place the view's
-    [`dom`](https://codemirror.net/6/docs/ref/#view.EditorView.dom) element in the document yourself.)
-    */
-    parent?: Element | DocumentFragment;
-}
-/**
-An editor view represents the editor's user interface. It holds
-the editable DOM surface, and possibly other elements such as the
-line number gutter. It handles events and dispatches state
-transactions for editing actions.
-*/
-declare class EditorView$2 {
-    /**
-    The current editor state.
-    */
-    get state(): EditorState;
-    /**
-    To be able to display large documents without consuming too much
-    memory or overloading the browser, CodeMirror only draws the
-    code that is visible (plus a margin around it) to the DOM. This
-    property tells you the extent of the current drawn viewport, in
-    document positions.
-    */
-    get viewport(): {
-        from: number;
-        to: number;
-    };
-    /**
-    When there are, for example, large collapsed ranges in the
-    viewport, its size can be a lot bigger than the actual visible
-    content. Thus, if you are doing something like styling the
-    content in the viewport, it is preferable to only do so for
-    these ranges, which are the subset of the viewport that is
-    actually drawn.
-    */
-    get visibleRanges(): readonly {
-        from: number;
-        to: number;
-    }[];
-    /**
-    Returns false when the editor is entirely scrolled out of view
-    or otherwise hidden.
-    */
-    get inView(): boolean;
-    /**
-    Indicates whether the user is currently composing text via
-    [IME](https://en.wikipedia.org/wiki/Input_method).
-    */
-    get composing(): boolean;
-    private _dispatch;
-    /**
-    The document or shadow root that the view lives in.
-    */
-    readonly root: DocumentOrShadowRoot;
-    /**
-    The DOM element that wraps the entire editor view.
-    */
-    readonly dom: HTMLElement;
-    /**
-    The DOM element that can be styled to scroll. (Note that it may
-    not have been, so you can't assume this is scrollable.)
-    */
-    readonly scrollDOM: HTMLElement;
-    /**
-    The editable DOM element holding the editor content. You should
-    not, usually, interact with this content directly though the
-    DOM, since the editor will immediately undo most of the changes
-    you make. Instead, [dispatch](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch)
-    [transactions](https://codemirror.net/6/docs/ref/#state.Transaction) to modify content, and
-    [decorations](https://codemirror.net/6/docs/ref/#view.Decoration) to style it.
-    */
-    readonly contentDOM: HTMLElement;
-    private announceDOM;
-    private plugins;
-    private pluginMap;
-    private editorAttrs;
-    private contentAttrs;
-    private styleModules;
-    private bidiCache;
-    private destroyed;
-    /**
-    Construct a new view. You'll usually want to put `view.dom` into
-    your document after creating a view, so that the user can see
-    it.
-    */
-    constructor(
-    /**
-    Initialization options.
-    */
-    config?: EditorConfig$2);
-    /**
-    All regular editor state updates should go through this. It
-    takes a transaction or transaction spec and updates the view to
-    show the new state produced by that transaction. Its
-    implementation can be overridden with an
-    [option](https://codemirror.net/6/docs/ref/#view.EditorView.constructor^config.dispatch). This
-    function is bound to the view instance, so it does not have to
-    be called as a method.
-    */
-    dispatch(tr: Transaction): void;
-    dispatch(...specs: TransactionSpec[]): void;
-    /**
-    Update the view for the given array of transactions. This will
-    update the visible document and selection to match the state
-    produced by the transactions, and notify view plugins of the
-    change. You should usually call
-    [`dispatch`](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) instead, which uses this
-    as a primitive.
-    */
-    update(transactions: readonly Transaction[]): void;
-    /**
-    Reset the view to the given state. (This will cause the entire
-    document to be redrawn and all view plugins to be reinitialized,
-    so you should probably only use it when the new state isn't
-    derived from the old state. Otherwise, use
-    [`dispatch`](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) instead.)
-    */
-    setState(newState: EditorState): void;
-    private updatePlugins;
-    /**
-    Get the CSS classes for the currently active editor themes.
-    */
-    get themeClasses(): string;
-    private updateAttrs;
-    private showAnnouncements;
-    private mountStyles;
-    private readMeasured;
-    /**
-    Schedule a layout measurement, optionally providing callbacks to
-    do custom DOM measuring followed by a DOM write phase. Using
-    this is preferable reading DOM layout directly from, for
-    example, an event handler, because it'll make sure measuring and
-    drawing done by other components is synchronized, avoiding
-    unnecessary DOM layout computations.
-    */
-    requestMeasure<T>(request?: MeasureRequest$2<T>): void;
-    /**
-    Collect all values provided by the active plugins for a given
-    field.
-    */
-    pluginField<T>(field: PluginField$2<T>): readonly T[];
-    /**
-    Get the value of a specific plugin, if present. Note that
-    plugins that crash can be dropped from a view, so even when you
-    know you registered a given plugin, it is recommended to check
-    the return value of this method.
-    */
-    plugin<T>(plugin: ViewPlugin$2<T>): T | null;
-    /**
-    The top position of the document, in screen coordinates. This
-    may be negative when the editor is scrolled down. Points
-    directly to the top of the first line, not above the padding.
-    */
-    get documentTop(): number;
-    /**
-    Reports the padding above and below the document.
-    */
-    get documentPadding(): {
-        top: number;
-        bottom: number;
-    };
-    /**
-    Find the line or block widget at the given vertical position.
-    
-    By default, this position is interpreted as a screen position,
-    meaning `docTop` is set to the DOM top position of the editor
-    content (forcing a layout). You can pass a different `docTop`
-    value—for example 0 to interpret `height` as a document-relative
-    position, or a precomputed document top
-    (`view.contentDOM.getBoundingClientRect().top`) to limit layout
-    queries.
-    
-    *Deprecated: use `blockAtHeight` instead.*
-    */
-    blockAtHeight(height: number, docTop?: number): BlockInfo$2;
-    /**
-    Find the text line or block widget at the given vertical
-    position (which is interpreted as relative to the [top of the
-    document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop)
-    */
-    elementAtHeight(height: number): BlockInfo$2;
-    /**
-    Find information for the visual line (see
-    [`visualLineAt`](https://codemirror.net/6/docs/ref/#view.EditorView.visualLineAt)) at the given
-    vertical position. The resulting block info might hold another
-    array of block info structs in its `type` field if this line
-    consists of more than one block.
-    
-    Defaults to treating `height` as a screen position. See
-    [`blockAtHeight`](https://codemirror.net/6/docs/ref/#view.EditorView.blockAtHeight) for the
-    interpretation of the `docTop` parameter.
-    
-    *Deprecated: use `lineBlockAtHeight` instead.*
-    */
-    visualLineAtHeight(height: number, docTop?: number): BlockInfo$2;
-    /**
-    Find the line block (see
-    [`lineBlockAt`](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) at the given
-    height.
-    */
-    lineBlockAtHeight(height: number): BlockInfo$2;
-    /**
-    Iterate over the height information of the visual lines in the
-    viewport. The heights of lines are reported relative to the
-    given document top, which defaults to the screen position of the
-    document (forcing a layout).
-    
-    *Deprecated: use `viewportLineBlocks` instead.*
-    */
-    viewportLines(f: (line: BlockInfo$2) => void, docTop?: number): void;
-    /**
-    Get the extent and vertical position of all [line
-    blocks](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) in the viewport. Positions
-    are relative to the [top of the
-    document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop);
-    */
-    get viewportLineBlocks(): BlockInfo$2[];
-    /**
-    Find the extent and height of the visual line (a range delimited
-    on both sides by either non-[hidden](https://codemirror.net/6/docs/ref/#view.Decoration^range)
-    line breaks, or the start/end of the document) at the given position.
-    
-    Vertical positions are computed relative to the `docTop`
-    argument, which defaults to 0 for this method. You can pass
-    `view.contentDOM.getBoundingClientRect().top` here to get screen
-    coordinates.
-    
-    *Deprecated: use `lineBlockAt` instead.*
-    */
-    visualLineAt(pos: number, docTop?: number): BlockInfo$2;
-    /**
-    Find the line block around the given document position. A line
-    block is a range delimited on both sides by either a
-    non-[hidden](https://codemirror.net/6/docs/ref/#view.Decoration^range) line breaks, or the
-    start/end of the document. It will usually just hold a line of
-    text, but may be broken into multiple textblocks by block
-    widgets.
-    */
-    lineBlockAt(pos: number): BlockInfo$2;
-    /**
-    The editor's total content height.
-    */
-    get contentHeight(): number;
-    /**
-    Move a cursor position by [grapheme
-    cluster](https://codemirror.net/6/docs/ref/#text.findClusterBreak). `forward` determines whether
-    the motion is away from the line start, or towards it. Motion in
-    bidirectional text is in visual order, in the editor's [text
-    direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection). When the start
-    position was the last one on the line, the returned position
-    will be across the line break. If there is no further line, the
-    original position is returned.
-    
-    By default, this method moves over a single cluster. The
-    optional `by` argument can be used to move across more. It will
-    be called with the first cluster as argument, and should return
-    a predicate that determines, for each subsequent cluster,
-    whether it should also be moved over.
-    */
-    moveByChar(start: SelectionRange, forward: boolean, by?: (initial: string) => (next: string) => boolean): SelectionRange;
-    /**
-    Move a cursor position across the next group of either
-    [letters](https://codemirror.net/6/docs/ref/#state.EditorState.charCategorizer) or non-letter
-    non-whitespace characters.
-    */
-    moveByGroup(start: SelectionRange, forward: boolean): SelectionRange;
-    /**
-    Move to the next line boundary in the given direction. If
-    `includeWrap` is true, line wrapping is on, and there is a
-    further wrap point on the current line, the wrap point will be
-    returned. Otherwise this function will return the start or end
-    of the line.
-    */
-    moveToLineBoundary(start: SelectionRange, forward: boolean, includeWrap?: boolean): SelectionRange;
-    /**
-    Move a cursor position vertically. When `distance` isn't given,
-    it defaults to moving to the next line (including wrapped
-    lines). Otherwise, `distance` should provide a positive distance
-    in pixels.
-    
-    When `start` has a
-    [`goalColumn`](https://codemirror.net/6/docs/ref/#state.SelectionRange.goalColumn), the vertical
-    motion will use that as a target horizontal position. Otherwise,
-    the cursor's own horizontal position is used. The returned
-    cursor will have its goal column set to whichever column was
-    used.
-    */
-    moveVertically(start: SelectionRange, forward: boolean, distance?: number): SelectionRange;
-    scrollPosIntoView(pos: number): void;
-    /**
-    Find the DOM parent node and offset (child offset if `node` is
-    an element, character offset when it is a text node) at the
-    given document position.
-    
-    Note that for positions that aren't currently in
-    `visibleRanges`, the resulting DOM position isn't necessarily
-    meaningful (it may just point before or after a placeholder
-    element).
-    */
-    domAtPos(pos: number): {
-        node: Node;
-        offset: number;
-    };
-    /**
-    Find the document position at the given DOM node. Can be useful
-    for associating positions with DOM events. Will raise an error
-    when `node` isn't part of the editor content.
-    */
-    posAtDOM(node: Node, offset?: number): number;
-    /**
-    Get the document position at the given screen coordinates. For
-    positions not covered by the visible viewport's DOM structure,
-    this will return null, unless `false` is passed as second
-    argument, in which case it'll return an estimated position that
-    would be near the coordinates if it were rendered.
-    */
-    posAtCoords(coords: {
-        x: number;
-        y: number;
-    }, precise: false): number;
-    posAtCoords(coords: {
-        x: number;
-        y: number;
-    }): number | null;
-    /**
-    Get the screen coordinates at the given document position.
-    `side` determines whether the coordinates are based on the
-    element before (-1) or after (1) the position (if no element is
-    available on the given side, the method will transparently use
-    another strategy to get reasonable coordinates).
-    */
-    coordsAtPos(pos: number, side?: -1 | 1): Rect$2 | null;
-    /**
-    The default width of a character in the editor. May not
-    accurately reflect the width of all characters (given variable
-    width fonts or styling of invididual ranges).
-    */
-    get defaultCharacterWidth(): number;
-    /**
-    The default height of a line in the editor. May not be accurate
-    for all lines.
-    */
-    get defaultLineHeight(): number;
-    /**
-    The text direction
-    ([`direction`](https://developer.mozilla.org/en-US/docs/Web/CSS/direction)
-    CSS property) of the editor.
-    */
-    get textDirection(): Direction$2;
-    /**
-    Whether this editor [wraps lines](https://codemirror.net/6/docs/ref/#view.EditorView.lineWrapping)
-    (as determined by the
-    [`white-space`](https://developer.mozilla.org/en-US/docs/Web/CSS/white-space)
-    CSS property of its content element).
-    */
-    get lineWrapping(): boolean;
-    /**
-    Returns the bidirectional text structure of the given line
-    (which should be in the current document) as an array of span
-    objects. The order of these spans matches the [text
-    direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection)—if that is
-    left-to-right, the leftmost spans come first, otherwise the
-    rightmost spans come first.
-    */
-    bidiSpans(line: Line$1): readonly BidiSpan$2[];
-    /**
-    Check whether the editor has focus.
-    */
-    get hasFocus(): boolean;
-    /**
-    Put focus on the editor.
-    */
-    focus(): void;
-    /**
-    Clean up this editor view, removing its element from the
-    document, unregistering event handlers, and notifying
-    plugins. The view instance can no longer be used after
-    calling this.
-    */
-    destroy(): void;
-    /**
-    Effect that can be [added](https://codemirror.net/6/docs/ref/#state.TransactionSpec.effects) to a
-    transaction to make it scroll the given range into view.
-    
-    *Deprecated*. Use [`scrollIntoView`](https://codemirror.net/6/docs/ref/#view.EditorView^scrollIntoView) instead.
-    */
-    static scrollTo: StateEffectType<SelectionRange>;
-    /**
-    Effect that makes the editor scroll the given range to the
-    center of the visible view.
-    
-    *Deprecated*. Use [`scrollIntoView`](https://codemirror.net/6/docs/ref/#view.EditorView^scrollIntoView) instead.
-    */
-    static centerOn: StateEffectType<SelectionRange>;
-    /**
-    Returns an effect that can be
-    [added](https://codemirror.net/6/docs/ref/#state.TransactionSpec.effects) to a transaction to
-    cause it to scroll the given position or range into view.
-    */
-    static scrollIntoView(pos: number | SelectionRange, options?: {
-        /**
-        By default (`"nearest"`) the position will be vertically
-        scrolled only the minimal amount required to move the given
-        position into view. You can set this to `"start"` to move it
-        to the top of the view, `"end"` to move it to the bottom, or
-        `"center"` to move it to the center.
-        */
-        y?: ScrollStrategy$2;
-        /**
-        Effect similar to
-        [`y`](https://codemirror.net/6/docs/ref/#view.EditorView^scrollIntoView^options.y), but for the
-        horizontal scroll position.
-        */
-        x?: ScrollStrategy$2;
-        /**
-        Extra vertical distance to add when moving something into
-        view. Not used with the `"center"` strategy. Defaults to 5.
-        */
-        yMargin?: number;
-        /**
-        Extra horizontal distance to add. Not used with the `"center"`
-        strategy. Defaults to 5.
-        */
-        xMargin?: number;
-    }): StateEffect<unknown>;
-    /**
-    Facet to add a [style
-    module](https://github.com/marijnh/style-mod#documentation) to
-    an editor view. The view will ensure that the module is
-    mounted in its [document
-    root](https://codemirror.net/6/docs/ref/#view.EditorView.constructor^config.root).
-    */
-    static styleModule: Facet<StyleModule, readonly StyleModule[]>;
-    /**
-    Facet that can be used to add DOM event handlers. The value
-    should be an object mapping event names to handler functions. The
-    first such function to return true will be assumed to have handled
-    that event, and no other handlers or built-in behavior will be
-    activated for it.
-    These are registered on the [content
-    element](https://codemirror.net/6/docs/ref/#view.EditorView.contentDOM), except for `scroll`
-    handlers, which will be called any time the editor's [scroll
-    element](https://codemirror.net/6/docs/ref/#view.EditorView.scrollDOM) or one of its parent nodes
-    is scrolled.
-    */
-    static domEventHandlers(handlers: DOMEventHandlers$2<any>): Extension;
-    /**
-    An input handler can override the way changes to the editable
-    DOM content are handled. Handlers are passed the document
-    positions between which the change was found, and the new
-    content. When one returns true, no further input handlers are
-    called and the default behavior is prevented.
-    */
-    static inputHandler: Facet<(view: EditorView$2, from: number, to: number, text: string) => boolean, readonly ((view: EditorView$2, from: number, to: number, text: string) => boolean)[]>;
-    /**
-    Allows you to provide a function that should be called when the
-    library catches an exception from an extension (mostly from view
-    plugins, but may be used by other extensions to route exceptions
-    from user-code-provided callbacks). This is mostly useful for
-    debugging and logging. See [`logException`](https://codemirror.net/6/docs/ref/#view.logException).
-    */
-    static exceptionSink: Facet<(exception: any) => void, readonly ((exception: any) => void)[]>;
-    /**
-    A facet that can be used to register a function to be called
-    every time the view updates.
-    */
-    static updateListener: Facet<(update: ViewUpdate$2) => void, readonly ((update: ViewUpdate$2) => void)[]>;
-    /**
-    Facet that controls whether the editor content DOM is editable.
-    When its highest-precedence value is `false`, the element will
-    not longer have its `contenteditable` attribute set. (Note that
-    this doesn't affect API calls that change the editor content,
-    even when those are bound to keys or buttons. See the
-    [`readOnly`](https://codemirror.net/6/docs/ref/#state.EditorState.readOnly) facet for that.)
-    */
-    static editable: Facet<boolean, boolean>;
-    /**
-    Allows you to influence the way mouse selection happens. The
-    functions in this facet will be called for a `mousedown` event
-    on the editor, and can return an object that overrides the way a
-    selection is computed from that mouse click or drag.
-    */
-    static mouseSelectionStyle: Facet<MakeSelectionStyle$2, readonly MakeSelectionStyle$2[]>;
-    /**
-    Facet used to configure whether a given selection drag event
-    should move or copy the selection. The given predicate will be
-    called with the `mousedown` event, and can return `true` when
-    the drag should move the content.
-    */
-    static dragMovesSelection: Facet<(event: MouseEvent) => boolean, readonly ((event: MouseEvent) => boolean)[]>;
-    /**
-    Facet used to configure whether a given selecting click adds
-    a new range to the existing selection or replaces it entirely.
-    */
-    static clickAddsSelectionRange: Facet<(event: MouseEvent) => boolean, readonly ((event: MouseEvent) => boolean)[]>;
-    /**
-    A facet that determines which [decorations](https://codemirror.net/6/docs/ref/#view.Decoration)
-    are shown in the view. See also [view
-    plugins](https://codemirror.net/6/docs/ref/#view.EditorView^decorations), which have a separate
-    mechanism for providing decorations.
-    */
-    static decorations: Facet<DecorationSet$2, readonly DecorationSet$2[]>;
-    /**
-    Create a theme extension. The first argument can be a
-    [`style-mod`](https://github.com/marijnh/style-mod#documentation)
-    style spec providing the styles for the theme. These will be
-    prefixed with a generated class for the style.
-    
-    Because the selectors will be prefixed with a scope class, rule
-    that directly match the editor's [wrapper
-    element](https://codemirror.net/6/docs/ref/#view.EditorView.dom)—to which the scope class will be
-    added—need to be explicitly differentiated by adding an `&` to
-    the selector for that element—for example
-    `&.cm-focused`.
-    
-    When `dark` is set to true, the theme will be marked as dark,
-    which will cause the `&dark` rules from [base
-    themes](https://codemirror.net/6/docs/ref/#view.EditorView^baseTheme) to be used (as opposed to
-    `&light` when a light theme is active).
-    */
-    static theme(spec: {
-        [selector: string]: StyleSpec;
-    }, options?: {
-        dark?: boolean;
-    }): Extension;
-    /**
-    Create an extension that adds styles to the base theme. Like
-    with [`theme`](https://codemirror.net/6/docs/ref/#view.EditorView^theme), use `&` to indicate the
-    place of the editor wrapper element when directly targeting
-    that. You can also use `&dark` or `&light` instead to only
-    target editors with a dark or light theme.
-    */
-    static baseTheme(spec: {
-        [selector: string]: StyleSpec;
-    }): Extension;
-    /**
-    Facet that provides additional DOM attributes for the editor's
-    editable DOM element.
-    */
-    static contentAttributes: Facet<AttrSource$2, readonly AttrSource$2[]>;
-    /**
-    Facet that provides DOM attributes for the editor's outer
-    element.
-    */
-    static editorAttributes: Facet<AttrSource$2, readonly AttrSource$2[]>;
-    /**
-    An extension that enables line wrapping in the editor (by
-    setting CSS `white-space` to `pre-wrap` in the content).
-    */
-    static lineWrapping: Extension;
-    /**
-    State effect used to include screen reader announcements in a
-    transaction. These will be added to the DOM in a visually hidden
-    element with `aria-live="polite"` set, and should be used to
-    describe effects that are visually obvious but may not be
-    noticed by screen reader users (such as moving to the next
-    search match).
-    */
-    static announce: StateEffectType<string>;
-}
-/**
-Helper type that maps event names to event object types, or the
-`any` type for unknown events.
-*/
-interface DOMEventMap$2 extends HTMLElementEventMap {
-    [other: string]: any;
-}
-/**
-Event handlers are specified with objects like this. For event
-types known by TypeScript, this will infer the event argument type
-to hold the appropriate event object type. For unknown events, it
-is inferred to `any`, and should be explicitly set if you want type
-checking.
-*/
-declare type DOMEventHandlers$2<This> = {
-    [event in keyof DOMEventMap$2]?: (this: This, event: DOMEventMap$2[event], view: EditorView$2) => boolean | void;
-};
-
 declare type Handlers = {
-    [event: string]: (view: EditorView$2, line: BlockInfo$2, event: Event) => boolean;
+    [event: string]: (view: EditorView, line: BlockInfo, event: Event) => boolean;
 };
 interface LineNumberConfig {
     /**
@@ -4782,1274 +3659,7 @@ Default key bindings for the undo history.
 - Mod-u: [`undoSelection`](https://codemirror.net/6/docs/ref/#history.undoSelection).
 - Alt-u (Mod-Shift-u on macOS): [`redoSelection`](https://codemirror.net/6/docs/ref/#history.redoSelection).
 */
-declare const historyKeymap: readonly KeyBinding$2[];
-
-declare type Attrs$1 = {
-    [name: string]: string;
-};
-
-interface MarkDecorationSpec$1 {
-    /**
-    Whether the mark covers its start and end position or not. This
-    influences whether content inserted at those positions becomes
-    part of the mark. Defaults to false.
-    */
-    inclusive?: boolean;
-    /**
-    Specify whether the start position of the marked range should be
-    inclusive. Overrides `inclusive`, when both are present.
-    */
-    inclusiveStart?: boolean;
-    /**
-    Whether the end should be inclusive.
-    */
-    inclusiveEnd?: boolean;
-    /**
-    Add attributes to the DOM elements that hold the text in the
-    marked range.
-    */
-    attributes?: {
-        [key: string]: string;
-    };
-    /**
-    Shorthand for `{attributes: {class: value}}`.
-    */
-    class?: string;
-    /**
-    Add a wrapping element around the text in the marked range. Note
-    that there will not be a single element covering the entire
-    range—content is split on mark starts and ends, and each piece
-    gets its own element.
-    */
-    tagName?: string;
-    /**
-    Decoration specs allow extra properties, which can be retrieved
-    through the decoration's [`spec`](https://codemirror.net/6/docs/ref/#view.Decoration.spec)
-    property.
-    */
-    [other: string]: any;
-}
-interface WidgetDecorationSpec$1 {
-    /**
-    The type of widget to draw here.
-    */
-    widget: WidgetType$1;
-    /**
-    Which side of the given position the widget is on. When this is
-    positive, the widget will be drawn after the cursor if the
-    cursor is on the same position. Otherwise, it'll be drawn before
-    it. When multiple widgets sit at the same position, their `side`
-    values will determine their ordering—those with a lower value
-    come first. Defaults to 0.
-    */
-    side?: number;
-    /**
-    Determines whether this is a block widgets, which will be drawn
-    between lines, or an inline widget (the default) which is drawn
-    between the surrounding text.
-    
-    Note that block-level decorations should not have vertical
-    margins, and if you dynamically change their height, you should
-    make sure to call
-    [`requestMeasure`](https://codemirror.net/6/docs/ref/#view.EditorView.requestMeasure), so that the
-    editor can update its information about its vertical layout.
-    */
-    block?: boolean;
-    /**
-    Other properties are allowed.
-    */
-    [other: string]: any;
-}
-interface ReplaceDecorationSpec$1 {
-    /**
-    An optional widget to drawn in the place of the replaced
-    content.
-    */
-    widget?: WidgetType$1;
-    /**
-    Whether this range covers the positions on its sides. This
-    influences whether new content becomes part of the range and
-    whether the cursor can be drawn on its sides. Defaults to false
-    for inline replacements, and true for block replacements.
-    */
-    inclusive?: boolean;
-    /**
-    Set inclusivity at the start.
-    */
-    inclusiveStart?: boolean;
-    /**
-    Set inclusivity at the end.
-    */
-    inclusiveEnd?: boolean;
-    /**
-    Whether this is a block-level decoration. Defaults to false.
-    */
-    block?: boolean;
-    /**
-    Other properties are allowed.
-    */
-    [other: string]: any;
-}
-interface LineDecorationSpec$1 {
-    /**
-    DOM attributes to add to the element wrapping the line.
-    */
-    attributes?: {
-        [key: string]: string;
-    };
-    /**
-    Shorthand for `{attributes: {class: value}}`.
-    */
-    class?: string;
-    /**
-    Other properties are allowed.
-    */
-    [other: string]: any;
-}
-/**
-Widgets added to the content are described by subclasses of this
-class. Using a description object like that makes it possible to
-delay creating of the DOM structure for a widget until it is
-needed, and to avoid redrawing widgets even when the decorations
-that define them are recreated.
-*/
-declare abstract class WidgetType$1 {
-    /**
-    Build the DOM structure for this widget instance.
-    */
-    abstract toDOM(view: EditorView$1): HTMLElement;
-    /**
-    Compare this instance to another instance of the same type.
-    (TypeScript can't express this, but only instances of the same
-    specific class will be passed to this method.) This is used to
-    avoid redrawing widgets when they are replaced by a new
-    decoration of the same type. The default implementation just
-    returns `false`, which will cause new instances of the widget to
-    always be redrawn.
-    */
-    eq(_widget: WidgetType$1): boolean;
-    /**
-    Update a DOM element created by a widget of the same type (but
-    different, non-`eq` content) to reflect this widget. May return
-    true to indicate that it could update, false to indicate it
-    couldn't (in which case the widget will be redrawn). The default
-    implementation just returns false.
-    */
-    updateDOM(_dom: HTMLElement): boolean;
-    /**
-    The estimated height this widget will have, to be used when
-    estimating the height of content that hasn't been drawn. May
-    return -1 to indicate you don't know. The default implementation
-    returns -1.
-    */
-    get estimatedHeight(): number;
-    /**
-    Can be used to configure which kinds of events inside the widget
-    should be ignored by the editor. The default is to ignore all
-    events.
-    */
-    ignoreEvent(_event: Event): boolean;
-    /**
-    This is called when the an instance of the widget is removed
-    from the editor view.
-    */
-    destroy(_dom: HTMLElement): void;
-}
-/**
-A decoration set represents a collection of decorated ranges,
-organized for efficient access and mapping. See
-[`RangeSet`](https://codemirror.net/6/docs/ref/#rangeset.RangeSet) for its methods.
-*/
-declare type DecorationSet$1 = RangeSet<Decoration$1>;
-/**
-The different types of blocks that can occur in an editor view.
-*/
-declare enum BlockType$1 {
-    /**
-    A line of text.
-    */
-    Text = 0,
-    /**
-    A block widget associated with the position after it.
-    */
-    WidgetBefore = 1,
-    /**
-    A block widget associated with the position before it.
-    */
-    WidgetAfter = 2,
-    /**
-    A block widget [replacing](https://codemirror.net/6/docs/ref/#view.Decoration^replace) a range of content.
-    */
-    WidgetRange = 3
-}
-/**
-A decoration provides information on how to draw or style a piece
-of content. You'll usually use it wrapped in a
-[`Range`](https://codemirror.net/6/docs/ref/#rangeset.Range), which adds a start and end position.
-*/
-declare abstract class Decoration$1 extends RangeValue {
-    /**
-    The config object used to create this decoration. You can
-    include additional properties in there to store metadata about
-    your decoration.
-    */
-    readonly spec: any;
-    abstract eq(other: Decoration$1): boolean;
-    /**
-    Create a mark decoration, which influences the styling of the
-    content in its range. Nested mark decorations will cause nested
-    DOM elements to be created. Nesting order is determined by
-    precedence of the [facet](https://codemirror.net/6/docs/ref/#view.EditorView^decorations) or
-    (below the facet-provided decorations) [view
-    plugin](https://codemirror.net/6/docs/ref/#view.PluginSpec.decorations). Such elements are split
-    on line boundaries and on the boundaries of higher-precedence
-    decorations.
-    */
-    static mark(spec: MarkDecorationSpec$1): Decoration$1;
-    /**
-    Create a widget decoration, which adds an element at the given
-    position.
-    */
-    static widget(spec: WidgetDecorationSpec$1): Decoration$1;
-    /**
-    Create a replace decoration which replaces the given range with
-    a widget, or simply hides it.
-    */
-    static replace(spec: ReplaceDecorationSpec$1): Decoration$1;
-    /**
-    Create a line decoration, which can add DOM attributes to the
-    line starting at the given position.
-    */
-    static line(spec: LineDecorationSpec$1): Decoration$1;
-    /**
-    Build a [`DecorationSet`](https://codemirror.net/6/docs/ref/#view.DecorationSet) from the given
-    decorated range or ranges. If the ranges aren't already sorted,
-    pass `true` for `sort` to make the library sort them for you.
-    */
-    static set(of: Range<Decoration$1> | readonly Range<Decoration$1>[], sort?: boolean): DecorationSet$1;
-    /**
-    The empty set of decorations.
-    */
-    static none: DecorationSet$1;
-}
-
-/**
-Basic rectangle type.
-*/
-interface Rect$1 {
-    readonly left: number;
-    readonly right: number;
-    readonly top: number;
-    readonly bottom: number;
-}
-declare type ScrollStrategy$1 = "nearest" | "start" | "end" | "center";
-
-/**
-Command functions are used in key bindings and other types of user
-actions. Given an editor view, they check whether their effect can
-apply to the editor, and if it can, perform it as a side effect
-(which usually means [dispatching](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) a
-transaction) and return `true`.
-*/
-declare type Command$1 = (target: EditorView$1) => boolean;
-/**
-This is the interface plugin objects conform to.
-*/
-interface PluginValue$1 {
-    /**
-    Notifies the plugin of an update that happened in the view. This
-    is called _before_ the view updates its own DOM. It is
-    responsible for updating the plugin's internal state (including
-    any state that may be read by plugin fields) and _writing_ to
-    the DOM for the changes in the update. To avoid unnecessary
-    layout recomputations, it should _not_ read the DOM layout—use
-    [`requestMeasure`](https://codemirror.net/6/docs/ref/#view.EditorView.requestMeasure) to schedule
-    your code in a DOM reading phase if you need to.
-    */
-    update?(_update: ViewUpdate$1): void;
-    /**
-    Called when the plugin is no longer going to be used. Should
-    revert any changes the plugin made to the DOM.
-    */
-    destroy?(): void;
-}
-declare const isFieldProvider$1: unique symbol;
-/**
-Used to [declare](https://codemirror.net/6/docs/ref/#view.PluginSpec.provide) which
-[fields](https://codemirror.net/6/docs/ref/#view.PluginValue) a [view plugin](https://codemirror.net/6/docs/ref/#view.ViewPlugin)
-provides.
-*/
-declare class PluginFieldProvider$1<V> {
-    private [isFieldProvider$1];
-}
-/**
-Plugin fields are a mechanism for allowing plugins to provide
-values that can be retrieved through the
-[`pluginField`](https://codemirror.net/6/docs/ref/#view.EditorView.pluginField) view method.
-*/
-declare class PluginField$1<T> {
-    /**
-    Create a [provider](https://codemirror.net/6/docs/ref/#view.PluginFieldProvider) for this field,
-    to use with a plugin's [provide](https://codemirror.net/6/docs/ref/#view.PluginSpec.provide)
-    option.
-    */
-    from<V extends PluginValue$1>(get: (value: V) => T): PluginFieldProvider$1<V>;
-    /**
-    Define a new plugin field.
-    */
-    static define<T>(): PluginField$1<T>;
-    /**
-    This field can be used by plugins to provide
-    [decorations](https://codemirror.net/6/docs/ref/#view.Decoration).
-    
-    **Note**: For reasons of data flow (plugins are only updated
-    after the viewport is computed), decorations produced by plugins
-    are _not_ taken into account when predicting the vertical layout
-    structure of the editor. They **must not** introduce block
-    widgets (that will raise an error) or replacing decorations that
-    cover line breaks (these will be ignored if they occur). Such
-    decorations, or others that cause a large amount of vertical
-    size shift compared to the undecorated content, should be
-    provided through the state-level [`decorations`
-    facet](https://codemirror.net/6/docs/ref/#view.EditorView^decorations) instead.
-    */
-    static decorations: PluginField$1<DecorationSet$1>;
-    /**
-    Used to provide ranges that should be treated as atoms as far as
-    cursor motion is concerned. This causes methods like
-    [`moveByChar`](https://codemirror.net/6/docs/ref/#view.EditorView.moveByChar) and
-    [`moveVertically`](https://codemirror.net/6/docs/ref/#view.EditorView.moveVertically) (and the
-    commands built on top of them) to skip across such regions when
-    a selection endpoint would enter them. This does _not_ prevent
-    direct programmatic [selection
-    updates](https://codemirror.net/6/docs/ref/#state.TransactionSpec.selection) from moving into such
-    regions.
-    */
-    static atomicRanges: PluginField$1<RangeSet<any>>;
-    /**
-    Plugins can provide additional scroll margins (space around the
-    sides of the scrolling element that should be considered
-    invisible) through this field. This can be useful when the
-    plugin introduces elements that cover part of that element (for
-    example a horizontally fixed gutter).
-    */
-    static scrollMargins: PluginField$1<Partial<Rect$1> | null>;
-}
-/**
-Provides additional information when defining a [view
-plugin](https://codemirror.net/6/docs/ref/#view.ViewPlugin).
-*/
-interface PluginSpec$1<V extends PluginValue$1> {
-    /**
-    Register the given [event
-    handlers](https://codemirror.net/6/docs/ref/#view.EditorView^domEventHandlers) for the plugin.
-    When called, these will have their `this` bound to the plugin
-    value.
-    */
-    eventHandlers?: DOMEventHandlers$1<V>;
-    /**
-    Allow the plugin to provide decorations. When given, this should
-    a function that take the plugin value and return a [decoration
-    set](https://codemirror.net/6/docs/ref/#view.DecorationSet). See also the caveat about
-    [layout-changing decorations](https://codemirror.net/6/docs/ref/#view.PluginField^decorations)
-    from plugins.
-    */
-    decorations?: (value: V) => DecorationSet$1;
-    /**
-    Specify that the plugin provides [plugin
-    field](https://codemirror.net/6/docs/ref/#view.PluginField) values. Use a field's
-    [`from`](https://codemirror.net/6/docs/ref/#view.PluginField.from) method to create these
-    providers.
-    */
-    provide?: PluginFieldProvider$1<V> | readonly PluginFieldProvider$1<V>[];
-}
-/**
-View plugins associate stateful values with a view. They can
-influence the way the content is drawn, and are notified of things
-that happen in the view.
-*/
-declare class ViewPlugin$1<V extends PluginValue$1> {
-    /**
-    Instances of this class act as extensions.
-    */
-    extension: Extension;
-    private constructor();
-    /**
-    Define a plugin from a constructor function that creates the
-    plugin's value, given an editor view.
-    */
-    static define<V extends PluginValue$1>(create: (view: EditorView$1) => V, spec?: PluginSpec$1<V>): ViewPlugin$1<V>;
-    /**
-    Create a plugin for a class whose constructor takes a single
-    editor view as argument.
-    */
-    static fromClass<V extends PluginValue$1>(cls: {
-        new (view: EditorView$1): V;
-    }, spec?: PluginSpec$1<V>): ViewPlugin$1<V>;
-}
-interface MeasureRequest$1<T> {
-    /**
-    Called in a DOM read phase to gather information that requires
-    DOM layout. Should _not_ mutate the document.
-    */
-    read(view: EditorView$1): T;
-    /**
-    Called in a DOM write phase to update the document. Should _not_
-    do anything that triggers DOM layout.
-    */
-    write?(measure: T, view: EditorView$1): void;
-    /**
-    When multiple requests with the same key are scheduled, only the
-    last one will actually be ran.
-    */
-    key?: any;
-}
-declare type AttrSource$1 = Attrs$1 | ((view: EditorView$1) => Attrs$1 | null);
-/**
-View [plugins](https://codemirror.net/6/docs/ref/#view.ViewPlugin) are given instances of this
-class, which describe what happened, whenever the view is updated.
-*/
-declare class ViewUpdate$1 {
-    /**
-    The editor view that the update is associated with.
-    */
-    readonly view: EditorView$1;
-    /**
-    The new editor state.
-    */
-    readonly state: EditorState;
-    /**
-    The transactions involved in the update. May be empty.
-    */
-    readonly transactions: readonly Transaction[];
-    /**
-    The changes made to the document by this update.
-    */
-    readonly changes: ChangeSet;
-    /**
-    The previous editor state.
-    */
-    readonly startState: EditorState;
-    /**
-    Tells you whether the [viewport](https://codemirror.net/6/docs/ref/#view.EditorView.viewport) or
-    [visible ranges](https://codemirror.net/6/docs/ref/#view.EditorView.visibleRanges) changed in this
-    update.
-    */
-    get viewportChanged(): boolean;
-    /**
-    Indicates whether the height of an element in the editor changed
-    in this update.
-    */
-    get heightChanged(): boolean;
-    /**
-    Returns true when the document was modified or the size of the
-    editor, or elements within the editor, changed.
-    */
-    get geometryChanged(): boolean;
-    /**
-    True when this update indicates a focus change.
-    */
-    get focusChanged(): boolean;
-    /**
-    Whether the document changed in this update.
-    */
-    get docChanged(): boolean;
-    /**
-    Whether the selection was explicitly set in this update.
-    */
-    get selectionSet(): boolean;
-}
-
-/**
-Interface that objects registered with
-[`EditorView.mouseSelectionStyle`](https://codemirror.net/6/docs/ref/#view.EditorView^mouseSelectionStyle)
-must conform to.
-*/
-interface MouseSelectionStyle$1 {
-    /**
-    Return a new selection for the mouse gesture that starts with
-    the event that was originally given to the constructor, and ends
-    with the event passed here. In case of a plain click, those may
-    both be the `mousedown` event, in case of a drag gesture, the
-    latest `mousemove` event will be passed.
-    
-    When `extend` is true, that means the new selection should, if
-    possible, extend the start selection. If `multiple` is true, the
-    new selection should be added to the original selection.
-    */
-    get: (curEvent: MouseEvent, extend: boolean, multiple: boolean) => EditorSelection;
-    /**
-    Called when the view is updated while the gesture is in
-    progress. When the document changes, it may be necessary to map
-    some data (like the original selection or start position)
-    through the changes.
-    
-    This may return `true` to indicate that the `get` method should
-    get queried again after the update, because something in the
-    update could change its result. Be wary of infinite loops when
-    using this (where `get` returns a new selection, which will
-    trigger `update`, which schedules another `get` in response).
-    */
-    update: (update: ViewUpdate$1) => boolean | void;
-}
-declare type MakeSelectionStyle$1 = (view: EditorView$1, event: MouseEvent) => MouseSelectionStyle$1 | null;
-
-/**
-Used to indicate [text direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection).
-*/
-declare enum Direction$1 {
-    /**
-    Left-to-right.
-    */
-    LTR = 0,
-    /**
-    Right-to-left.
-    */
-    RTL = 1
-}
-/**
-Represents a contiguous range of text that has a single direction
-(as in left-to-right or right-to-left).
-*/
-declare class BidiSpan$1 {
-    /**
-    The start of the span (relative to the start of the line).
-    */
-    readonly from: number;
-    /**
-    The end of the span.
-    */
-    readonly to: number;
-    /**
-    The ["bidi
-    level"](https://unicode.org/reports/tr9/#Basic_Display_Algorithm)
-    of the span (in this context, 0 means
-    left-to-right, 1 means right-to-left, 2 means left-to-right
-    number inside right-to-left text).
-    */
-    readonly level: number;
-    /**
-    The direction of this span.
-    */
-    get dir(): Direction$1;
-}
-
-/**
-Record used to represent information about a block-level element
-in the editor view.
-*/
-declare class BlockInfo$1 {
-    /**
-    The start of the element in the document.
-    */
-    readonly from: number;
-    /**
-    The length of the element.
-    */
-    readonly length: number;
-    /**
-    The top position of the element (relative to the top of the
-    document).
-    */
-    readonly top: number;
-    /**
-    Its height.
-    */
-    readonly height: number;
-    /**
-    The type of element this is. When querying lines, this may be
-    an array of all the blocks that make up the line.
-    */
-    readonly type: BlockType$1 | readonly BlockInfo$1[];
-    /**
-    The end of the element as a document position.
-    */
-    get to(): number;
-    /**
-    The bottom position of the element.
-    */
-    get bottom(): number;
-}
-
-interface EditorConfig$1 {
-    /**
-    The view's initial state. Defaults to an extension-less state
-    with an empty document.
-    */
-    state?: EditorState;
-    /**
-    If the view is going to be mounted in a shadow root or document
-    other than the one held by the global variable `document` (the
-    default), you should pass it here. If you provide `parent`, but
-    not this option, the editor will automatically look up a root
-    from the parent.
-    */
-    root?: Document | ShadowRoot;
-    /**
-    Override the transaction [dispatch
-    function](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) for this editor view, which
-    is the way updates get routed to the view. Your implementation,
-    if provided, should probably call the view's [`update`
-    method](https://codemirror.net/6/docs/ref/#view.EditorView.update).
-    */
-    dispatch?: (tr: Transaction) => void;
-    /**
-    When given, the editor is immediately appended to the given
-    element on creation. (Otherwise, you'll have to place the view's
-    [`dom`](https://codemirror.net/6/docs/ref/#view.EditorView.dom) element in the document yourself.)
-    */
-    parent?: Element | DocumentFragment;
-}
-/**
-An editor view represents the editor's user interface. It holds
-the editable DOM surface, and possibly other elements such as the
-line number gutter. It handles events and dispatches state
-transactions for editing actions.
-*/
-declare class EditorView$1 {
-    /**
-    The current editor state.
-    */
-    get state(): EditorState;
-    /**
-    To be able to display large documents without consuming too much
-    memory or overloading the browser, CodeMirror only draws the
-    code that is visible (plus a margin around it) to the DOM. This
-    property tells you the extent of the current drawn viewport, in
-    document positions.
-    */
-    get viewport(): {
-        from: number;
-        to: number;
-    };
-    /**
-    When there are, for example, large collapsed ranges in the
-    viewport, its size can be a lot bigger than the actual visible
-    content. Thus, if you are doing something like styling the
-    content in the viewport, it is preferable to only do so for
-    these ranges, which are the subset of the viewport that is
-    actually drawn.
-    */
-    get visibleRanges(): readonly {
-        from: number;
-        to: number;
-    }[];
-    /**
-    Returns false when the editor is entirely scrolled out of view
-    or otherwise hidden.
-    */
-    get inView(): boolean;
-    /**
-    Indicates whether the user is currently composing text via
-    [IME](https://en.wikipedia.org/wiki/Input_method).
-    */
-    get composing(): boolean;
-    private _dispatch;
-    /**
-    The document or shadow root that the view lives in.
-    */
-    readonly root: DocumentOrShadowRoot;
-    /**
-    The DOM element that wraps the entire editor view.
-    */
-    readonly dom: HTMLElement;
-    /**
-    The DOM element that can be styled to scroll. (Note that it may
-    not have been, so you can't assume this is scrollable.)
-    */
-    readonly scrollDOM: HTMLElement;
-    /**
-    The editable DOM element holding the editor content. You should
-    not, usually, interact with this content directly though the
-    DOM, since the editor will immediately undo most of the changes
-    you make. Instead, [dispatch](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch)
-    [transactions](https://codemirror.net/6/docs/ref/#state.Transaction) to modify content, and
-    [decorations](https://codemirror.net/6/docs/ref/#view.Decoration) to style it.
-    */
-    readonly contentDOM: HTMLElement;
-    private announceDOM;
-    private plugins;
-    private pluginMap;
-    private editorAttrs;
-    private contentAttrs;
-    private styleModules;
-    private bidiCache;
-    private destroyed;
-    /**
-    Construct a new view. You'll usually want to put `view.dom` into
-    your document after creating a view, so that the user can see
-    it.
-    */
-    constructor(
-    /**
-    Initialization options.
-    */
-    config?: EditorConfig$1);
-    /**
-    All regular editor state updates should go through this. It
-    takes a transaction or transaction spec and updates the view to
-    show the new state produced by that transaction. Its
-    implementation can be overridden with an
-    [option](https://codemirror.net/6/docs/ref/#view.EditorView.constructor^config.dispatch). This
-    function is bound to the view instance, so it does not have to
-    be called as a method.
-    */
-    dispatch(tr: Transaction): void;
-    dispatch(...specs: TransactionSpec[]): void;
-    /**
-    Update the view for the given array of transactions. This will
-    update the visible document and selection to match the state
-    produced by the transactions, and notify view plugins of the
-    change. You should usually call
-    [`dispatch`](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) instead, which uses this
-    as a primitive.
-    */
-    update(transactions: readonly Transaction[]): void;
-    /**
-    Reset the view to the given state. (This will cause the entire
-    document to be redrawn and all view plugins to be reinitialized,
-    so you should probably only use it when the new state isn't
-    derived from the old state. Otherwise, use
-    [`dispatch`](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) instead.)
-    */
-    setState(newState: EditorState): void;
-    private updatePlugins;
-    /**
-    Get the CSS classes for the currently active editor themes.
-    */
-    get themeClasses(): string;
-    private updateAttrs;
-    private showAnnouncements;
-    private mountStyles;
-    private readMeasured;
-    /**
-    Schedule a layout measurement, optionally providing callbacks to
-    do custom DOM measuring followed by a DOM write phase. Using
-    this is preferable reading DOM layout directly from, for
-    example, an event handler, because it'll make sure measuring and
-    drawing done by other components is synchronized, avoiding
-    unnecessary DOM layout computations.
-    */
-    requestMeasure<T>(request?: MeasureRequest$1<T>): void;
-    /**
-    Collect all values provided by the active plugins for a given
-    field.
-    */
-    pluginField<T>(field: PluginField$1<T>): readonly T[];
-    /**
-    Get the value of a specific plugin, if present. Note that
-    plugins that crash can be dropped from a view, so even when you
-    know you registered a given plugin, it is recommended to check
-    the return value of this method.
-    */
-    plugin<T>(plugin: ViewPlugin$1<T>): T | null;
-    /**
-    The top position of the document, in screen coordinates. This
-    may be negative when the editor is scrolled down. Points
-    directly to the top of the first line, not above the padding.
-    */
-    get documentTop(): number;
-    /**
-    Reports the padding above and below the document.
-    */
-    get documentPadding(): {
-        top: number;
-        bottom: number;
-    };
-    /**
-    Find the line or block widget at the given vertical position.
-    
-    By default, this position is interpreted as a screen position,
-    meaning `docTop` is set to the DOM top position of the editor
-    content (forcing a layout). You can pass a different `docTop`
-    value—for example 0 to interpret `height` as a document-relative
-    position, or a precomputed document top
-    (`view.contentDOM.getBoundingClientRect().top`) to limit layout
-    queries.
-    
-    *Deprecated: use `blockAtHeight` instead.*
-    */
-    blockAtHeight(height: number, docTop?: number): BlockInfo$1;
-    /**
-    Find the text line or block widget at the given vertical
-    position (which is interpreted as relative to the [top of the
-    document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop)
-    */
-    elementAtHeight(height: number): BlockInfo$1;
-    /**
-    Find information for the visual line (see
-    [`visualLineAt`](https://codemirror.net/6/docs/ref/#view.EditorView.visualLineAt)) at the given
-    vertical position. The resulting block info might hold another
-    array of block info structs in its `type` field if this line
-    consists of more than one block.
-    
-    Defaults to treating `height` as a screen position. See
-    [`blockAtHeight`](https://codemirror.net/6/docs/ref/#view.EditorView.blockAtHeight) for the
-    interpretation of the `docTop` parameter.
-    
-    *Deprecated: use `lineBlockAtHeight` instead.*
-    */
-    visualLineAtHeight(height: number, docTop?: number): BlockInfo$1;
-    /**
-    Find the line block (see
-    [`lineBlockAt`](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) at the given
-    height.
-    */
-    lineBlockAtHeight(height: number): BlockInfo$1;
-    /**
-    Iterate over the height information of the visual lines in the
-    viewport. The heights of lines are reported relative to the
-    given document top, which defaults to the screen position of the
-    document (forcing a layout).
-    
-    *Deprecated: use `viewportLineBlocks` instead.*
-    */
-    viewportLines(f: (line: BlockInfo$1) => void, docTop?: number): void;
-    /**
-    Get the extent and vertical position of all [line
-    blocks](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) in the viewport. Positions
-    are relative to the [top of the
-    document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop);
-    */
-    get viewportLineBlocks(): BlockInfo$1[];
-    /**
-    Find the extent and height of the visual line (a range delimited
-    on both sides by either non-[hidden](https://codemirror.net/6/docs/ref/#view.Decoration^range)
-    line breaks, or the start/end of the document) at the given position.
-    
-    Vertical positions are computed relative to the `docTop`
-    argument, which defaults to 0 for this method. You can pass
-    `view.contentDOM.getBoundingClientRect().top` here to get screen
-    coordinates.
-    
-    *Deprecated: use `lineBlockAt` instead.*
-    */
-    visualLineAt(pos: number, docTop?: number): BlockInfo$1;
-    /**
-    Find the line block around the given document position. A line
-    block is a range delimited on both sides by either a
-    non-[hidden](https://codemirror.net/6/docs/ref/#view.Decoration^range) line breaks, or the
-    start/end of the document. It will usually just hold a line of
-    text, but may be broken into multiple textblocks by block
-    widgets.
-    */
-    lineBlockAt(pos: number): BlockInfo$1;
-    /**
-    The editor's total content height.
-    */
-    get contentHeight(): number;
-    /**
-    Move a cursor position by [grapheme
-    cluster](https://codemirror.net/6/docs/ref/#text.findClusterBreak). `forward` determines whether
-    the motion is away from the line start, or towards it. Motion in
-    bidirectional text is in visual order, in the editor's [text
-    direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection). When the start
-    position was the last one on the line, the returned position
-    will be across the line break. If there is no further line, the
-    original position is returned.
-    
-    By default, this method moves over a single cluster. The
-    optional `by` argument can be used to move across more. It will
-    be called with the first cluster as argument, and should return
-    a predicate that determines, for each subsequent cluster,
-    whether it should also be moved over.
-    */
-    moveByChar(start: SelectionRange, forward: boolean, by?: (initial: string) => (next: string) => boolean): SelectionRange;
-    /**
-    Move a cursor position across the next group of either
-    [letters](https://codemirror.net/6/docs/ref/#state.EditorState.charCategorizer) or non-letter
-    non-whitespace characters.
-    */
-    moveByGroup(start: SelectionRange, forward: boolean): SelectionRange;
-    /**
-    Move to the next line boundary in the given direction. If
-    `includeWrap` is true, line wrapping is on, and there is a
-    further wrap point on the current line, the wrap point will be
-    returned. Otherwise this function will return the start or end
-    of the line.
-    */
-    moveToLineBoundary(start: SelectionRange, forward: boolean, includeWrap?: boolean): SelectionRange;
-    /**
-    Move a cursor position vertically. When `distance` isn't given,
-    it defaults to moving to the next line (including wrapped
-    lines). Otherwise, `distance` should provide a positive distance
-    in pixels.
-    
-    When `start` has a
-    [`goalColumn`](https://codemirror.net/6/docs/ref/#state.SelectionRange.goalColumn), the vertical
-    motion will use that as a target horizontal position. Otherwise,
-    the cursor's own horizontal position is used. The returned
-    cursor will have its goal column set to whichever column was
-    used.
-    */
-    moveVertically(start: SelectionRange, forward: boolean, distance?: number): SelectionRange;
-    scrollPosIntoView(pos: number): void;
-    /**
-    Find the DOM parent node and offset (child offset if `node` is
-    an element, character offset when it is a text node) at the
-    given document position.
-    
-    Note that for positions that aren't currently in
-    `visibleRanges`, the resulting DOM position isn't necessarily
-    meaningful (it may just point before or after a placeholder
-    element).
-    */
-    domAtPos(pos: number): {
-        node: Node;
-        offset: number;
-    };
-    /**
-    Find the document position at the given DOM node. Can be useful
-    for associating positions with DOM events. Will raise an error
-    when `node` isn't part of the editor content.
-    */
-    posAtDOM(node: Node, offset?: number): number;
-    /**
-    Get the document position at the given screen coordinates. For
-    positions not covered by the visible viewport's DOM structure,
-    this will return null, unless `false` is passed as second
-    argument, in which case it'll return an estimated position that
-    would be near the coordinates if it were rendered.
-    */
-    posAtCoords(coords: {
-        x: number;
-        y: number;
-    }, precise: false): number;
-    posAtCoords(coords: {
-        x: number;
-        y: number;
-    }): number | null;
-    /**
-    Get the screen coordinates at the given document position.
-    `side` determines whether the coordinates are based on the
-    element before (-1) or after (1) the position (if no element is
-    available on the given side, the method will transparently use
-    another strategy to get reasonable coordinates).
-    */
-    coordsAtPos(pos: number, side?: -1 | 1): Rect$1 | null;
-    /**
-    The default width of a character in the editor. May not
-    accurately reflect the width of all characters (given variable
-    width fonts or styling of invididual ranges).
-    */
-    get defaultCharacterWidth(): number;
-    /**
-    The default height of a line in the editor. May not be accurate
-    for all lines.
-    */
-    get defaultLineHeight(): number;
-    /**
-    The text direction
-    ([`direction`](https://developer.mozilla.org/en-US/docs/Web/CSS/direction)
-    CSS property) of the editor.
-    */
-    get textDirection(): Direction$1;
-    /**
-    Whether this editor [wraps lines](https://codemirror.net/6/docs/ref/#view.EditorView.lineWrapping)
-    (as determined by the
-    [`white-space`](https://developer.mozilla.org/en-US/docs/Web/CSS/white-space)
-    CSS property of its content element).
-    */
-    get lineWrapping(): boolean;
-    /**
-    Returns the bidirectional text structure of the given line
-    (which should be in the current document) as an array of span
-    objects. The order of these spans matches the [text
-    direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection)—if that is
-    left-to-right, the leftmost spans come first, otherwise the
-    rightmost spans come first.
-    */
-    bidiSpans(line: Line$1): readonly BidiSpan$1[];
-    /**
-    Check whether the editor has focus.
-    */
-    get hasFocus(): boolean;
-    /**
-    Put focus on the editor.
-    */
-    focus(): void;
-    /**
-    Clean up this editor view, removing its element from the
-    document, unregistering event handlers, and notifying
-    plugins. The view instance can no longer be used after
-    calling this.
-    */
-    destroy(): void;
-    /**
-    Effect that can be [added](https://codemirror.net/6/docs/ref/#state.TransactionSpec.effects) to a
-    transaction to make it scroll the given range into view.
-    
-    *Deprecated*. Use [`scrollIntoView`](https://codemirror.net/6/docs/ref/#view.EditorView^scrollIntoView) instead.
-    */
-    static scrollTo: StateEffectType<SelectionRange>;
-    /**
-    Effect that makes the editor scroll the given range to the
-    center of the visible view.
-    
-    *Deprecated*. Use [`scrollIntoView`](https://codemirror.net/6/docs/ref/#view.EditorView^scrollIntoView) instead.
-    */
-    static centerOn: StateEffectType<SelectionRange>;
-    /**
-    Returns an effect that can be
-    [added](https://codemirror.net/6/docs/ref/#state.TransactionSpec.effects) to a transaction to
-    cause it to scroll the given position or range into view.
-    */
-    static scrollIntoView(pos: number | SelectionRange, options?: {
-        /**
-        By default (`"nearest"`) the position will be vertically
-        scrolled only the minimal amount required to move the given
-        position into view. You can set this to `"start"` to move it
-        to the top of the view, `"end"` to move it to the bottom, or
-        `"center"` to move it to the center.
-        */
-        y?: ScrollStrategy$1;
-        /**
-        Effect similar to
-        [`y`](https://codemirror.net/6/docs/ref/#view.EditorView^scrollIntoView^options.y), but for the
-        horizontal scroll position.
-        */
-        x?: ScrollStrategy$1;
-        /**
-        Extra vertical distance to add when moving something into
-        view. Not used with the `"center"` strategy. Defaults to 5.
-        */
-        yMargin?: number;
-        /**
-        Extra horizontal distance to add. Not used with the `"center"`
-        strategy. Defaults to 5.
-        */
-        xMargin?: number;
-    }): StateEffect<unknown>;
-    /**
-    Facet to add a [style
-    module](https://github.com/marijnh/style-mod#documentation) to
-    an editor view. The view will ensure that the module is
-    mounted in its [document
-    root](https://codemirror.net/6/docs/ref/#view.EditorView.constructor^config.root).
-    */
-    static styleModule: Facet<StyleModule, readonly StyleModule[]>;
-    /**
-    Facet that can be used to add DOM event handlers. The value
-    should be an object mapping event names to handler functions. The
-    first such function to return true will be assumed to have handled
-    that event, and no other handlers or built-in behavior will be
-    activated for it.
-    These are registered on the [content
-    element](https://codemirror.net/6/docs/ref/#view.EditorView.contentDOM), except for `scroll`
-    handlers, which will be called any time the editor's [scroll
-    element](https://codemirror.net/6/docs/ref/#view.EditorView.scrollDOM) or one of its parent nodes
-    is scrolled.
-    */
-    static domEventHandlers(handlers: DOMEventHandlers$1<any>): Extension;
-    /**
-    An input handler can override the way changes to the editable
-    DOM content are handled. Handlers are passed the document
-    positions between which the change was found, and the new
-    content. When one returns true, no further input handlers are
-    called and the default behavior is prevented.
-    */
-    static inputHandler: Facet<(view: EditorView$1, from: number, to: number, text: string) => boolean, readonly ((view: EditorView$1, from: number, to: number, text: string) => boolean)[]>;
-    /**
-    Allows you to provide a function that should be called when the
-    library catches an exception from an extension (mostly from view
-    plugins, but may be used by other extensions to route exceptions
-    from user-code-provided callbacks). This is mostly useful for
-    debugging and logging. See [`logException`](https://codemirror.net/6/docs/ref/#view.logException).
-    */
-    static exceptionSink: Facet<(exception: any) => void, readonly ((exception: any) => void)[]>;
-    /**
-    A facet that can be used to register a function to be called
-    every time the view updates.
-    */
-    static updateListener: Facet<(update: ViewUpdate$1) => void, readonly ((update: ViewUpdate$1) => void)[]>;
-    /**
-    Facet that controls whether the editor content DOM is editable.
-    When its highest-precedence value is `false`, the element will
-    not longer have its `contenteditable` attribute set. (Note that
-    this doesn't affect API calls that change the editor content,
-    even when those are bound to keys or buttons. See the
-    [`readOnly`](https://codemirror.net/6/docs/ref/#state.EditorState.readOnly) facet for that.)
-    */
-    static editable: Facet<boolean, boolean>;
-    /**
-    Allows you to influence the way mouse selection happens. The
-    functions in this facet will be called for a `mousedown` event
-    on the editor, and can return an object that overrides the way a
-    selection is computed from that mouse click or drag.
-    */
-    static mouseSelectionStyle: Facet<MakeSelectionStyle$1, readonly MakeSelectionStyle$1[]>;
-    /**
-    Facet used to configure whether a given selection drag event
-    should move or copy the selection. The given predicate will be
-    called with the `mousedown` event, and can return `true` when
-    the drag should move the content.
-    */
-    static dragMovesSelection: Facet<(event: MouseEvent) => boolean, readonly ((event: MouseEvent) => boolean)[]>;
-    /**
-    Facet used to configure whether a given selecting click adds
-    a new range to the existing selection or replaces it entirely.
-    */
-    static clickAddsSelectionRange: Facet<(event: MouseEvent) => boolean, readonly ((event: MouseEvent) => boolean)[]>;
-    /**
-    A facet that determines which [decorations](https://codemirror.net/6/docs/ref/#view.Decoration)
-    are shown in the view. See also [view
-    plugins](https://codemirror.net/6/docs/ref/#view.EditorView^decorations), which have a separate
-    mechanism for providing decorations.
-    */
-    static decorations: Facet<DecorationSet$1, readonly DecorationSet$1[]>;
-    /**
-    Create a theme extension. The first argument can be a
-    [`style-mod`](https://github.com/marijnh/style-mod#documentation)
-    style spec providing the styles for the theme. These will be
-    prefixed with a generated class for the style.
-    
-    Because the selectors will be prefixed with a scope class, rule
-    that directly match the editor's [wrapper
-    element](https://codemirror.net/6/docs/ref/#view.EditorView.dom)—to which the scope class will be
-    added—need to be explicitly differentiated by adding an `&` to
-    the selector for that element—for example
-    `&.cm-focused`.
-    
-    When `dark` is set to true, the theme will be marked as dark,
-    which will cause the `&dark` rules from [base
-    themes](https://codemirror.net/6/docs/ref/#view.EditorView^baseTheme) to be used (as opposed to
-    `&light` when a light theme is active).
-    */
-    static theme(spec: {
-        [selector: string]: StyleSpec;
-    }, options?: {
-        dark?: boolean;
-    }): Extension;
-    /**
-    Create an extension that adds styles to the base theme. Like
-    with [`theme`](https://codemirror.net/6/docs/ref/#view.EditorView^theme), use `&` to indicate the
-    place of the editor wrapper element when directly targeting
-    that. You can also use `&dark` or `&light` instead to only
-    target editors with a dark or light theme.
-    */
-    static baseTheme(spec: {
-        [selector: string]: StyleSpec;
-    }): Extension;
-    /**
-    Facet that provides additional DOM attributes for the editor's
-    editable DOM element.
-    */
-    static contentAttributes: Facet<AttrSource$1, readonly AttrSource$1[]>;
-    /**
-    Facet that provides DOM attributes for the editor's outer
-    element.
-    */
-    static editorAttributes: Facet<AttrSource$1, readonly AttrSource$1[]>;
-    /**
-    An extension that enables line wrapping in the editor (by
-    setting CSS `white-space` to `pre-wrap` in the content).
-    */
-    static lineWrapping: Extension;
-    /**
-    State effect used to include screen reader announcements in a
-    transaction. These will be added to the DOM in a visually hidden
-    element with `aria-live="polite"` set, and should be used to
-    describe effects that are visually obvious but may not be
-    noticed by screen reader users (such as moving to the next
-    search match).
-    */
-    static announce: StateEffectType<string>;
-}
-/**
-Helper type that maps event names to event object types, or the
-`any` type for unknown events.
-*/
-interface DOMEventMap$1 extends HTMLElementEventMap {
-    [other: string]: any;
-}
-/**
-Event handlers are specified with objects like this. For event
-types known by TypeScript, this will infer the event argument type
-to hold the appropriate event object type. For unknown events, it
-is inferred to `any`, and should be explicitly set if you want type
-checking.
-*/
-declare type DOMEventHandlers$1<This> = {
-    [event in keyof DOMEventMap$1]?: (this: This, event: DOMEventMap$1[event], view: EditorView$1) => boolean | void;
-};
-
-/**
-Key bindings associate key names with
-[command](https://codemirror.net/6/docs/ref/#view.Command)-style functions.
-
-Key names may be strings like `"Shift-Ctrl-Enter"`—a key identifier
-prefixed with zero or more modifiers. Key identifiers are based on
-the strings that can appear in
-[`KeyEvent.key`](https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key).
-Use lowercase letters to refer to letter keys (or uppercase letters
-if you want shift to be held). You may use `"Space"` as an alias
-for the `" "` name.
-
-Modifiers can be given in any order. `Shift-` (or `s-`), `Alt-` (or
-`a-`), `Ctrl-` (or `c-` or `Control-`) and `Cmd-` (or `m-` or
-`Meta-`) are recognized.
-
-When a key binding contains multiple key names separated by
-spaces, it represents a multi-stroke binding, which will fire when
-the user presses the given keys after each other order.
-
-You can use `Mod-` as a shorthand for `Cmd-` on Mac and `Ctrl-` on
-other platforms. So `Mod-b` is `Ctrl-b` on Linux but `Cmd-b` on
-macOS.
-*/
-interface KeyBinding$1 {
-    /**
-    The key name to use for this binding. If the platform-specific
-    property (`mac`, `win`, or `linux`) for the current platform is
-    used as well in the binding, that one takes precedence. If `key`
-    isn't defined and the platform-specific binding isn't either,
-    a binding is ignored.
-    */
-    key?: string;
-    /**
-    Key to use specifically on macOS.
-    */
-    mac?: string;
-    /**
-    Key to use specifically on Windows.
-    */
-    win?: string;
-    /**
-    Key to use specifically on Linux.
-    */
-    linux?: string;
-    /**
-    The command to execute when this binding is triggered. When the
-    command function returns `false`, further bindings will be tried
-    for the key.
-    */
-    run: Command$1;
-    /**
-    When given, this defines a second binding, using the (possibly
-    platform-specific) key name prefixed with `Shift-` to activate
-    this command.
-    */
-    shift?: Command$1;
-    /**
-    By default, key bindings apply when focus is on the editor
-    content (the `"editor"` scope). Some extensions, mostly those
-    that define their own panels, might want to allow you to
-    register bindings local to that panel. Such bindings should use
-    a custom scope name. You may also set multiple scope names,
-    separated by spaces.
-    */
-    scope?: string;
-    /**
-    When set to true (the default is false), this will always
-    prevent the further handling for the bound key, even if the
-    command(s) return false. This can be useful for cases where the
-    native behavior of the key is annoying or irrelevant but the
-    command doesn't always apply (such as, Mod-u for undo selection,
-    which would cause the browser to view source instead when no
-    selection can be undone).
-    */
-    preventDefault?: boolean;
-}
+declare const historyKeymap: readonly KeyBinding[];
 
 /**
 Add a [unit](https://codemirror.net/6/docs/ref/#language.indentUnit) of indentation to all selected
@@ -6081,7 +3691,7 @@ The default keymap. Includes all bindings from
 - Shift-Ctrl-k (Shift-Cmd-k on macOS): [`deleteLine`](https://codemirror.net/6/docs/ref/#commands.deleteLine)
 - Shift-Ctrl-\\ (Shift-Cmd-\\ on macOS): [`cursorMatchingBracket`](https://codemirror.net/6/docs/ref/#commands.cursorMatchingBracket)
 */
-declare const defaultKeymap: readonly KeyBinding$1[];
+declare const defaultKeymap: readonly KeyBinding[];
 
 /**
 Highlighting tags are markers that denote a highlighting category.
@@ -6627,1273 +4237,6 @@ declare function rectangularSelection(options?: {
     eventFilter?: (event: MouseEvent) => boolean;
 }): Extension;
 
-declare type Attrs = {
-    [name: string]: string;
-};
-
-interface MarkDecorationSpec {
-    /**
-    Whether the mark covers its start and end position or not. This
-    influences whether content inserted at those positions becomes
-    part of the mark. Defaults to false.
-    */
-    inclusive?: boolean;
-    /**
-    Specify whether the start position of the marked range should be
-    inclusive. Overrides `inclusive`, when both are present.
-    */
-    inclusiveStart?: boolean;
-    /**
-    Whether the end should be inclusive.
-    */
-    inclusiveEnd?: boolean;
-    /**
-    Add attributes to the DOM elements that hold the text in the
-    marked range.
-    */
-    attributes?: {
-        [key: string]: string;
-    };
-    /**
-    Shorthand for `{attributes: {class: value}}`.
-    */
-    class?: string;
-    /**
-    Add a wrapping element around the text in the marked range. Note
-    that there will not be a single element covering the entire
-    range—content is split on mark starts and ends, and each piece
-    gets its own element.
-    */
-    tagName?: string;
-    /**
-    Decoration specs allow extra properties, which can be retrieved
-    through the decoration's [`spec`](https://codemirror.net/6/docs/ref/#view.Decoration.spec)
-    property.
-    */
-    [other: string]: any;
-}
-interface WidgetDecorationSpec {
-    /**
-    The type of widget to draw here.
-    */
-    widget: WidgetType;
-    /**
-    Which side of the given position the widget is on. When this is
-    positive, the widget will be drawn after the cursor if the
-    cursor is on the same position. Otherwise, it'll be drawn before
-    it. When multiple widgets sit at the same position, their `side`
-    values will determine their ordering—those with a lower value
-    come first. Defaults to 0.
-    */
-    side?: number;
-    /**
-    Determines whether this is a block widgets, which will be drawn
-    between lines, or an inline widget (the default) which is drawn
-    between the surrounding text.
-    
-    Note that block-level decorations should not have vertical
-    margins, and if you dynamically change their height, you should
-    make sure to call
-    [`requestMeasure`](https://codemirror.net/6/docs/ref/#view.EditorView.requestMeasure), so that the
-    editor can update its information about its vertical layout.
-    */
-    block?: boolean;
-    /**
-    Other properties are allowed.
-    */
-    [other: string]: any;
-}
-interface ReplaceDecorationSpec {
-    /**
-    An optional widget to drawn in the place of the replaced
-    content.
-    */
-    widget?: WidgetType;
-    /**
-    Whether this range covers the positions on its sides. This
-    influences whether new content becomes part of the range and
-    whether the cursor can be drawn on its sides. Defaults to false
-    for inline replacements, and true for block replacements.
-    */
-    inclusive?: boolean;
-    /**
-    Set inclusivity at the start.
-    */
-    inclusiveStart?: boolean;
-    /**
-    Set inclusivity at the end.
-    */
-    inclusiveEnd?: boolean;
-    /**
-    Whether this is a block-level decoration. Defaults to false.
-    */
-    block?: boolean;
-    /**
-    Other properties are allowed.
-    */
-    [other: string]: any;
-}
-interface LineDecorationSpec {
-    /**
-    DOM attributes to add to the element wrapping the line.
-    */
-    attributes?: {
-        [key: string]: string;
-    };
-    /**
-    Shorthand for `{attributes: {class: value}}`.
-    */
-    class?: string;
-    /**
-    Other properties are allowed.
-    */
-    [other: string]: any;
-}
-/**
-Widgets added to the content are described by subclasses of this
-class. Using a description object like that makes it possible to
-delay creating of the DOM structure for a widget until it is
-needed, and to avoid redrawing widgets even when the decorations
-that define them are recreated.
-*/
-declare abstract class WidgetType {
-    /**
-    Build the DOM structure for this widget instance.
-    */
-    abstract toDOM(view: EditorView): HTMLElement;
-    /**
-    Compare this instance to another instance of the same type.
-    (TypeScript can't express this, but only instances of the same
-    specific class will be passed to this method.) This is used to
-    avoid redrawing widgets when they are replaced by a new
-    decoration of the same type. The default implementation just
-    returns `false`, which will cause new instances of the widget to
-    always be redrawn.
-    */
-    eq(_widget: WidgetType): boolean;
-    /**
-    Update a DOM element created by a widget of the same type (but
-    different, non-`eq` content) to reflect this widget. May return
-    true to indicate that it could update, false to indicate it
-    couldn't (in which case the widget will be redrawn). The default
-    implementation just returns false.
-    */
-    updateDOM(_dom: HTMLElement): boolean;
-    /**
-    The estimated height this widget will have, to be used when
-    estimating the height of content that hasn't been drawn. May
-    return -1 to indicate you don't know. The default implementation
-    returns -1.
-    */
-    get estimatedHeight(): number;
-    /**
-    Can be used to configure which kinds of events inside the widget
-    should be ignored by the editor. The default is to ignore all
-    events.
-    */
-    ignoreEvent(_event: Event): boolean;
-    /**
-    This is called when the an instance of the widget is removed
-    from the editor view.
-    */
-    destroy(_dom: HTMLElement): void;
-}
-/**
-A decoration set represents a collection of decorated ranges,
-organized for efficient access and mapping. See
-[`RangeSet`](https://codemirror.net/6/docs/ref/#rangeset.RangeSet) for its methods.
-*/
-declare type DecorationSet = RangeSet<Decoration>;
-/**
-The different types of blocks that can occur in an editor view.
-*/
-declare enum BlockType {
-    /**
-    A line of text.
-    */
-    Text = 0,
-    /**
-    A block widget associated with the position after it.
-    */
-    WidgetBefore = 1,
-    /**
-    A block widget associated with the position before it.
-    */
-    WidgetAfter = 2,
-    /**
-    A block widget [replacing](https://codemirror.net/6/docs/ref/#view.Decoration^replace) a range of content.
-    */
-    WidgetRange = 3
-}
-/**
-A decoration provides information on how to draw or style a piece
-of content. You'll usually use it wrapped in a
-[`Range`](https://codemirror.net/6/docs/ref/#rangeset.Range), which adds a start and end position.
-*/
-declare abstract class Decoration extends RangeValue {
-    /**
-    The config object used to create this decoration. You can
-    include additional properties in there to store metadata about
-    your decoration.
-    */
-    readonly spec: any;
-    abstract eq(other: Decoration): boolean;
-    /**
-    Create a mark decoration, which influences the styling of the
-    content in its range. Nested mark decorations will cause nested
-    DOM elements to be created. Nesting order is determined by
-    precedence of the [facet](https://codemirror.net/6/docs/ref/#view.EditorView^decorations) or
-    (below the facet-provided decorations) [view
-    plugin](https://codemirror.net/6/docs/ref/#view.PluginSpec.decorations). Such elements are split
-    on line boundaries and on the boundaries of higher-precedence
-    decorations.
-    */
-    static mark(spec: MarkDecorationSpec): Decoration;
-    /**
-    Create a widget decoration, which adds an element at the given
-    position.
-    */
-    static widget(spec: WidgetDecorationSpec): Decoration;
-    /**
-    Create a replace decoration which replaces the given range with
-    a widget, or simply hides it.
-    */
-    static replace(spec: ReplaceDecorationSpec): Decoration;
-    /**
-    Create a line decoration, which can add DOM attributes to the
-    line starting at the given position.
-    */
-    static line(spec: LineDecorationSpec): Decoration;
-    /**
-    Build a [`DecorationSet`](https://codemirror.net/6/docs/ref/#view.DecorationSet) from the given
-    decorated range or ranges. If the ranges aren't already sorted,
-    pass `true` for `sort` to make the library sort them for you.
-    */
-    static set(of: Range<Decoration> | readonly Range<Decoration>[], sort?: boolean): DecorationSet;
-    /**
-    The empty set of decorations.
-    */
-    static none: DecorationSet;
-}
-
-/**
-Basic rectangle type.
-*/
-interface Rect {
-    readonly left: number;
-    readonly right: number;
-    readonly top: number;
-    readonly bottom: number;
-}
-declare type ScrollStrategy = "nearest" | "start" | "end" | "center";
-
-/**
-Command functions are used in key bindings and other types of user
-actions. Given an editor view, they check whether their effect can
-apply to the editor, and if it can, perform it as a side effect
-(which usually means [dispatching](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) a
-transaction) and return `true`.
-*/
-declare type Command = (target: EditorView) => boolean;
-/**
-This is the interface plugin objects conform to.
-*/
-interface PluginValue {
-    /**
-    Notifies the plugin of an update that happened in the view. This
-    is called _before_ the view updates its own DOM. It is
-    responsible for updating the plugin's internal state (including
-    any state that may be read by plugin fields) and _writing_ to
-    the DOM for the changes in the update. To avoid unnecessary
-    layout recomputations, it should _not_ read the DOM layout—use
-    [`requestMeasure`](https://codemirror.net/6/docs/ref/#view.EditorView.requestMeasure) to schedule
-    your code in a DOM reading phase if you need to.
-    */
-    update?(_update: ViewUpdate): void;
-    /**
-    Called when the plugin is no longer going to be used. Should
-    revert any changes the plugin made to the DOM.
-    */
-    destroy?(): void;
-}
-declare const isFieldProvider: unique symbol;
-/**
-Used to [declare](https://codemirror.net/6/docs/ref/#view.PluginSpec.provide) which
-[fields](https://codemirror.net/6/docs/ref/#view.PluginValue) a [view plugin](https://codemirror.net/6/docs/ref/#view.ViewPlugin)
-provides.
-*/
-declare class PluginFieldProvider<V> {
-    private [isFieldProvider];
-}
-/**
-Plugin fields are a mechanism for allowing plugins to provide
-values that can be retrieved through the
-[`pluginField`](https://codemirror.net/6/docs/ref/#view.EditorView.pluginField) view method.
-*/
-declare class PluginField<T> {
-    /**
-    Create a [provider](https://codemirror.net/6/docs/ref/#view.PluginFieldProvider) for this field,
-    to use with a plugin's [provide](https://codemirror.net/6/docs/ref/#view.PluginSpec.provide)
-    option.
-    */
-    from<V extends PluginValue>(get: (value: V) => T): PluginFieldProvider<V>;
-    /**
-    Define a new plugin field.
-    */
-    static define<T>(): PluginField<T>;
-    /**
-    This field can be used by plugins to provide
-    [decorations](https://codemirror.net/6/docs/ref/#view.Decoration).
-    
-    **Note**: For reasons of data flow (plugins are only updated
-    after the viewport is computed), decorations produced by plugins
-    are _not_ taken into account when predicting the vertical layout
-    structure of the editor. They **must not** introduce block
-    widgets (that will raise an error) or replacing decorations that
-    cover line breaks (these will be ignored if they occur). Such
-    decorations, or others that cause a large amount of vertical
-    size shift compared to the undecorated content, should be
-    provided through the state-level [`decorations`
-    facet](https://codemirror.net/6/docs/ref/#view.EditorView^decorations) instead.
-    */
-    static decorations: PluginField<DecorationSet>;
-    /**
-    Used to provide ranges that should be treated as atoms as far as
-    cursor motion is concerned. This causes methods like
-    [`moveByChar`](https://codemirror.net/6/docs/ref/#view.EditorView.moveByChar) and
-    [`moveVertically`](https://codemirror.net/6/docs/ref/#view.EditorView.moveVertically) (and the
-    commands built on top of them) to skip across such regions when
-    a selection endpoint would enter them. This does _not_ prevent
-    direct programmatic [selection
-    updates](https://codemirror.net/6/docs/ref/#state.TransactionSpec.selection) from moving into such
-    regions.
-    */
-    static atomicRanges: PluginField<RangeSet<any>>;
-    /**
-    Plugins can provide additional scroll margins (space around the
-    sides of the scrolling element that should be considered
-    invisible) through this field. This can be useful when the
-    plugin introduces elements that cover part of that element (for
-    example a horizontally fixed gutter).
-    */
-    static scrollMargins: PluginField<Partial<Rect> | null>;
-}
-/**
-Provides additional information when defining a [view
-plugin](https://codemirror.net/6/docs/ref/#view.ViewPlugin).
-*/
-interface PluginSpec<V extends PluginValue> {
-    /**
-    Register the given [event
-    handlers](https://codemirror.net/6/docs/ref/#view.EditorView^domEventHandlers) for the plugin.
-    When called, these will have their `this` bound to the plugin
-    value.
-    */
-    eventHandlers?: DOMEventHandlers<V>;
-    /**
-    Allow the plugin to provide decorations. When given, this should
-    a function that take the plugin value and return a [decoration
-    set](https://codemirror.net/6/docs/ref/#view.DecorationSet). See also the caveat about
-    [layout-changing decorations](https://codemirror.net/6/docs/ref/#view.PluginField^decorations)
-    from plugins.
-    */
-    decorations?: (value: V) => DecorationSet;
-    /**
-    Specify that the plugin provides [plugin
-    field](https://codemirror.net/6/docs/ref/#view.PluginField) values. Use a field's
-    [`from`](https://codemirror.net/6/docs/ref/#view.PluginField.from) method to create these
-    providers.
-    */
-    provide?: PluginFieldProvider<V> | readonly PluginFieldProvider<V>[];
-}
-/**
-View plugins associate stateful values with a view. They can
-influence the way the content is drawn, and are notified of things
-that happen in the view.
-*/
-declare class ViewPlugin<V extends PluginValue> {
-    /**
-    Instances of this class act as extensions.
-    */
-    extension: Extension;
-    private constructor();
-    /**
-    Define a plugin from a constructor function that creates the
-    plugin's value, given an editor view.
-    */
-    static define<V extends PluginValue>(create: (view: EditorView) => V, spec?: PluginSpec<V>): ViewPlugin<V>;
-    /**
-    Create a plugin for a class whose constructor takes a single
-    editor view as argument.
-    */
-    static fromClass<V extends PluginValue>(cls: {
-        new (view: EditorView): V;
-    }, spec?: PluginSpec<V>): ViewPlugin<V>;
-}
-interface MeasureRequest<T> {
-    /**
-    Called in a DOM read phase to gather information that requires
-    DOM layout. Should _not_ mutate the document.
-    */
-    read(view: EditorView): T;
-    /**
-    Called in a DOM write phase to update the document. Should _not_
-    do anything that triggers DOM layout.
-    */
-    write?(measure: T, view: EditorView): void;
-    /**
-    When multiple requests with the same key are scheduled, only the
-    last one will actually be ran.
-    */
-    key?: any;
-}
-declare type AttrSource = Attrs | ((view: EditorView) => Attrs | null);
-/**
-View [plugins](https://codemirror.net/6/docs/ref/#view.ViewPlugin) are given instances of this
-class, which describe what happened, whenever the view is updated.
-*/
-declare class ViewUpdate {
-    /**
-    The editor view that the update is associated with.
-    */
-    readonly view: EditorView;
-    /**
-    The new editor state.
-    */
-    readonly state: EditorState;
-    /**
-    The transactions involved in the update. May be empty.
-    */
-    readonly transactions: readonly Transaction[];
-    /**
-    The changes made to the document by this update.
-    */
-    readonly changes: ChangeSet;
-    /**
-    The previous editor state.
-    */
-    readonly startState: EditorState;
-    /**
-    Tells you whether the [viewport](https://codemirror.net/6/docs/ref/#view.EditorView.viewport) or
-    [visible ranges](https://codemirror.net/6/docs/ref/#view.EditorView.visibleRanges) changed in this
-    update.
-    */
-    get viewportChanged(): boolean;
-    /**
-    Indicates whether the height of an element in the editor changed
-    in this update.
-    */
-    get heightChanged(): boolean;
-    /**
-    Returns true when the document was modified or the size of the
-    editor, or elements within the editor, changed.
-    */
-    get geometryChanged(): boolean;
-    /**
-    True when this update indicates a focus change.
-    */
-    get focusChanged(): boolean;
-    /**
-    Whether the document changed in this update.
-    */
-    get docChanged(): boolean;
-    /**
-    Whether the selection was explicitly set in this update.
-    */
-    get selectionSet(): boolean;
-}
-
-/**
-Interface that objects registered with
-[`EditorView.mouseSelectionStyle`](https://codemirror.net/6/docs/ref/#view.EditorView^mouseSelectionStyle)
-must conform to.
-*/
-interface MouseSelectionStyle {
-    /**
-    Return a new selection for the mouse gesture that starts with
-    the event that was originally given to the constructor, and ends
-    with the event passed here. In case of a plain click, those may
-    both be the `mousedown` event, in case of a drag gesture, the
-    latest `mousemove` event will be passed.
-    
-    When `extend` is true, that means the new selection should, if
-    possible, extend the start selection. If `multiple` is true, the
-    new selection should be added to the original selection.
-    */
-    get: (curEvent: MouseEvent, extend: boolean, multiple: boolean) => EditorSelection;
-    /**
-    Called when the view is updated while the gesture is in
-    progress. When the document changes, it may be necessary to map
-    some data (like the original selection or start position)
-    through the changes.
-    
-    This may return `true` to indicate that the `get` method should
-    get queried again after the update, because something in the
-    update could change its result. Be wary of infinite loops when
-    using this (where `get` returns a new selection, which will
-    trigger `update`, which schedules another `get` in response).
-    */
-    update: (update: ViewUpdate) => boolean | void;
-}
-declare type MakeSelectionStyle = (view: EditorView, event: MouseEvent) => MouseSelectionStyle | null;
-
-/**
-Used to indicate [text direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection).
-*/
-declare enum Direction {
-    /**
-    Left-to-right.
-    */
-    LTR = 0,
-    /**
-    Right-to-left.
-    */
-    RTL = 1
-}
-/**
-Represents a contiguous range of text that has a single direction
-(as in left-to-right or right-to-left).
-*/
-declare class BidiSpan {
-    /**
-    The start of the span (relative to the start of the line).
-    */
-    readonly from: number;
-    /**
-    The end of the span.
-    */
-    readonly to: number;
-    /**
-    The ["bidi
-    level"](https://unicode.org/reports/tr9/#Basic_Display_Algorithm)
-    of the span (in this context, 0 means
-    left-to-right, 1 means right-to-left, 2 means left-to-right
-    number inside right-to-left text).
-    */
-    readonly level: number;
-    /**
-    The direction of this span.
-    */
-    get dir(): Direction;
-}
-
-/**
-Record used to represent information about a block-level element
-in the editor view.
-*/
-declare class BlockInfo {
-    /**
-    The start of the element in the document.
-    */
-    readonly from: number;
-    /**
-    The length of the element.
-    */
-    readonly length: number;
-    /**
-    The top position of the element (relative to the top of the
-    document).
-    */
-    readonly top: number;
-    /**
-    Its height.
-    */
-    readonly height: number;
-    /**
-    The type of element this is. When querying lines, this may be
-    an array of all the blocks that make up the line.
-    */
-    readonly type: BlockType | readonly BlockInfo[];
-    /**
-    The end of the element as a document position.
-    */
-    get to(): number;
-    /**
-    The bottom position of the element.
-    */
-    get bottom(): number;
-}
-
-interface EditorConfig {
-    /**
-    The view's initial state. Defaults to an extension-less state
-    with an empty document.
-    */
-    state?: EditorState;
-    /**
-    If the view is going to be mounted in a shadow root or document
-    other than the one held by the global variable `document` (the
-    default), you should pass it here. If you provide `parent`, but
-    not this option, the editor will automatically look up a root
-    from the parent.
-    */
-    root?: Document | ShadowRoot;
-    /**
-    Override the transaction [dispatch
-    function](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) for this editor view, which
-    is the way updates get routed to the view. Your implementation,
-    if provided, should probably call the view's [`update`
-    method](https://codemirror.net/6/docs/ref/#view.EditorView.update).
-    */
-    dispatch?: (tr: Transaction) => void;
-    /**
-    When given, the editor is immediately appended to the given
-    element on creation. (Otherwise, you'll have to place the view's
-    [`dom`](https://codemirror.net/6/docs/ref/#view.EditorView.dom) element in the document yourself.)
-    */
-    parent?: Element | DocumentFragment;
-}
-/**
-An editor view represents the editor's user interface. It holds
-the editable DOM surface, and possibly other elements such as the
-line number gutter. It handles events and dispatches state
-transactions for editing actions.
-*/
-declare class EditorView {
-    /**
-    The current editor state.
-    */
-    get state(): EditorState;
-    /**
-    To be able to display large documents without consuming too much
-    memory or overloading the browser, CodeMirror only draws the
-    code that is visible (plus a margin around it) to the DOM. This
-    property tells you the extent of the current drawn viewport, in
-    document positions.
-    */
-    get viewport(): {
-        from: number;
-        to: number;
-    };
-    /**
-    When there are, for example, large collapsed ranges in the
-    viewport, its size can be a lot bigger than the actual visible
-    content. Thus, if you are doing something like styling the
-    content in the viewport, it is preferable to only do so for
-    these ranges, which are the subset of the viewport that is
-    actually drawn.
-    */
-    get visibleRanges(): readonly {
-        from: number;
-        to: number;
-    }[];
-    /**
-    Returns false when the editor is entirely scrolled out of view
-    or otherwise hidden.
-    */
-    get inView(): boolean;
-    /**
-    Indicates whether the user is currently composing text via
-    [IME](https://en.wikipedia.org/wiki/Input_method).
-    */
-    get composing(): boolean;
-    private _dispatch;
-    /**
-    The document or shadow root that the view lives in.
-    */
-    readonly root: DocumentOrShadowRoot;
-    /**
-    The DOM element that wraps the entire editor view.
-    */
-    readonly dom: HTMLElement;
-    /**
-    The DOM element that can be styled to scroll. (Note that it may
-    not have been, so you can't assume this is scrollable.)
-    */
-    readonly scrollDOM: HTMLElement;
-    /**
-    The editable DOM element holding the editor content. You should
-    not, usually, interact with this content directly though the
-    DOM, since the editor will immediately undo most of the changes
-    you make. Instead, [dispatch](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch)
-    [transactions](https://codemirror.net/6/docs/ref/#state.Transaction) to modify content, and
-    [decorations](https://codemirror.net/6/docs/ref/#view.Decoration) to style it.
-    */
-    readonly contentDOM: HTMLElement;
-    private announceDOM;
-    private plugins;
-    private pluginMap;
-    private editorAttrs;
-    private contentAttrs;
-    private styleModules;
-    private bidiCache;
-    private destroyed;
-    /**
-    Construct a new view. You'll usually want to put `view.dom` into
-    your document after creating a view, so that the user can see
-    it.
-    */
-    constructor(
-    /**
-    Initialization options.
-    */
-    config?: EditorConfig);
-    /**
-    All regular editor state updates should go through this. It
-    takes a transaction or transaction spec and updates the view to
-    show the new state produced by that transaction. Its
-    implementation can be overridden with an
-    [option](https://codemirror.net/6/docs/ref/#view.EditorView.constructor^config.dispatch). This
-    function is bound to the view instance, so it does not have to
-    be called as a method.
-    */
-    dispatch(tr: Transaction): void;
-    dispatch(...specs: TransactionSpec[]): void;
-    /**
-    Update the view for the given array of transactions. This will
-    update the visible document and selection to match the state
-    produced by the transactions, and notify view plugins of the
-    change. You should usually call
-    [`dispatch`](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) instead, which uses this
-    as a primitive.
-    */
-    update(transactions: readonly Transaction[]): void;
-    /**
-    Reset the view to the given state. (This will cause the entire
-    document to be redrawn and all view plugins to be reinitialized,
-    so you should probably only use it when the new state isn't
-    derived from the old state. Otherwise, use
-    [`dispatch`](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) instead.)
-    */
-    setState(newState: EditorState): void;
-    private updatePlugins;
-    /**
-    Get the CSS classes for the currently active editor themes.
-    */
-    get themeClasses(): string;
-    private updateAttrs;
-    private showAnnouncements;
-    private mountStyles;
-    private readMeasured;
-    /**
-    Schedule a layout measurement, optionally providing callbacks to
-    do custom DOM measuring followed by a DOM write phase. Using
-    this is preferable reading DOM layout directly from, for
-    example, an event handler, because it'll make sure measuring and
-    drawing done by other components is synchronized, avoiding
-    unnecessary DOM layout computations.
-    */
-    requestMeasure<T>(request?: MeasureRequest<T>): void;
-    /**
-    Collect all values provided by the active plugins for a given
-    field.
-    */
-    pluginField<T>(field: PluginField<T>): readonly T[];
-    /**
-    Get the value of a specific plugin, if present. Note that
-    plugins that crash can be dropped from a view, so even when you
-    know you registered a given plugin, it is recommended to check
-    the return value of this method.
-    */
-    plugin<T>(plugin: ViewPlugin<T>): T | null;
-    /**
-    The top position of the document, in screen coordinates. This
-    may be negative when the editor is scrolled down. Points
-    directly to the top of the first line, not above the padding.
-    */
-    get documentTop(): number;
-    /**
-    Reports the padding above and below the document.
-    */
-    get documentPadding(): {
-        top: number;
-        bottom: number;
-    };
-    /**
-    Find the line or block widget at the given vertical position.
-    
-    By default, this position is interpreted as a screen position,
-    meaning `docTop` is set to the DOM top position of the editor
-    content (forcing a layout). You can pass a different `docTop`
-    value—for example 0 to interpret `height` as a document-relative
-    position, or a precomputed document top
-    (`view.contentDOM.getBoundingClientRect().top`) to limit layout
-    queries.
-    
-    *Deprecated: use `blockAtHeight` instead.*
-    */
-    blockAtHeight(height: number, docTop?: number): BlockInfo;
-    /**
-    Find the text line or block widget at the given vertical
-    position (which is interpreted as relative to the [top of the
-    document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop)
-    */
-    elementAtHeight(height: number): BlockInfo;
-    /**
-    Find information for the visual line (see
-    [`visualLineAt`](https://codemirror.net/6/docs/ref/#view.EditorView.visualLineAt)) at the given
-    vertical position. The resulting block info might hold another
-    array of block info structs in its `type` field if this line
-    consists of more than one block.
-    
-    Defaults to treating `height` as a screen position. See
-    [`blockAtHeight`](https://codemirror.net/6/docs/ref/#view.EditorView.blockAtHeight) for the
-    interpretation of the `docTop` parameter.
-    
-    *Deprecated: use `lineBlockAtHeight` instead.*
-    */
-    visualLineAtHeight(height: number, docTop?: number): BlockInfo;
-    /**
-    Find the line block (see
-    [`lineBlockAt`](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) at the given
-    height.
-    */
-    lineBlockAtHeight(height: number): BlockInfo;
-    /**
-    Iterate over the height information of the visual lines in the
-    viewport. The heights of lines are reported relative to the
-    given document top, which defaults to the screen position of the
-    document (forcing a layout).
-    
-    *Deprecated: use `viewportLineBlocks` instead.*
-    */
-    viewportLines(f: (line: BlockInfo) => void, docTop?: number): void;
-    /**
-    Get the extent and vertical position of all [line
-    blocks](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) in the viewport. Positions
-    are relative to the [top of the
-    document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop);
-    */
-    get viewportLineBlocks(): BlockInfo[];
-    /**
-    Find the extent and height of the visual line (a range delimited
-    on both sides by either non-[hidden](https://codemirror.net/6/docs/ref/#view.Decoration^range)
-    line breaks, or the start/end of the document) at the given position.
-    
-    Vertical positions are computed relative to the `docTop`
-    argument, which defaults to 0 for this method. You can pass
-    `view.contentDOM.getBoundingClientRect().top` here to get screen
-    coordinates.
-    
-    *Deprecated: use `lineBlockAt` instead.*
-    */
-    visualLineAt(pos: number, docTop?: number): BlockInfo;
-    /**
-    Find the line block around the given document position. A line
-    block is a range delimited on both sides by either a
-    non-[hidden](https://codemirror.net/6/docs/ref/#view.Decoration^range) line breaks, or the
-    start/end of the document. It will usually just hold a line of
-    text, but may be broken into multiple textblocks by block
-    widgets.
-    */
-    lineBlockAt(pos: number): BlockInfo;
-    /**
-    The editor's total content height.
-    */
-    get contentHeight(): number;
-    /**
-    Move a cursor position by [grapheme
-    cluster](https://codemirror.net/6/docs/ref/#text.findClusterBreak). `forward` determines whether
-    the motion is away from the line start, or towards it. Motion in
-    bidirectional text is in visual order, in the editor's [text
-    direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection). When the start
-    position was the last one on the line, the returned position
-    will be across the line break. If there is no further line, the
-    original position is returned.
-    
-    By default, this method moves over a single cluster. The
-    optional `by` argument can be used to move across more. It will
-    be called with the first cluster as argument, and should return
-    a predicate that determines, for each subsequent cluster,
-    whether it should also be moved over.
-    */
-    moveByChar(start: SelectionRange, forward: boolean, by?: (initial: string) => (next: string) => boolean): SelectionRange;
-    /**
-    Move a cursor position across the next group of either
-    [letters](https://codemirror.net/6/docs/ref/#state.EditorState.charCategorizer) or non-letter
-    non-whitespace characters.
-    */
-    moveByGroup(start: SelectionRange, forward: boolean): SelectionRange;
-    /**
-    Move to the next line boundary in the given direction. If
-    `includeWrap` is true, line wrapping is on, and there is a
-    further wrap point on the current line, the wrap point will be
-    returned. Otherwise this function will return the start or end
-    of the line.
-    */
-    moveToLineBoundary(start: SelectionRange, forward: boolean, includeWrap?: boolean): SelectionRange;
-    /**
-    Move a cursor position vertically. When `distance` isn't given,
-    it defaults to moving to the next line (including wrapped
-    lines). Otherwise, `distance` should provide a positive distance
-    in pixels.
-    
-    When `start` has a
-    [`goalColumn`](https://codemirror.net/6/docs/ref/#state.SelectionRange.goalColumn), the vertical
-    motion will use that as a target horizontal position. Otherwise,
-    the cursor's own horizontal position is used. The returned
-    cursor will have its goal column set to whichever column was
-    used.
-    */
-    moveVertically(start: SelectionRange, forward: boolean, distance?: number): SelectionRange;
-    scrollPosIntoView(pos: number): void;
-    /**
-    Find the DOM parent node and offset (child offset if `node` is
-    an element, character offset when it is a text node) at the
-    given document position.
-    
-    Note that for positions that aren't currently in
-    `visibleRanges`, the resulting DOM position isn't necessarily
-    meaningful (it may just point before or after a placeholder
-    element).
-    */
-    domAtPos(pos: number): {
-        node: Node;
-        offset: number;
-    };
-    /**
-    Find the document position at the given DOM node. Can be useful
-    for associating positions with DOM events. Will raise an error
-    when `node` isn't part of the editor content.
-    */
-    posAtDOM(node: Node, offset?: number): number;
-    /**
-    Get the document position at the given screen coordinates. For
-    positions not covered by the visible viewport's DOM structure,
-    this will return null, unless `false` is passed as second
-    argument, in which case it'll return an estimated position that
-    would be near the coordinates if it were rendered.
-    */
-    posAtCoords(coords: {
-        x: number;
-        y: number;
-    }, precise: false): number;
-    posAtCoords(coords: {
-        x: number;
-        y: number;
-    }): number | null;
-    /**
-    Get the screen coordinates at the given document position.
-    `side` determines whether the coordinates are based on the
-    element before (-1) or after (1) the position (if no element is
-    available on the given side, the method will transparently use
-    another strategy to get reasonable coordinates).
-    */
-    coordsAtPos(pos: number, side?: -1 | 1): Rect | null;
-    /**
-    The default width of a character in the editor. May not
-    accurately reflect the width of all characters (given variable
-    width fonts or styling of invididual ranges).
-    */
-    get defaultCharacterWidth(): number;
-    /**
-    The default height of a line in the editor. May not be accurate
-    for all lines.
-    */
-    get defaultLineHeight(): number;
-    /**
-    The text direction
-    ([`direction`](https://developer.mozilla.org/en-US/docs/Web/CSS/direction)
-    CSS property) of the editor.
-    */
-    get textDirection(): Direction;
-    /**
-    Whether this editor [wraps lines](https://codemirror.net/6/docs/ref/#view.EditorView.lineWrapping)
-    (as determined by the
-    [`white-space`](https://developer.mozilla.org/en-US/docs/Web/CSS/white-space)
-    CSS property of its content element).
-    */
-    get lineWrapping(): boolean;
-    /**
-    Returns the bidirectional text structure of the given line
-    (which should be in the current document) as an array of span
-    objects. The order of these spans matches the [text
-    direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection)—if that is
-    left-to-right, the leftmost spans come first, otherwise the
-    rightmost spans come first.
-    */
-    bidiSpans(line: Line$1): readonly BidiSpan[];
-    /**
-    Check whether the editor has focus.
-    */
-    get hasFocus(): boolean;
-    /**
-    Put focus on the editor.
-    */
-    focus(): void;
-    /**
-    Clean up this editor view, removing its element from the
-    document, unregistering event handlers, and notifying
-    plugins. The view instance can no longer be used after
-    calling this.
-    */
-    destroy(): void;
-    /**
-    Effect that can be [added](https://codemirror.net/6/docs/ref/#state.TransactionSpec.effects) to a
-    transaction to make it scroll the given range into view.
-    
-    *Deprecated*. Use [`scrollIntoView`](https://codemirror.net/6/docs/ref/#view.EditorView^scrollIntoView) instead.
-    */
-    static scrollTo: StateEffectType<SelectionRange>;
-    /**
-    Effect that makes the editor scroll the given range to the
-    center of the visible view.
-    
-    *Deprecated*. Use [`scrollIntoView`](https://codemirror.net/6/docs/ref/#view.EditorView^scrollIntoView) instead.
-    */
-    static centerOn: StateEffectType<SelectionRange>;
-    /**
-    Returns an effect that can be
-    [added](https://codemirror.net/6/docs/ref/#state.TransactionSpec.effects) to a transaction to
-    cause it to scroll the given position or range into view.
-    */
-    static scrollIntoView(pos: number | SelectionRange, options?: {
-        /**
-        By default (`"nearest"`) the position will be vertically
-        scrolled only the minimal amount required to move the given
-        position into view. You can set this to `"start"` to move it
-        to the top of the view, `"end"` to move it to the bottom, or
-        `"center"` to move it to the center.
-        */
-        y?: ScrollStrategy;
-        /**
-        Effect similar to
-        [`y`](https://codemirror.net/6/docs/ref/#view.EditorView^scrollIntoView^options.y), but for the
-        horizontal scroll position.
-        */
-        x?: ScrollStrategy;
-        /**
-        Extra vertical distance to add when moving something into
-        view. Not used with the `"center"` strategy. Defaults to 5.
-        */
-        yMargin?: number;
-        /**
-        Extra horizontal distance to add. Not used with the `"center"`
-        strategy. Defaults to 5.
-        */
-        xMargin?: number;
-    }): StateEffect<unknown>;
-    /**
-    Facet to add a [style
-    module](https://github.com/marijnh/style-mod#documentation) to
-    an editor view. The view will ensure that the module is
-    mounted in its [document
-    root](https://codemirror.net/6/docs/ref/#view.EditorView.constructor^config.root).
-    */
-    static styleModule: Facet<StyleModule, readonly StyleModule[]>;
-    /**
-    Facet that can be used to add DOM event handlers. The value
-    should be an object mapping event names to handler functions. The
-    first such function to return true will be assumed to have handled
-    that event, and no other handlers or built-in behavior will be
-    activated for it.
-    These are registered on the [content
-    element](https://codemirror.net/6/docs/ref/#view.EditorView.contentDOM), except for `scroll`
-    handlers, which will be called any time the editor's [scroll
-    element](https://codemirror.net/6/docs/ref/#view.EditorView.scrollDOM) or one of its parent nodes
-    is scrolled.
-    */
-    static domEventHandlers(handlers: DOMEventHandlers<any>): Extension;
-    /**
-    An input handler can override the way changes to the editable
-    DOM content are handled. Handlers are passed the document
-    positions between which the change was found, and the new
-    content. When one returns true, no further input handlers are
-    called and the default behavior is prevented.
-    */
-    static inputHandler: Facet<(view: EditorView, from: number, to: number, text: string) => boolean, readonly ((view: EditorView, from: number, to: number, text: string) => boolean)[]>;
-    /**
-    Allows you to provide a function that should be called when the
-    library catches an exception from an extension (mostly from view
-    plugins, but may be used by other extensions to route exceptions
-    from user-code-provided callbacks). This is mostly useful for
-    debugging and logging. See [`logException`](https://codemirror.net/6/docs/ref/#view.logException).
-    */
-    static exceptionSink: Facet<(exception: any) => void, readonly ((exception: any) => void)[]>;
-    /**
-    A facet that can be used to register a function to be called
-    every time the view updates.
-    */
-    static updateListener: Facet<(update: ViewUpdate) => void, readonly ((update: ViewUpdate) => void)[]>;
-    /**
-    Facet that controls whether the editor content DOM is editable.
-    When its highest-precedence value is `false`, the element will
-    not longer have its `contenteditable` attribute set. (Note that
-    this doesn't affect API calls that change the editor content,
-    even when those are bound to keys or buttons. See the
-    [`readOnly`](https://codemirror.net/6/docs/ref/#state.EditorState.readOnly) facet for that.)
-    */
-    static editable: Facet<boolean, boolean>;
-    /**
-    Allows you to influence the way mouse selection happens. The
-    functions in this facet will be called for a `mousedown` event
-    on the editor, and can return an object that overrides the way a
-    selection is computed from that mouse click or drag.
-    */
-    static mouseSelectionStyle: Facet<MakeSelectionStyle, readonly MakeSelectionStyle[]>;
-    /**
-    Facet used to configure whether a given selection drag event
-    should move or copy the selection. The given predicate will be
-    called with the `mousedown` event, and can return `true` when
-    the drag should move the content.
-    */
-    static dragMovesSelection: Facet<(event: MouseEvent) => boolean, readonly ((event: MouseEvent) => boolean)[]>;
-    /**
-    Facet used to configure whether a given selecting click adds
-    a new range to the existing selection or replaces it entirely.
-    */
-    static clickAddsSelectionRange: Facet<(event: MouseEvent) => boolean, readonly ((event: MouseEvent) => boolean)[]>;
-    /**
-    A facet that determines which [decorations](https://codemirror.net/6/docs/ref/#view.Decoration)
-    are shown in the view. See also [view
-    plugins](https://codemirror.net/6/docs/ref/#view.EditorView^decorations), which have a separate
-    mechanism for providing decorations.
-    */
-    static decorations: Facet<DecorationSet, readonly DecorationSet[]>;
-    /**
-    Create a theme extension. The first argument can be a
-    [`style-mod`](https://github.com/marijnh/style-mod#documentation)
-    style spec providing the styles for the theme. These will be
-    prefixed with a generated class for the style.
-    
-    Because the selectors will be prefixed with a scope class, rule
-    that directly match the editor's [wrapper
-    element](https://codemirror.net/6/docs/ref/#view.EditorView.dom)—to which the scope class will be
-    added—need to be explicitly differentiated by adding an `&` to
-    the selector for that element—for example
-    `&.cm-focused`.
-    
-    When `dark` is set to true, the theme will be marked as dark,
-    which will cause the `&dark` rules from [base
-    themes](https://codemirror.net/6/docs/ref/#view.EditorView^baseTheme) to be used (as opposed to
-    `&light` when a light theme is active).
-    */
-    static theme(spec: {
-        [selector: string]: StyleSpec;
-    }, options?: {
-        dark?: boolean;
-    }): Extension;
-    /**
-    Create an extension that adds styles to the base theme. Like
-    with [`theme`](https://codemirror.net/6/docs/ref/#view.EditorView^theme), use `&` to indicate the
-    place of the editor wrapper element when directly targeting
-    that. You can also use `&dark` or `&light` instead to only
-    target editors with a dark or light theme.
-    */
-    static baseTheme(spec: {
-        [selector: string]: StyleSpec;
-    }): Extension;
-    /**
-    Facet that provides additional DOM attributes for the editor's
-    editable DOM element.
-    */
-    static contentAttributes: Facet<AttrSource, readonly AttrSource[]>;
-    /**
-    Facet that provides DOM attributes for the editor's outer
-    element.
-    */
-    static editorAttributes: Facet<AttrSource, readonly AttrSource[]>;
-    /**
-    An extension that enables line wrapping in the editor (by
-    setting CSS `white-space` to `pre-wrap` in the content).
-    */
-    static lineWrapping: Extension;
-    /**
-    State effect used to include screen reader announcements in a
-    transaction. These will be added to the DOM in a visually hidden
-    element with `aria-live="polite"` set, and should be used to
-    describe effects that are visually obvious but may not be
-    noticed by screen reader users (such as moving to the next
-    search match).
-    */
-    static announce: StateEffectType<string>;
-}
-/**
-Helper type that maps event names to event object types, or the
-`any` type for unknown events.
-*/
-interface DOMEventMap extends HTMLElementEventMap {
-    [other: string]: any;
-}
-/**
-Event handlers are specified with objects like this. For event
-types known by TypeScript, this will infer the event argument type
-to hold the appropriate event object type. For unknown events, it
-is inferred to `any`, and should be explicitly set if you want type
-checking.
-*/
-declare type DOMEventHandlers<This> = {
-    [event in keyof DOMEventMap]?: (this: This, event: DOMEventMap[event], view: EditorView) => boolean | void;
-};
-
-/**
-Key bindings associate key names with
-[command](https://codemirror.net/6/docs/ref/#view.Command)-style functions.
-
-Key names may be strings like `"Shift-Ctrl-Enter"`—a key identifier
-prefixed with zero or more modifiers. Key identifiers are based on
-the strings that can appear in
-[`KeyEvent.key`](https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key).
-Use lowercase letters to refer to letter keys (or uppercase letters
-if you want shift to be held). You may use `"Space"` as an alias
-for the `" "` name.
-
-Modifiers can be given in any order. `Shift-` (or `s-`), `Alt-` (or
-`a-`), `Ctrl-` (or `c-` or `Control-`) and `Cmd-` (or `m-` or
-`Meta-`) are recognized.
-
-When a key binding contains multiple key names separated by
-spaces, it represents a multi-stroke binding, which will fire when
-the user presses the given keys after each other order.
-
-You can use `Mod-` as a shorthand for `Cmd-` on Mac and `Ctrl-` on
-other platforms. So `Mod-b` is `Ctrl-b` on Linux but `Cmd-b` on
-macOS.
-*/
-interface KeyBinding {
-    /**
-    The key name to use for this binding. If the platform-specific
-    property (`mac`, `win`, or `linux`) for the current platform is
-    used as well in the binding, that one takes precedence. If `key`
-    isn't defined and the platform-specific binding isn't either,
-    a binding is ignored.
-    */
-    key?: string;
-    /**
-    Key to use specifically on macOS.
-    */
-    mac?: string;
-    /**
-    Key to use specifically on Windows.
-    */
-    win?: string;
-    /**
-    Key to use specifically on Linux.
-    */
-    linux?: string;
-    /**
-    The command to execute when this binding is triggered. When the
-    command function returns `false`, further bindings will be tried
-    for the key.
-    */
-    run: Command;
-    /**
-    When given, this defines a second binding, using the (possibly
-    platform-specific) key name prefixed with `Shift-` to activate
-    this command.
-    */
-    shift?: Command;
-    /**
-    By default, key bindings apply when focus is on the editor
-    content (the `"editor"` scope). Some extensions, mostly those
-    that define their own panels, might want to allow you to
-    register bindings local to that panel. Such bindings should use
-    a custom scope name. You may also set multiple scope names,
-    separated by spaces.
-    */
-    scope?: string;
-    /**
-    When set to true (the default is false), this will always
-    prevent the further handling for the bound key, even if the
-    command(s) return false. This can be useful for cases where the
-    native behavior of the key is annoying or irrelevant but the
-    command doesn't always apply (such as, Mod-u for undo selection,
-    which would cause the browser to view source instead when no
-    selection can be undone).
-    */
-    preventDefault?: boolean;
-}
-
 /**
 Default fold-related key bindings.
 
@@ -7970,7 +4313,7 @@ declare function closeBrackets(): Extension;
 Close-brackets related key bindings. Binds Backspace to
 [`deleteBracketPair`](https://codemirror.net/6/docs/ref/#closebrackets.deleteBracketPair).
 */
-declare const closeBracketsKeymap: readonly KeyBinding$2[];
+declare const closeBracketsKeymap: readonly KeyBinding[];
 
 interface CompletionConfig {
     /**
@@ -8060,7 +4403,7 @@ interface Completion {
     adding the [`pickedCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.pickedCompletion)
     annotation to it.
     */
-    apply?: string | ((view: EditorView$3, completion: Completion, from: number, to: number) => void);
+    apply?: string | ((view: EditorView, completion: Completion, from: number, to: number) => void);
     /**
     The type of the completion. This is used to pick an icon to show
     for the completion. Icons are styled with a CSS class created by
@@ -8267,7 +4610,7 @@ snippets. The default binds Tab to
 [`prevSnippetField`](https://codemirror.net/6/docs/ref/#autocomplete.prevSnippetField), and Escape
 to [`clearSnippet`](https://codemirror.net/6/docs/ref/#autocomplete.clearSnippet).
 */
-declare const snippetKeymap: Facet<readonly KeyBinding$2[], readonly KeyBinding$2[]>;
+declare const snippetKeymap: Facet<readonly KeyBinding[], readonly KeyBinding[]>;
 /**
 Create a completion from a snippet. Returns an object with the
 properties from `completion`, plus an `apply` function that
@@ -8279,19 +4622,19 @@ declare function snippetCompletion(template: string, completion: Completion): Co
 Returns a command that moves the completion selection forward or
 backward by the given amount.
 */
-declare function moveCompletionSelection(forward: boolean, by?: "option" | "page"): Command$2;
+declare function moveCompletionSelection(forward: boolean, by?: "option" | "page"): Command;
 /**
 Accept the current completion.
 */
-declare const acceptCompletion: Command$2;
+declare const acceptCompletion: Command;
 /**
 Explicitly start autocompletion.
 */
-declare const startCompletion: Command$2;
+declare const startCompletion: Command;
 /**
 Close the currently active completion.
 */
-declare const closeCompletion: Command$2;
+declare const closeCompletion: Command;
 
 /**
 A completion source that will scan the document for words (using a
@@ -8315,7 +4658,7 @@ Basic keybindings for autocompletion.
  - PageDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true, "page")`
  - Enter: [`acceptCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.acceptCompletion)
 */
-declare const completionKeymap: readonly KeyBinding$2[];
+declare const completionKeymap: readonly KeyBinding[];
 /**
 Get the current completion status. When completions are available,
 this will return `"active"`. When completions are pending (in the
@@ -8419,7 +4762,7 @@ Default search-related key bindings.
  - Alt-g: [`gotoLine`](https://codemirror.net/6/docs/ref/#search.gotoLine)
  - Mod-d: [`selectNextOccurrence`](https://codemirror.net/6/docs/ref/#search.selectNextOccurrence)
 */
-declare const searchKeymap: readonly KeyBinding$2[];
+declare const searchKeymap: readonly KeyBinding[];
 
 /**
 Default key bindings for this package.
@@ -8427,7 +4770,7 @@ Default key bindings for this package.
  - Ctrl-/ (Cmd-/ on macOS): [`toggleComment`](https://codemirror.net/6/docs/ref/#comment.toggleComment).
  - Shift-Alt-a: [`toggleBlockComment`](https://codemirror.net/6/docs/ref/#comment.toggleBlockComment).
 */
-declare const commentKeymap: readonly KeyBinding$2[];
+declare const commentKeymap: readonly KeyBinding[];
 
 declare class LeafBlock {
     readonly start: number;
@@ -8776,4 +5119,4 @@ Create an instance of the collaborative editing plugin.
 */
 declare function collab(config?: CollabConfig): Extension;
 
-export { Annotation, Compartment, Decoration$3 as Decoration, EditorSelection, EditorState, EditorView$3 as EditorView, Facet, HighlightStyle, NodeProp, PostgreSQL, SelectionRange, StateEffect, StateField, StreamLanguage, Text, Transaction, TreeCursor, ViewPlugin$3 as ViewPlugin, ViewUpdate$3 as ViewUpdate, WidgetType$3 as WidgetType, index as autocomplete, bracketMatching, closeBrackets, closeBracketsKeymap, collab, combineConfig, commentKeymap, completionKeymap, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, javascript, javascriptLanguage, julia as julia_andrey, julia$1 as julia_legacy, keymap, lineNumbers, markdown, markdownLanguage, parseCode, parseMixed, placeholder, python, pythonLanguage, rectangularSelection, searchKeymap, sql, syntaxTree, tags };
+export { Annotation, Compartment, Decoration, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, NodeProp, PostgreSQL, SelectionRange, StateEffect, StateField, StreamLanguage, Text, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, index as autocomplete, bracketMatching, closeBrackets, closeBracketsKeymap, collab, combineConfig, commentKeymap, completionKeymap, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, javascript, javascriptLanguage, julia as julia_andrey, julia$1 as julia_legacy, keymap, lineNumbers, markdown, markdownLanguage, parseCode, parseMixed, placeholder, python, pythonLanguage, rectangularSelection, searchKeymap, sql, syntaxTree, tags };
