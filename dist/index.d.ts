@@ -1975,11 +1975,6 @@ declare abstract class WidgetType {
     events.
     */
     ignoreEvent(_event: Event): boolean;
-    /**
-    This is called when the an instance of the widget is removed
-    from the editor view.
-    */
-    destroy(_dom: HTMLElement): void;
 }
 /**
 A decoration set represents a collection of decorated ranges,
@@ -2227,7 +2222,6 @@ interface MeasureRequest<T> {
     */
     key?: any;
 }
-declare type AttrSource = Attrs | ((view: EditorView) => Attrs | null);
 /**
 View [plugins](https://codemirror.net/6/docs/ref/#view.ViewPlugin) are given instances of this
 class, which describe what happened, whenever the view is updated.
@@ -2491,7 +2485,6 @@ declare class EditorView {
     readonly contentDOM: HTMLElement;
     private announceDOM;
     private plugins;
-    private pluginMap;
     private editorAttrs;
     private contentAttrs;
     private styleModules;
@@ -2913,12 +2906,12 @@ declare class EditorView {
     Facet that provides additional DOM attributes for the editor's
     editable DOM element.
     */
-    static contentAttributes: Facet<AttrSource, readonly AttrSource[]>;
+    static contentAttributes: Facet<Attrs, Attrs>;
     /**
     Facet that provides DOM attributes for the editor's outer
     element.
     */
-    static editorAttributes: Facet<AttrSource, readonly AttrSource[]>;
+    static editorAttributes: Facet<Attrs, Attrs>;
     /**
     An extension that enables line wrapping in the editor (by
     setting CSS `white-space` to `pre-wrap` in the content).
