@@ -54,7 +54,7 @@
     "@codemirror/search": "^0.19.2",
     "@codemirror/state": "^0.19.2",
     "@codemirror/stream-parser": "^0.19.2",
-    "@codemirror/view": "=0.19.24",
+    "@codemirror/view": "=0.19.25",
     "@lezer/common": "^0.15.7",
     "@lezer/markdown": "^0.15.3",
     "@lezer/python": "^0.15.0",

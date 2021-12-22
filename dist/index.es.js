@@ -6838,8 +6838,9 @@ class Decoration extends RangeValue {
     position.
     */
     static widget(spec) {
-        let side = spec.side || 0;
-        return new PointDecoration(spec, side, side, !!spec.block, spec.widget || null, false);
+        let side = spec.side || 0, block = !!spec.block;
+        side += block ? (side > 0 ? 300000000 /* BlockAfter */ : -400000000 /* BlockBefore */) : (side > 0 ? 100000000 /* InlineAfter */ : -100000000 /* InlineBefore */);
+        return new PointDecoration(spec, side, side, block, spec.widget || null, false);
     }
     /**
     Create a replace decoration which replaces the given range with
@@ -6848,8 +6849,8 @@ class Decoration extends RangeValue {
     static replace(spec) {
         let block = !!spec.block;
         let { start, end } = getInclusive(spec, block);
-        let startSide = 100000000 /* Big */ * (start ? -1 : 1) * (block ? 2 : 1);
-        let endSide = 100000000 /* Big */ * (end ? 1 : -1) * (block ? 2 : 1);
+        let startSide = block ? (start ? -300000000 /* BlockIncStart */ : -1 /* InlineIncStart */) : 400000000 /* NonIncStart */;
+        let endSide = block ? (end ? 200000000 /* BlockIncEnd */ : 1 /* InlineIncEnd */) : -500000000 /* NonIncEnd */;
         return new PointDecoration(spec, startSide, endSide, block, spec.widget || null, true);
     }
     /**
@@ -6879,7 +6880,7 @@ Decoration.none = RangeSet.empty;
 class MarkDecoration extends Decoration {
     constructor(spec) {
         let { start, end } = getInclusive(spec);
-        super(100000000 /* Big */ * (start ? -1 : 1), 100000000 /* Big */ * (end ? 1 : -1), null, spec);
+        super(start ? -1 /* InlineIncStart */ : 400000000 /* NonIncStart */, end ? 1 /* InlineIncEnd */ : -500000000 /* NonIncEnd */, null, spec);
         this.tagName = spec.tagName || "span";
         this.class = spec.class || "";
         this.attrs = spec.attributes || null;
@@ -6900,7 +6901,7 @@ class MarkDecoration extends Decoration {
 MarkDecoration.prototype.point = false;
 class LineDecoration extends Decoration {
     constructor(spec) {
-        super(-100000000 /* Big */, -100000000 /* Big */, null, spec);
+        super(-200000000 /* Line */, -200000000 /* Line */, null, spec);
     }
     eq(other) {
         return other instanceof LineDecoration && attrsEq(this.spec.attributes, other.spec.attributes);
@@ -7479,36 +7480,39 @@ class PluginInstance {
         this.value = null;
     }
     takeField(type, target) {
-        for (let { field, get } of this.spec.fields)
-            if (field == type)
-                target.push(get(this.value));
+        if (this.spec)
+            for (let { field, get } of this.spec.fields)
+                if (field == type)
+                    target.push(get(this.value));
     }
     update(view) {
         if (!this.value) {
-            try {
-                this.value = this.spec.create(view);
-            }
-            catch (e) {
-                logException(view.state, e, "CodeMirror plugin crashed");
-                return PluginInstance.dummy;
+            if (this.spec) {
+                try {
+                    this.value = this.spec.create(view);
+                }
+                catch (e) {
+                    logException(view.state, e, "CodeMirror plugin crashed");
+                    this.deactivate();
+                }
             }
         }
         else if (this.mustUpdate) {
             let update = this.mustUpdate;
             this.mustUpdate = null;
-            if (!this.value.update)
-                return this;
-            try {
-                this.value.update(update);
-            }
-            catch (e) {
-                logException(update.state, e, "CodeMirror plugin crashed");
-                if (this.value.destroy)
-                    try {
-                        this.value.destroy();
-                    }
-                    catch (_) { }
-                return PluginInstance.dummy;
+            if (this.value.update) {
+                try {
+                    this.value.update(update);
+                }
+                catch (e) {
+                    logException(update.state, e, "CodeMirror plugin crashed");
+                    if (this.value.destroy)
+                        try {
+                            this.value.destroy();
+                        }
+                        catch (_) { }
+                    this.deactivate();
+                }
             }
         }
         return this;
@@ -7524,20 +7528,12 @@ class PluginInstance {
             }
         }
     }
+    deactivate() {
+        this.spec = this.value = null;
+    }
 }
-PluginInstance.dummy = /*@__PURE__*/new PluginInstance(/*@__PURE__*/ViewPlugin.define(() => ({})));
-function combineFacetAttrs(values) {
-    let result = {};
-    for (let i = values.length - 1; i >= 0; i--)
-        combineAttrs(values[i], result);
-    return result;
-}
-const editorAttributes = /*@__PURE__*/Facet.define({
-    combine: combineFacetAttrs
-});
-const contentAttributes = /*@__PURE__*/Facet.define({
-    combine: combineFacetAttrs
-});
+const editorAttributes = /*@__PURE__*/Facet.define();
+const contentAttributes = /*@__PURE__*/Facet.define();
 // Provide decorations
 const decorations = /*@__PURE__*/Facet.define();
 const styleModule = /*@__PURE__*/Facet.define();
@@ -7685,12 +7681,12 @@ class DocView extends ContentView {
         this.compositionDeco = Decoration.none;
         this.decorations = [];
         // Track a minimum width for the editor. When measuring sizes in
-        // checkLayout, this is updated to point at the width of a given
-        // element and its extent in the document. When a change happens in
-        // that range, these are reset. That way, once we've seen a
-        // line/element of a given length, we keep the editor wide enough to
-        // fit at least that element, until it is changed, at which point we
-        // forget it again.
+        // measureVisibleLineHeights, this is updated to point at the width
+        // of a given element and its extent in the document. When a change
+        // happens in that range, these are reset. That way, once we've seen
+        // a line/element of a given length, we keep the editor wide enough
+        // to fit at least that element, until it is changed, at which point
+        // we forget it again.
         this.minWidth = 0;
         this.minWidthFrom = 0;
         this.minWidthTo = 0;
@@ -7760,7 +7756,7 @@ class DocView extends ContentView {
             this.updateSelection();
         }
     }
-    // Used both by update and checkLayout do perform the actual DOM
+    // Used by update and the constructor do perform the actual DOM
     // update
     updateInner(changes, deco, oldLength) {
         this.view.viewState.mustMeasureContent = true;
@@ -8682,7 +8678,7 @@ function posAtCoords(view, { x, y }, precise, bias = -1) {
     y = docTop + yOffset;
     let lineStart = block.from;
     // Clip x to the viewport sides
-    x = Math.max(content.left + 1, Math.min(content.right - 1, x));
+    x = Math.max(content.left + 1, Math.min(Math.max(content.right, content.left + view.docView.minWidth) - 1, x));
     // If this is outside of the rendered viewport, we can't determine a position
     if (lineStart < view.viewport.from)
         return view.viewport.from == 0 ? 0 : posAtCoordsImprecise(view, content, block, x, y);
@@ -10815,7 +10811,7 @@ const baseTheme$8 = /*@__PURE__*/buildTheme("." + baseThemeID, {
         color: "inherit",
         fontSize: "70%",
         padding: ".2em 1em",
-        borderRadius: "3px"
+        borderRadius: "1px"
     },
     "&light .cm-button": {
         backgroundImage: "linear-gradient(#eff1f5, #d9d9df)",
@@ -11137,6 +11133,7 @@ class DOMObserver {
         for (let dom of this.scrollTargets)
             dom.removeEventListener("scroll", this.onScroll);
         window.removeEventListener("scroll", this.onScroll);
+        this.dom.ownerDocument.removeEventListener("selectionchange", this.onSelectionChange);
         clearTimeout(this.parentCheck);
         clearTimeout(this.resizeTimeout);
     }
@@ -11433,6 +11430,7 @@ class EditorView {
     */
     config = {}) {
         this.plugins = [];
+        this.pluginMap = new Map;
         this.editorAttrs = {};
         this.contentAttrs = {};
         this.bidiCache = [];
@@ -11602,6 +11600,7 @@ class EditorView {
                 plugin.destroy(this);
             this.viewState = new ViewState(newState);
             this.plugins = newState.facet(viewPlugin).map(spec => new PluginInstance(spec).update(this));
+            this.pluginMap.clear();
             this.docView = new DocView(this);
             this.inputState.ensureHandlers(this);
             this.mountStyles();
@@ -11632,6 +11631,7 @@ class EditorView {
                 if (plugin.mustUpdate != update)
                     plugin.destroy(this);
             this.plugins = newPlugins;
+            this.pluginMap.clear();
             this.inputState.ensureHandlers(this);
         }
         else {
@@ -11639,7 +11639,7 @@ class EditorView {
                 p.mustUpdate = update;
         }
         for (let i = 0; i < this.plugins.length; i++)
-            this.plugins[i] = this.plugins[i].update(this);
+            this.plugins[i].update(this);
     }
     /**
     @internal
@@ -11728,7 +11728,7 @@ class EditorView {
             this.state.facet(theme);
     }
     updateAttrs() {
-        let editorAttrs = combineAttrs(this.state.facet(editorAttributes), {
+        let editorAttrs = attrsFromFacet(this, editorAttributes, {
             class: "cm-editor" + (this.hasFocus ? " cm-focused " : " ") + this.themeClasses
         });
         let contentAttrs = {
@@ -11744,7 +11744,7 @@ class EditorView {
         };
         if (this.state.readOnly)
             contentAttrs["aria-readonly"] = "true";
-        combineAttrs(this.state.facet(contentAttributes), contentAttrs);
+        attrsFromFacet(this, contentAttributes, contentAttrs);
         this.observer.ignore(() => {
             updateAttrs(this.contentDOM, this.contentAttrs, contentAttrs);
             updateAttrs(this.dom, this.editorAttrs, editorAttrs);
@@ -11813,10 +11813,10 @@ class EditorView {
     the return value of this method.
     */
     plugin(plugin) {
-        for (let inst of this.plugins)
-            if (inst.spec == plugin)
-                return inst.update(this).value;
-        return null;
+        let known = this.pluginMap.get(plugin);
+        if (known === undefined || known && known.spec != plugin)
+            this.pluginMap.set(plugin, known = this.plugins.find(p => p.spec == plugin) || null);
+        return known && known.update(this).value;
     }
     /**
     The top position of the document, in screen coordinates. This
@@ -12302,6 +12302,14 @@ class CachedOrder {
         }
         return result;
     }
+}
+function attrsFromFacet(view, facet, base) {
+    for (let sources = view.state.facet(facet), i = sources.length - 1; i >= 0; i--) {
+        let source = sources[i], value = typeof source == "function" ? source(view) : source;
+        if (value)
+            combineAttrs(value, base);
+    }
+    return base;
 }
 
 const currentPlatform = browser.mac ? "mac" : browser.windows ? "win" : browser.linux ? "linux" : "key";

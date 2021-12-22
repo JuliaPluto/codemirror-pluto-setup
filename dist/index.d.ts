@@ -2222,6 +2222,7 @@ interface MeasureRequest<T> {
     */
     key?: any;
 }
+declare type AttrSource = Attrs | ((view: EditorView) => Attrs | null);
 /**
 View [plugins](https://codemirror.net/6/docs/ref/#view.ViewPlugin) are given instances of this
 class, which describe what happened, whenever the view is updated.
@@ -2485,6 +2486,7 @@ declare class EditorView {
     readonly contentDOM: HTMLElement;
     private announceDOM;
     private plugins;
+    private pluginMap;
     private editorAttrs;
     private contentAttrs;
     private styleModules;
@@ -2906,12 +2908,12 @@ declare class EditorView {
     Facet that provides additional DOM attributes for the editor's
     editable DOM element.
     */
-    static contentAttributes: Facet<Attrs, Attrs>;
+    static contentAttributes: Facet<AttrSource, readonly AttrSource[]>;
     /**
     Facet that provides DOM attributes for the editor's outer
     element.
     */
-    static editorAttributes: Facet<Attrs, Attrs>;
+    static editorAttributes: Facet<AttrSource, readonly AttrSource[]>;
     /**
     An extension that enables line wrapping in the editor (by
     setting CSS `white-space` to `pre-wrap` in the content).
