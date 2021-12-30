@@ -59,7 +59,7 @@
     "@lezer/markdown": "^0.15.3",
     "@lezer/python": "^0.15.0",
     "esbuild": "^0.12.28",
-    "lang-julia": "^0.2.0-beta.0",
+    "lang-julia": "git+https://github.com/andreypopp/lang-julia.git#dral-beta",
     "tslib": "^2.3.1"
   },
   "devDependencies": {

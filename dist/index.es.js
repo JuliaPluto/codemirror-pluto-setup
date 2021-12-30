@@ -19923,16 +19923,24 @@ function getSyntaxConfig() {
 }
 let syntaxConfig = /*@__PURE__*/getSyntaxConfig();
 let styleTags = /*@__PURE__*/styleTags$1({
-    Identifier: tags$1.variableName,
     String: tags$1.string,
     TripleString: tags$1.string,
+    CommandString: tags$1.string,
+    StringWithoutInterpolation: tags$1.string,
+    TripleStringWithoutInterpolation: tags$1.string,
+    CommandStringWithoutInterpolation: tags$1.string,
     Comment: tags$1.lineComment,
     BlockComment: tags$1.comment,
     [/*@__PURE__*/syntaxConfig.keywords.map((t) => t.name).join(" ")]: tags$1.keyword,
     "( )": tags$1.paren,
     "[ ]": tags$1.paren,
     "{ }": tags$1.paren,
-    MacroIdentifier: tags$1.macroName,
+    BooleanLiteral: tags$1.bool,
+    Number: tags$1.number,
+    Identifier: tags$1.variableName,
+    "MacroIdentifier! MacroFieldExpression!": tags$1.macroName,
+    FieldName: tags$1.propertyName,
+    Symbol: tags$1.atom,
 });
 let language = /*@__PURE__*/LRLanguage.define({
     parser: /*@__PURE__*/parser$7.configure({
