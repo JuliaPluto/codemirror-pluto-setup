@@ -19939,8 +19939,8 @@ let styleTags = /*@__PURE__*/styleTags$1({
     Number: tags$1.number,
     Identifier: tags$1.variableName,
     "MacroIdentifier! MacroFieldExpression!": tags$1.macroName,
-    FieldName: tags$1.propertyName,
-    Symbol: tags$1.atom,
+    "FieldName!": tags$1.propertyName,
+    "Symbol!": tags$1.atom,
 });
 let language = /*@__PURE__*/LRLanguage.define({
     parser: /*@__PURE__*/parser$7.configure({
