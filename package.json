@@ -30,6 +30,10 @@
   "module": "dist/index.js",
   "sideEffects": false,
   "license": "MIT",
+  "prettier": {
+    "semi": false,
+    "tabWidth": 4
+  },
   "dependencies": {
     "@codemirror/autocomplete": "^0.19.9",
     "@codemirror/basic-setup": "^0.19.0",
@@ -58,8 +62,8 @@
     "@lezer/common": "^0.15.7",
     "@lezer/markdown": "^0.15.3",
     "@lezer/python": "^0.15.0",
+    "@plutojl/lang-julia": "^0.2.4",
     "esbuild": "^0.12.28",
-    "lang-julia": "^0.1.0",
     "tslib": "^2.3.1"
   },
   "devDependencies": {

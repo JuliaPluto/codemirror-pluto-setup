@@ -1,7 +1,19 @@
-import { EditorState, EditorSelection, Compartment, SelectionRange, Facet, StateField, StateEffect, Transaction, Text, combineConfig, Annotation } from "@codemirror/state"
+import {
+    EditorState,
+    EditorSelection,
+    Compartment,
+    SelectionRange,
+    Facet,
+    StateField,
+    StateEffect,
+    Transaction,
+    Text,
+    combineConfig,
+    Annotation,
+} from "@codemirror/state"
 import { StreamLanguage } from "@codemirror/stream-parser"
 import { julia as julia_legacy } from "@codemirror/legacy-modes/mode/julia"
-import { julia as julia_andrey } from "lang-julia"
+import { julia as julia_andrey } from "@plutojl/lang-julia"
 import { lineNumbers } from "@codemirror/gutter"
 import {
     keymap,
@@ -17,13 +29,17 @@ import {
 } from "@codemirror/view"
 import { historyKeymap, history } from "@codemirror/history"
 import { defaultKeymap, indentMore, indentLess } from "@codemirror/commands"
-import { defaultHighlightStyle, tags, HighlightStyle } from "@codemirror/highlight"
+import {
+    defaultHighlightStyle,
+    tags,
+    HighlightStyle,
+} from "@codemirror/highlight"
 import { indentOnInput, indentUnit, syntaxTree } from "@codemirror/language"
 import { rectangularSelection } from "@codemirror/rectangular-selection"
 import { foldGutter, foldKeymap } from "@codemirror/fold"
 import { bracketMatching } from "@codemirror/matchbrackets"
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/closebrackets"
-import * as autocomplete from "@codemirror/autocomplete";
+import * as autocomplete from "@codemirror/autocomplete"
 import { highlightSelectionMatches, searchKeymap } from "@codemirror/search"
 import { completionKeymap } from "@codemirror/autocomplete"
 import { commentKeymap } from "@codemirror/comment"
@@ -34,7 +50,7 @@ import { html, htmlLanguage } from "@codemirror/lang-html"
 import { javascript, javascriptLanguage } from "@codemirror/lang-javascript"
 import { sql, PostgreSQL } from "@codemirror/lang-sql"
 import { python, pythonLanguage } from "@codemirror/lang-python"
-import {collab} from "@codemirror/collab"
+import { collab } from "@codemirror/collab"
 
 export {
     Facet,
@@ -99,5 +115,5 @@ export {
     pythonLanguage,
     // Collaboration
     collab,
-    Annotation
+    Annotation,
 }
