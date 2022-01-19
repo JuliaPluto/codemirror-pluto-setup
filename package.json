@@ -30,6 +30,9 @@
   "module": "dist/index.js",
   "sideEffects": false,
   "license": "MIT",
+  "prettier": {
+    "semi": false
+  },
   "dependencies": {
     "@codemirror/autocomplete": "^0.19.9",
     "@codemirror/basic-setup": "^0.19.0",
