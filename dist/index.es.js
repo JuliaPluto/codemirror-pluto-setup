@@ -19940,7 +19940,6 @@ let juliaStyleTags = /*@__PURE__*/styleTags({
     "IfClause/if IfClause/elseif ElseClause/else IfStatement/end": tags$1.controlKeyword,
     "default break return": tags$1.controlKeyword,
     "TryStatement/try CatchClause/catch FinallyClause/finally TryStatement/end": tags$1.controlKeyword,
-    AssignmentExpression: tags$1.propertyName,
     ":: <:": tags$1.typeOperator,
     "( )": tags$1.paren,
     "[ ]": tags$1.paren,
