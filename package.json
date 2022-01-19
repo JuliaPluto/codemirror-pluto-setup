@@ -31,7 +31,8 @@
   "sideEffects": false,
   "license": "MIT",
   "prettier": {
-    "semi": false
+    "semi": false,
+    "tabWidth": 4
   },
   "dependencies": {
     "@codemirror/autocomplete": "^0.19.9",
