@@ -19949,6 +19949,8 @@ let juliaStyleTags = /*@__PURE__*/styleTags({
     Number: tags$1.number,
     // "CoefficientExpression!": t.special(t.number),
     "Coefficient!": tags$1.unit,
+    // Look at us being rascals
+    "Type!": tags$1.typeName,
     Identifier: tags$1.variableName,
     "MacroIdentifier! MacroFieldExpression!": tags$1.macroName,
     "FieldName!": tags$1.propertyName,
