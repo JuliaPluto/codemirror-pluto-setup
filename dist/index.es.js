@@ -19934,7 +19934,7 @@ let juliaStyleTags = /*@__PURE__*/styleTags({
     "mutable struct StructDefinition/end": tags$1.definitionKeyword,
     "primitive type PrimitiveDefinition/end": tags$1.definitionKeyword,
     "const local global": tags$1.definitionKeyword,
-    "module ModuleDefinition/end import using export": tags$1.moduleKeyword,
+    // "module ModuleDefinition/end import using export": t.moduleKeyword,
     "ForStatement/for ForBinding/in ForStatement/end": tags$1.controlKeyword,
     "WhileStatement/while WhileStatement/end": tags$1.controlKeyword,
     "IfClause/if IfClause/elseif ElseClause/else IfStatement/end": tags$1.controlKeyword,
