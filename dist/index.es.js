@@ -19946,7 +19946,7 @@ let juliaStyleTags = /*@__PURE__*/styleTags({
     [/*@__PURE__*/syntaxConfig.keywords.map((t) => t.name).join(" ")]: tags$1.keyword,
     BooleanLiteral: tags$1.bool,
     Number: tags$1.number,
-    "Coefficient!": tags$1.unit,
+    "Coefficient/PrefixedString!": tags$1.unit,
     // Look at us being rascals
     "Type! TypeParameters!": tags$1.typeName,
     // "StructDefinition/Definition! PrimitiveDefinition/Definition! AbstractDefinition/Definition!":

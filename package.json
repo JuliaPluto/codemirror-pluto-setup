@@ -1,6 +1,6 @@
 {
-  "name": "codemirror-pluto-setup",
-  "version": "0.24.0",
+  "name": "@plutojl/codemirror-pluto-setup",
+  "version": "0.25.0",
   "description": "Example configuration for the CodeMirror code editor - as used by Pluto.jl",
   "scripts": {
     "bundle": "rollup -c"
@@ -21,10 +21,9 @@
     "url": "http://marijnhaverbeke.nl"
   },
   "type": "module",
-  "main": "dist/index.cjs",
+  "main": "dist/index.es.js",
   "exports": {
-    "import": "./dist/index.js",
-    "require": "./dist/index.cjs"
+    "import": "./dist/index.es.js"
   },
   "types": "dist/index.d.ts",
   "module": "dist/index.js",
@@ -62,7 +61,7 @@
     "@lezer/common": "^0.15.7",
     "@lezer/markdown": "^0.15.3",
     "@lezer/python": "^0.15.0",
-    "@plutojl/lang-julia": "^0.6.0",
+    "@plutojl/lang-julia": "=0.7.0",
     "esbuild": "^0.12.28",
     "tslib": "^2.3.1"
   },
