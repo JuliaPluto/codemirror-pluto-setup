@@ -1,79 +1,79 @@
 {
-  "name": "@plutojl/codemirror-pluto-setup",
-  "version": "0.25.0",
-  "description": "Example configuration for the CodeMirror code editor - as used by Pluto.jl",
-  "scripts": {
-    "bundle": "rollup -c"
-  },
-  "oldscriptsthatwedontuseanymore": {
-    "test": "cm-runtests",
-    "prepare": "cm-buildhelper src/basic-setup.ts",
-    "esbuild": "cm-buildhelper src/basic-setup.ts && esbuild dist/index.js --bundle --format=esm --outfile=dist/index.bundle.js",
-    "roll": "cm-buildhelper src/basic-setup.ts && rollup --config --configDebug"
-  },
-  "keywords": [
-    "editor",
-    "code"
-  ],
-  "author": {
-    "name": "Marijn Haverbeke",
-    "email": "marijnh@gmail.com",
-    "url": "http://marijnhaverbeke.nl"
-  },
-  "type": "module",
-  "main": "dist/index.es.js",
-  "exports": {
-    "import": "./dist/index.es.js"
-  },
-  "types": "dist/index.d.ts",
-  "module": "dist/index.js",
-  "sideEffects": false,
-  "license": "MIT",
-  "prettier": {
-    "semi": false,
-    "tabWidth": 4
-  },
-  "dependencies": {
-    "@codemirror/autocomplete": "^0.19.9",
-    "@codemirror/basic-setup": "^0.19.0",
-    "@codemirror/closebrackets": "^0.19.0",
-    "@codemirror/collab": "^0.19.0",
-    "@codemirror/commands": "^0.19.5",
-    "@codemirror/comment": "^0.19.0",
-    "@codemirror/fold": "^0.19.0",
-    "@codemirror/gutter": "^0.19.2",
-    "@codemirror/highlight": "^0.19.6",
-    "@codemirror/history": "^0.19.0",
-    "@codemirror/lang-html": "^0.19.3",
-    "@codemirror/lang-javascript": "^0.19.2",
-    "@codemirror/lang-markdown": "^0.19.1",
-    "@codemirror/lang-python": "^0.19.2",
-    "@codemirror/lang-sql": "^0.19.3",
-    "@codemirror/language": "^0.19.3",
-    "@codemirror/legacy-modes": "^0.19.0",
-    "@codemirror/lint": "^0.19.2",
-    "@codemirror/matchbrackets": "^0.19.3",
-    "@codemirror/rectangular-selection": "^0.19.1",
-    "@codemirror/search": "^0.19.2",
-    "@codemirror/state": "^0.19.2",
-    "@codemirror/stream-parser": "^0.19.2",
-    "@codemirror/view": "^0.19.9",
-    "@lezer/common": "^0.15.7",
-    "@lezer/markdown": "^0.15.3",
-    "@lezer/python": "^0.15.0",
-    "@plutojl/lang-julia": "=0.7.0",
-    "esbuild": "^0.12.28",
-    "tslib": "^2.3.1"
-  },
-  "devDependencies": {
-    "@codemirror/buildhelper": "^0.1.11",
-    "@rollup/plugin-node-resolve": "^13.0.0",
-    "@rollup/plugin-typescript": "^8.2.1",
-    "rollup": "^2.48.0",
-    "rollup-plugin-dts": "^3.0.1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/JuliaPluto/codemirror-pluto-setup.git"
-  }
+    "name": "@plutojl/codemirror-pluto-setup",
+    "version": "0.25.0",
+    "description": "Example configuration for the CodeMirror code editor - as used by Pluto.jl",
+    "scripts": {
+        "bundle": "rollup -c"
+    },
+    "oldscriptsthatwedontuseanymore": {
+        "test": "cm-runtests",
+        "prepare": "cm-buildhelper src/basic-setup.ts",
+        "esbuild": "cm-buildhelper src/basic-setup.ts && esbuild dist/index.js --bundle --format=esm --outfile=dist/index.bundle.js",
+        "roll": "cm-buildhelper src/basic-setup.ts && rollup --config --configDebug"
+    },
+    "keywords": [
+        "editor",
+        "code"
+    ],
+    "author": {
+        "name": "Marijn Haverbeke",
+        "email": "marijnh@gmail.com",
+        "url": "http://marijnhaverbeke.nl"
+    },
+    "type": "module",
+    "main": "dist/index.es.js",
+    "exports": {
+        "import": "./dist/index.es.js"
+    },
+    "types": "dist/index.d.ts",
+    "module": "dist/index.js",
+    "sideEffects": false,
+    "license": "MIT",
+    "prettier": {
+        "semi": false,
+        "tabWidth": 4
+    },
+    "dependencies": {
+        "@codemirror/autocomplete": "^0.19.9",
+        "@codemirror/basic-setup": "^0.19.0",
+        "@codemirror/closebrackets": "^0.19.0",
+        "@codemirror/collab": "^0.19.0",
+        "@codemirror/commands": "^0.19.5",
+        "@codemirror/comment": "^0.19.0",
+        "@codemirror/fold": "^0.19.0",
+        "@codemirror/gutter": "^0.19.2",
+        "@codemirror/highlight": "^0.19.6",
+        "@codemirror/history": "^0.19.0",
+        "@codemirror/lang-html": "^0.19.3",
+        "@codemirror/lang-javascript": "^0.19.2",
+        "@codemirror/lang-markdown": "^0.19.1",
+        "@codemirror/lang-python": "^0.19.2",
+        "@codemirror/lang-sql": "^0.19.3",
+        "@codemirror/language": "^0.19.3",
+        "@codemirror/legacy-modes": "^0.19.0",
+        "@codemirror/lint": "^0.19.2",
+        "@codemirror/matchbrackets": "^0.19.3",
+        "@codemirror/rectangular-selection": "^0.19.1",
+        "@codemirror/search": "^0.19.2",
+        "@codemirror/state": "^0.19.2",
+        "@codemirror/stream-parser": "^0.19.2",
+        "@codemirror/view": "git+https://github.com/codemirror/view.git#a06f02a",
+        "@lezer/common": "^0.15.7",
+        "@lezer/markdown": "^0.15.3",
+        "@lezer/python": "^0.15.0",
+        "@plutojl/lang-julia": "^0.8.0",
+        "esbuild": "^0.12.28",
+        "tslib": "^2.3.1"
+    },
+    "devDependencies": {
+        "@codemirror/buildhelper": "^0.1.11",
+        "@rollup/plugin-node-resolve": "^13.0.0",
+        "@rollup/plugin-typescript": "^8.2.1",
+        "rollup": "^2.48.0",
+        "rollup-plugin-dts": "^3.0.1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/JuliaPluto/codemirror-pluto-setup.git"
+    }
 }

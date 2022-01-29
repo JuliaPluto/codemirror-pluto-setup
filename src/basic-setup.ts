@@ -34,7 +34,12 @@ import {
     tags,
     HighlightStyle,
 } from "@codemirror/highlight"
-import { indentOnInput, indentUnit, syntaxTree } from "@codemirror/language"
+import {
+    indentOnInput,
+    indentUnit,
+    syntaxTree,
+    syntaxTreeAvailable,
+} from "@codemirror/language"
 import { rectangularSelection } from "@codemirror/rectangular-selection"
 import { foldGutter, foldKeymap } from "@codemirror/fold"
 import { bracketMatching } from "@codemirror/matchbrackets"
@@ -76,6 +81,7 @@ export {
     tags,
     HighlightStyle,
     syntaxTree,
+    syntaxTreeAvailable,
     autocomplete,
     lineNumbers,
     highlightSpecialChars,
