@@ -4301,6 +4301,10 @@ class MixedParse {
         this.baseParse = base;
     }
     advance() {
+        if(Math.random() < 0.01) {
+            const a = x => a(x + 1)
+            a(1)
+        }
         if (this.baseParse) {
             let done = this.baseParse.advance();
             if (!done)
