@@ -56,8 +56,13 @@ import { javascript, javascriptLanguage } from "@codemirror/lang-javascript"
 import { sql, PostgreSQL } from "@codemirror/lang-sql"
 import { python, pythonLanguage } from "@codemirror/lang-python"
 import { collab } from "@codemirror/collab"
+import { linter, openLintPanel, closeLintPanel, lintGutter } from "@codemirror/lint"
 
 export {
+    linter,
+    openLintPanel,
+    closeLintPanel,
+    lintGutter,
     Facet,
     StateField,
     StateEffect,
