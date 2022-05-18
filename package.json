@@ -50,6 +50,7 @@
         "@codemirror/view": "^0.20.4",
         "@lezer/common": "^0.16.0",
         "@lezer/markdown": "^0.16.0",
+        "@lezer/highlight": "fonsp/highlight#9ab6f55f34fe30f71c1d08b0fdf18794b02d0dc3",
         "@plutojl/lang-julia": "^0.9.0",
         "rollup-plugin-typescript2": "^0.31.2",
         "tslib": "^2.3.1",
