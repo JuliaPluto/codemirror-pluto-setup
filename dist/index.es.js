@@ -5298,7 +5298,7 @@ class MixedParse {
                 this.inner[i].parse.stopAt(pos);
     }
     startInner() {
-        let fragmentCursor = new FragmentCursor$2(this.fragments);
+        let fragmentCursor = new FragmentCursor$7(this.fragments);
         let overlay = null;
         let covered = null;
         let cursor = new TreeCursor(new TreeNode(this.baseTree, this.ranges[0].from, 0, null), IterMode.IncludeAnonymous | IterMode.IgnoreMounts);
@@ -5455,7 +5455,7 @@ class StructureCursor {
         return false;
     }
 }
-class FragmentCursor$2 {
+class FragmentCursor$7 {
     constructor(fragments) {
         var _a;
         this.fragments = fragments;
@@ -5603,7 +5603,7 @@ function enterFragments(mounts, ranges) {
 /// parsing progress. They also provide some properties and methods
 /// that external code such as a tokenizer can use to get information
 /// about the parse state.
-class Stack {
+class Stack$5 {
     /// @internal
     constructor(
     /// The parse that this stack is part of @internal
@@ -5667,7 +5667,7 @@ class Stack {
     /// @internal
     static start(p, state, pos = 0) {
         let cx = p.parser.context;
-        return new Stack(p, [], state, pos, pos, 0, [], 0, cx ? new StackContext(cx, cx.start) : null, 0, null);
+        return new Stack$5(p, [], state, pos, pos, 0, [], 0, cx ? new StackContext$5(cx, cx.start) : null, 0, null);
     }
     /// The stack's current [context](#lr.ContextTracker) value, if
     /// any. Its type will depend on the context tracker's type
@@ -5830,7 +5830,7 @@ class Stack {
         // Make sure parent points to an actual parent with content, if there is such a parent.
         while (parent && base == parent.bufferBase)
             parent = parent.parent;
-        return new Stack(this.p, this.stack.slice(), this.state, this.reducePos, this.pos, this.score, buffer, base, this.curContext, this.lookAhead, parent);
+        return new Stack$5(this.p, this.stack.slice(), this.state, this.reducePos, this.pos, this.score, buffer, base, this.curContext, this.lookAhead, parent);
     }
     // Try to recover from an error by 'deleting' (ignoring) one token.
     /// @internal
@@ -5847,7 +5847,7 @@ class Stack {
     /// external tokenizers that want to make sure they only provide a
     /// given token when it applies.
     canShift(term) {
-        for (let sim = new SimulatedStack(this);;) {
+        for (let sim = new SimulatedStack$5(this);;) {
             let action = this.p.parser.stateSlot(sim.state, 4 /* DefaultReduce */) || this.p.parser.hasAction(sim.state, term);
             if ((action & 65536 /* ReduceFlag */) == 0)
                 return true;
@@ -5974,7 +5974,7 @@ class Stack {
     }
     updateContext(context) {
         if (context != this.curContext.context) {
-            let newCx = new StackContext(this.curContext.tracker, context);
+            let newCx = new StackContext$5(this.curContext.tracker, context);
             if (newCx.hash != this.curContext.hash)
                 this.emitContext();
             this.curContext = newCx;
@@ -5995,14 +5995,14 @@ class Stack {
             this.emitLookAhead();
     }
 }
-class StackContext {
+class StackContext$5 {
     constructor(tracker, context) {
         this.tracker = tracker;
         this.context = context;
         this.hash = tracker.strict ? tracker.hash(context) : 0;
     }
 }
-var Recover;
+var Recover$5;
 (function (Recover) {
     Recover[Recover["Insert"] = 200] = "Insert";
     Recover[Recover["Delete"] = 190] = "Delete";
@@ -6010,10 +6010,10 @@ var Recover;
     Recover[Recover["MaxNext"] = 4] = "MaxNext";
     Recover[Recover["MaxInsertStackDepth"] = 300] = "MaxInsertStackDepth";
     Recover[Recover["DampenInsertStackDepth"] = 120] = "DampenInsertStackDepth";
-})(Recover || (Recover = {}));
+})(Recover$5 || (Recover$5 = {}));
 // Used to cheaply run some reductions to scan ahead without mutating
 // an entire stack
-class SimulatedStack {
+class SimulatedStack$5 {
     constructor(start) {
         this.start = start;
         this.state = start.state;
@@ -6037,7 +6037,7 @@ class SimulatedStack {
 }
 // This is given to `Tree.build` to build a buffer, and encapsulates
 // the parent-stack-walking necessary to read the nodes.
-class StackBufferCursor {
+class StackBufferCursor$5 {
     constructor(stack, pos, index) {
         this.stack = stack;
         this.pos = pos;
@@ -6047,7 +6047,7 @@ class StackBufferCursor {
             this.maybeNext();
     }
     static create(stack, pos = stack.bufferBase + stack.buffer.length) {
-        return new StackBufferCursor(stack, pos, pos - stack.bufferBase);
+        return new StackBufferCursor$5(stack, pos, pos - stack.bufferBase);
     }
     maybeNext() {
         let next = this.stack.parent;
@@ -6068,11 +6068,11 @@ class StackBufferCursor {
             this.maybeNext();
     }
     fork() {
-        return new StackBufferCursor(this.stack, this.pos, this.index);
+        return new StackBufferCursor$5(this.stack, this.pos, this.index);
     }
 }
 
-class CachedToken {
+class CachedToken$5 {
     constructor() {
         this.start = -1;
         this.value = -1;
@@ -6083,12 +6083,12 @@ class CachedToken {
         this.context = 0;
     }
 }
-const nullToken = new CachedToken;
+const nullToken$5 = new CachedToken$5;
 /// [Tokenizers](#lr.ExternalTokenizer) interact with the input
 /// through this interface. It presents the input as a stream of
 /// characters, tracking lookahead and hiding the complexity of
 /// [ranges](#common.Parser.parse^ranges) from tokenizer code.
-class InputStream {
+class InputStream$5 {
     /// @internal
     constructor(
     /// @internal
@@ -6108,7 +6108,7 @@ class InputStream {
         /// when the stream is at the end of the input.
         this.next = -1;
         /// @internal
-        this.token = nullToken;
+        this.token = nullToken$5;
         this.rangeIndex = 0;
         this.pos = this.chunkPos = ranges[0].from;
         this.range = ranges[0];
@@ -6239,7 +6239,7 @@ class InputStream {
             token.value = token.extended = -1;
         }
         else {
-            this.token = nullToken;
+            this.token = nullToken$5;
         }
         if (this.pos != pos) {
             this.pos = pos;
@@ -6281,17 +6281,17 @@ class InputStream {
     }
 }
 /// @internal
-class TokenGroup {
+class TokenGroup$5 {
     constructor(data, id) {
         this.data = data;
         this.id = id;
     }
-    token(input, stack) { readToken(this.data, input, stack, this.id); }
+    token(input, stack) { readToken$5(this.data, input, stack, this.id); }
 }
-TokenGroup.prototype.contextual = TokenGroup.prototype.fallback = TokenGroup.prototype.extend = false;
+TokenGroup$5.prototype.contextual = TokenGroup$5.prototype.fallback = TokenGroup$5.prototype.extend = false;
 /// `@external tokens` declarations in the grammar should resolve to
 /// an instance of this class.
-class ExternalTokenizer {
+class ExternalTokenizer$5 {
     /// Create a tokenizer. The first argument is the function that,
     /// given an input stream, scans for the types of tokens it
     /// recognizes at the stream's position, and calls
@@ -6326,7 +6326,7 @@ class ExternalTokenizer {
 // This function interprets that data, running through a stream as
 // long as new states with the a matching group mask can be reached,
 // and updating `token` when it matches a token.
-function readToken(data, input, stack, group) {
+function readToken$5(data, input, stack, group) {
     let state = 0, groupMask = 1 << group, { parser } = stack.p, { dialect } = parser;
     scan: for (;;) {
         if ((groupMask & data[state]) == 0)
@@ -6365,7 +6365,7 @@ function readToken(data, input, stack, group) {
 
 // See lezer-generator/src/encode.ts for comments about the encoding
 // used here
-function decodeArray(input, Type = Uint16Array) {
+function decodeArray$5(input, Type = Uint16Array) {
     if (typeof input != "string")
         return input;
     let array = null;
@@ -6400,13 +6400,13 @@ function decodeArray(input, Type = Uint16Array) {
 }
 
 // Environment variable used to control console output
-const verbose = typeof process != "undefined" && process.env && /\bparse\b/.test(process.env.LOG);
-let stackIDs = null;
-var Safety;
+const verbose$5 = typeof process != "undefined" && process.env && /\bparse\b/.test(process.env.LOG);
+let stackIDs$5 = null;
+var Safety$5;
 (function (Safety) {
     Safety[Safety["Margin"] = 25] = "Margin";
-})(Safety || (Safety = {}));
-function cutAt(tree, pos, side) {
+})(Safety$5 || (Safety$5 = {}));
+function cutAt$5(tree, pos, side) {
     let cursor = tree.cursor(IterMode.IncludeAnonymous);
     cursor.moveTo(pos);
     for (;;) {
@@ -6422,7 +6422,7 @@ function cutAt(tree, pos, side) {
             }
     }
 }
-class FragmentCursor$1 {
+class FragmentCursor$6 {
     constructor(fragments, nodeSet) {
         this.fragments = fragments;
         this.nodeSet = nodeSet;
@@ -6438,8 +6438,8 @@ class FragmentCursor$1 {
     nextFragment() {
         let fr = this.fragment = this.i == this.fragments.length ? null : this.fragments[this.i++];
         if (fr) {
-            this.safeFrom = fr.openStart ? cutAt(fr.tree, fr.from + fr.offset, 1) - fr.offset : fr.from;
-            this.safeTo = fr.openEnd ? cutAt(fr.tree, fr.to + fr.offset, -1) - fr.offset : fr.to;
+            this.safeFrom = fr.openStart ? cutAt$5(fr.tree, fr.from + fr.offset, 1) - fr.offset : fr.from;
+            this.safeTo = fr.openEnd ? cutAt$5(fr.tree, fr.to + fr.offset, -1) - fr.offset : fr.to;
             while (this.trees.length) {
                 this.trees.pop();
                 this.start.pop();
@@ -6506,13 +6506,13 @@ class FragmentCursor$1 {
         }
     }
 }
-class TokenCache {
+class TokenCache$5 {
     constructor(parser, stream) {
         this.stream = stream;
         this.tokens = [];
         this.mainToken = null;
         this.actions = [];
-        this.tokens = parser.tokenizers.map(_ => new CachedToken);
+        this.tokens = parser.tokenizers.map(_ => new CachedToken$5);
     }
     getActions(stack) {
         let actionIndex = 0;
@@ -6551,7 +6551,7 @@ class TokenCache {
         if (lookAhead)
             stack.setLookAhead(lookAhead);
         if (!main && stack.pos == this.stream.end) {
-            main = new CachedToken;
+            main = new CachedToken$5;
             main.value = stack.p.parser.eofTerm;
             main.start = main.end = stack.pos;
             actionIndex = this.addActions(stack, main.value, main.end, actionIndex);
@@ -6562,7 +6562,7 @@ class TokenCache {
     getMainToken(stack) {
         if (this.mainToken)
             return this.mainToken;
-        let main = new CachedToken, { pos, p } = stack;
+        let main = new CachedToken$5, { pos, p } = stack;
         main.start = pos;
         main.end = Math.min(pos + 1, p.stream.end);
         main.value = pos == p.stream.end ? p.parser.eofTerm : 0 /* Err */;
@@ -6605,22 +6605,22 @@ class TokenCache {
             for (let i = parser.stateSlot(state, set ? 2 /* Skip */ : 1 /* Actions */);; i += 3) {
                 if (data[i] == 65535 /* End */) {
                     if (data[i + 1] == 1 /* Next */) {
-                        i = pair(data, i + 2);
+                        i = pair$5(data, i + 2);
                     }
                     else {
                         if (index == 0 && data[i + 1] == 2 /* Other */)
-                            index = this.putAction(pair(data, i + 2), token, end, index);
+                            index = this.putAction(pair$5(data, i + 2), token, end, index);
                         break;
                     }
                 }
                 if (data[i] == token)
-                    index = this.putAction(pair(data, i + 1), token, end, index);
+                    index = this.putAction(pair$5(data, i + 1), token, end, index);
             }
         }
         return index;
     }
 }
-var Rec;
+var Rec$5;
 (function (Rec) {
     Rec[Rec["Distance"] = 5] = "Distance";
     Rec[Rec["MaxRemainingPerStep"] = 3] = "MaxRemainingPerStep";
@@ -6633,8 +6633,8 @@ var Rec;
     // on recursive traversal.
     Rec[Rec["CutDepth"] = 15000] = "CutDepth";
     Rec[Rec["CutTo"] = 9000] = "CutTo";
-})(Rec || (Rec = {}));
-class Parse {
+})(Rec$5 || (Rec$5 = {}));
+class Parse$5 {
     constructor(parser, input, fragments, ranges) {
         this.parser = parser;
         this.input = input;
@@ -6644,13 +6644,13 @@ class Parse {
         this.minStackPos = 0;
         this.reused = [];
         this.stoppedAt = null;
-        this.stream = new InputStream(input, ranges);
-        this.tokens = new TokenCache(parser, this.stream);
+        this.stream = new InputStream$5(input, ranges);
+        this.tokens = new TokenCache$5(parser, this.stream);
         this.topTerm = parser.top[1];
         let { from } = ranges[0];
-        this.stacks = [Stack.start(this, parser.top[0], from)];
+        this.stacks = [Stack$5.start(this, parser.top[0], from)];
         this.fragments = fragments.length && this.stream.end - from > parser.bufferLength * 4
-            ? new FragmentCursor$1(fragments, parser.nodeSet) : null;
+            ? new FragmentCursor$6(fragments, parser.nodeSet) : null;
     }
     get parsedPos() {
         return this.minStackPos;
@@ -6692,11 +6692,11 @@ class Parse {
             }
         }
         if (!newStacks.length) {
-            let finished = stopped && findFinished(stopped);
+            let finished = stopped && findFinished$5(stopped);
             if (finished)
                 return this.stackToTree(finished);
             if (this.parser.strict) {
-                if (verbose && stopped)
+                if (verbose$5 && stopped)
                     console.log("Stuck with token " + (this.tokens.mainToken ? this.parser.getName(this.tokens.mainToken.value) : "none"));
                 throw new SyntaxError("No parse at " + pos);
             }
@@ -6757,7 +6757,7 @@ class Parse {
     // `split`, or added to `stacks` if they move `pos` forward.
     advanceStack(stack, stacks, split) {
         let start = stack.pos, { parser } = this;
-        let base = verbose ? this.stackID(stack) + " -> " : "";
+        let base = verbose$5 ? this.stackID(stack) + " -> " : "";
         if (this.stoppedAt != null && start > this.stoppedAt)
             return stack.forceReduce() ? stack : null;
         if (this.fragments) {
@@ -6766,7 +6766,7 @@ class Parse {
                 let match = this.parser.nodeSet.types[cached.type.id] == cached.type ? parser.getGoto(stack.state, cached.type.id) : -1;
                 if (match > -1 && cached.length && (!strictCx || (cached.prop(NodeProp.contextHash) || 0) == cxHash)) {
                     stack.useNode(cached, match);
-                    if (verbose)
+                    if (verbose$5)
                         console.log(base + this.stackID(stack) + ` (via reuse of ${parser.getName(cached.type.id)})`);
                     return true;
                 }
@@ -6782,7 +6782,7 @@ class Parse {
         let defaultReduce = parser.stateSlot(stack.state, 4 /* DefaultReduce */);
         if (defaultReduce > 0) {
             stack.reduce(defaultReduce);
-            if (verbose)
+            if (verbose$5)
                 console.log(base + this.stackID(stack) + ` (via always-reduce ${parser.getName(defaultReduce & 65535 /* ValueMask */)})`);
             return true;
         }
@@ -6795,7 +6795,7 @@ class Parse {
             let last = i == actions.length || !split;
             let localStack = last ? stack : stack.split();
             localStack.apply(action, term, end);
-            if (verbose)
+            if (verbose$5)
                 console.log(base + this.stackID(localStack) + ` (via ${(action & 65536 /* ReduceFlag */) == 0 ? "shift"
                     : `reduce of ${parser.getName(action & 65535 /* ValueMask */)}`} for ${parser.getName(term)} @ ${start}${localStack == stack ? "" : ", split"})`);
             if (last)
@@ -6816,7 +6816,7 @@ class Parse {
             if (!this.advanceStack(stack, null, null))
                 return false;
             if (stack.pos > pos) {
-                pushStackDedup(stack, newStacks);
+                pushStackDedup$5(stack, newStacks);
                 return true;
             }
         }
@@ -6825,13 +6825,13 @@ class Parse {
         let finished = null, restarted = false;
         for (let i = 0; i < stacks.length; i++) {
             let stack = stacks[i], token = tokens[i << 1], tokenEnd = tokens[(i << 1) + 1];
-            let base = verbose ? this.stackID(stack) + " -> " : "";
+            let base = verbose$5 ? this.stackID(stack) + " -> " : "";
             if (stack.deadEnd) {
                 if (restarted)
                     continue;
                 restarted = true;
                 stack.restart();
-                if (verbose)
+                if (verbose$5)
                     console.log(base + this.stackID(stack) + " (restarted)");
                 let done = this.advanceFully(stack, newStacks);
                 if (done)
@@ -6839,16 +6839,16 @@ class Parse {
             }
             let force = stack.split(), forceBase = base;
             for (let j = 0; force.forceReduce() && j < 10 /* ForceReduceLimit */; j++) {
-                if (verbose)
+                if (verbose$5)
                     console.log(forceBase + this.stackID(force) + " (via force-reduce)");
                 let done = this.advanceFully(force, newStacks);
                 if (done)
                     break;
-                if (verbose)
+                if (verbose$5)
                     forceBase = this.stackID(force) + " -> ";
             }
             for (let insert of stack.recoverByInsert(token)) {
-                if (verbose)
+                if (verbose$5)
                     console.log(base + this.stackID(insert) + " (via recover-insert)");
                 this.advanceFully(insert, newStacks);
             }
@@ -6858,9 +6858,9 @@ class Parse {
                     token = 0 /* Err */;
                 }
                 stack.recoverByDelete(token, tokenEnd);
-                if (verbose)
+                if (verbose$5)
                     console.log(base + this.stackID(stack) + ` (via recover-delete ${this.parser.getName(token)})`);
-                pushStackDedup(stack, newStacks);
+                pushStackDedup$5(stack, newStacks);
             }
             else if (!finished || finished.score < stack.score) {
                 finished = stack;
@@ -6871,7 +6871,7 @@ class Parse {
     // Convert the stack's buffer to a syntax tree.
     stackToTree(stack) {
         stack.close();
-        return Tree.build({ buffer: StackBufferCursor.create(stack),
+        return Tree.build({ buffer: StackBufferCursor$5.create(stack),
             nodeSet: this.parser.nodeSet,
             topID: this.topTerm,
             maxBufferLength: this.parser.bufferLength,
@@ -6881,13 +6881,13 @@ class Parse {
             minRepeatType: this.parser.minRepeatTerm });
     }
     stackID(stack) {
-        let id = (stackIDs || (stackIDs = new WeakMap)).get(stack);
+        let id = (stackIDs$5 || (stackIDs$5 = new WeakMap)).get(stack);
         if (!id)
-            stackIDs.set(stack, id = String.fromCodePoint(this.nextStackID++));
+            stackIDs$5.set(stack, id = String.fromCodePoint(this.nextStackID++));
         return id + stack;
     }
 }
-function pushStackDedup(stack, newStacks) {
+function pushStackDedup$5(stack, newStacks) {
     for (let i = 0; i < newStacks.length; i++) {
         let other = newStacks[i];
         if (other.pos == stack.pos && other.sameState(stack)) {
@@ -6898,7 +6898,7 @@ function pushStackDedup(stack, newStacks) {
     }
     newStacks.push(stack);
 }
-class Dialect {
+class Dialect$5 {
     constructor(source, flags, disabled) {
         this.source = source;
         this.flags = flags;
@@ -6906,31 +6906,9 @@ class Dialect {
     }
     allows(term) { return !this.disabled || this.disabled[term] == 0; }
 }
-const id = x => x;
-/// Context trackers are used to track stateful context (such as
-/// indentation in the Python grammar, or parent elements in the XML
-/// grammar) needed by external tokenizers. You declare them in a
-/// grammar file as `@context exportName from "module"`.
-///
-/// Context values should be immutable, and can be updated (replaced)
-/// on shift or reduce actions.
-///
-/// The export used in a `@context` declaration should be of this
-/// type.
-class ContextTracker {
-    /// Define a context tracker.
-    constructor(spec) {
-        this.start = spec.start;
-        this.shift = spec.shift || id;
-        this.reduce = spec.reduce || id;
-        this.reuse = spec.reuse || id;
-        this.hash = spec.hash || (() => 0);
-        this.strict = spec.strict !== false;
-    }
-}
 /// A parser holds the parse tables for a given grammar, as generated
 /// by `lezer-generator`.
-class LRParser extends Parser {
+class LRParser$5 extends Parser {
     /// @internal
     constructor(spec) {
         super();
@@ -6979,7 +6957,7 @@ class LRParser extends Parser {
             this.nodeSet = this.nodeSet.extend(...spec.propSources);
         this.strict = false;
         this.bufferLength = DefaultBufferLength;
-        let tokenArray = decodeArray(spec.tokenData);
+        let tokenArray = decodeArray$5(spec.tokenData);
         this.context = spec.context;
         this.specialized = new Uint16Array(spec.specialized ? spec.specialized.length : 0);
         this.specializers = [];
@@ -6988,11 +6966,11 @@ class LRParser extends Parser {
                 this.specialized[i] = spec.specialized[i].term;
                 this.specializers[i] = spec.specialized[i].get;
             }
-        this.states = decodeArray(spec.states, Uint32Array);
-        this.data = decodeArray(spec.stateData);
-        this.goto = decodeArray(spec.goto);
+        this.states = decodeArray$5(spec.states, Uint32Array);
+        this.data = decodeArray$5(spec.stateData);
+        this.goto = decodeArray$5(spec.goto);
         this.maxTerm = spec.maxTerm;
-        this.tokenizers = spec.tokenizers.map(value => typeof value == "number" ? new TokenGroup(tokenArray, value) : value);
+        this.tokenizers = spec.tokenizers.map(value => typeof value == "number" ? new TokenGroup$5(tokenArray, value) : value);
         this.topRules = spec.topRules;
         this.dialects = spec.dialects || {};
         this.dynamicPrecedences = spec.dynamicPrecedences || null;
@@ -7003,7 +6981,7 @@ class LRParser extends Parser {
         this.top = this.topRules[Object.keys(this.topRules)[0]];
     }
     createParse(input, fragments, ranges) {
-        let parse = new Parse(this, input, fragments, ranges);
+        let parse = new Parse$5(this, input, fragments, ranges);
         for (let w of this.wrappers)
             parse = w(parse, input, fragments, ranges);
         return parse;
@@ -7032,14 +7010,14 @@ class LRParser extends Parser {
             for (let i = this.stateSlot(state, set ? 2 /* Skip */ : 1 /* Actions */), next;; i += 3) {
                 if ((next = data[i]) == 65535 /* End */) {
                     if (data[i + 1] == 1 /* Next */)
-                        next = data[i = pair(data, i + 2)];
+                        next = data[i = pair$5(data, i + 2)];
                     else if (data[i + 1] == 2 /* Other */)
-                        return pair(data, i + 2);
+                        return pair$5(data, i + 2);
                     else
                         break;
                 }
                 if (next == terminal || next == 0 /* Err */)
-                    return pair(data, i + 1);
+                    return pair$5(data, i + 1);
             }
         }
         return 0;
@@ -7059,11 +7037,11 @@ class LRParser extends Parser {
         for (let i = this.stateSlot(state, 1 /* Actions */);; i += 3) {
             if (this.data[i] == 65535 /* End */) {
                 if (this.data[i + 1] == 1 /* Next */)
-                    i = pair(this.data, i + 2);
+                    i = pair$5(this.data, i + 2);
                 else
                     return false;
             }
-            if (action == pair(this.data, i + 1))
+            if (action == pair$5(this.data, i + 1))
                 return true;
         }
     }
@@ -7074,7 +7052,7 @@ class LRParser extends Parser {
         for (let i = this.stateSlot(state, 1 /* Actions */);; i += 3) {
             if (this.data[i] == 65535 /* End */) {
                 if (this.data[i + 1] == 1 /* Next */)
-                    i = pair(this.data, i + 2);
+                    i = pair$5(this.data, i + 2);
                 else
                     break;
             }
@@ -7088,8 +7066,8 @@ class LRParser extends Parser {
     }
     /// @internal
     overrides(token, prev) {
-        let iPrev = findOffset(this.data, this.tokenPrecTable, prev);
-        return iPrev < 0 || findOffset(this.data, this.tokenPrecTable, token) < iPrev;
+        let iPrev = findOffset$5(this.data, this.tokenPrecTable, prev);
+        return iPrev < 0 || findOffset$5(this.data, this.tokenPrecTable, token) < iPrev;
     }
     /// Configure the parser. Returns a new parser instance that has the
     /// given settings modified. Settings not provided in `config` are
@@ -7097,7 +7075,7 @@ class LRParser extends Parser {
     configure(config) {
         // Hideous reflection-based kludge to make it easy to create a
         // slightly modified copy of a parser.
-        let copy = Object.assign(Object.create(LRParser.prototype), this);
+        let copy = Object.assign(Object.create(LRParser$5.prototype), this);
         if (config.props)
             copy.nodeSet = this.nodeSet.extend(...config.props);
         if (config.top) {
@@ -7160,21 +7138,21 @@ class LRParser extends Parser {
                 for (let j = this.dialects[values[i]], id; (id = this.data[j++]) != 65535 /* End */;)
                     (disabled || (disabled = new Uint8Array(this.maxTerm + 1)))[id] = 1;
             }
-        return new Dialect(dialect, flags, disabled);
+        return new Dialect$5(dialect, flags, disabled);
     }
     /// (used by the output of the parser generator) @internal
     static deserialize(spec) {
-        return new LRParser(spec);
+        return new LRParser$5(spec);
     }
 }
-function pair(data, off) { return data[off] | (data[off + 1] << 16); }
-function findOffset(data, start, term) {
+function pair$5(data, off) { return data[off] | (data[off + 1] << 16); }
+function findOffset$5(data, start, term) {
     for (let i = start, next; (next = data[i]) != 65535 /* End */; i++)
         if (next == term)
             return i - start;
     return -1;
 }
-function findFinished(stacks) {
+function findFinished$5(stacks) {
     let best = null;
     for (let stack of stacks) {
         let stopped = stack.p.stoppedAt;
@@ -7252,7 +7230,7 @@ const CAT_Emoji = /^\p{Emoji}/u;
 
 // TERMINATOR
 
-const newline$3 = new ExternalTokenizer((input, stack) => {
+const newline$3 = new ExternalTokenizer$5((input, stack) => {
   let c = input.peek(0);
   if (c === CHAR_NEWLINE) {
     if (stack.canShift(newline$1$1)) {
@@ -7369,7 +7347,7 @@ function combineSurrogates(input, offset) {
 }
 
 const makeIdentifierThing = (term) => {
-  return new ExternalTokenizer((input, stack) => {
+  return new ExternalTokenizer$5((input, stack) => {
     let start = true;
     let offset = 0;
     let eat = 1;
@@ -7433,7 +7411,7 @@ const isStringInterpolation = (input, offset) => {
 };
 
 const makeStringContent = ({ till, term }) => {
-  return new ExternalTokenizer((input, stack) => {
+  return new ExternalTokenizer$5((input, stack) => {
     let offset = 0;
     let eatNext = false;
     while (true) {
@@ -7455,7 +7433,7 @@ const makeStringContent = ({ till, term }) => {
 };
 
 const makeStringContentWithoutInterpolation = ({ till, term }) => {
-  return new ExternalTokenizer((input, stack) => {
+  return new ExternalTokenizer$5((input, stack) => {
     let offset = 0;
     let eatNext = false;
     while (true) {
@@ -7535,7 +7513,7 @@ const isBlockCommentEnd = (input, offset) => {
   );
 };
 
-const BlockComment$2 = new ExternalTokenizer((input, stack) => {
+const BlockComment$2 = new ExternalTokenizer$5((input, stack) => {
   // BlockComment
   if (isBlockCommentStart(input, 0)) {
     let depth = 1;
@@ -7577,7 +7555,7 @@ const isWhitespace = (input, offset) => {
   );
 };
 
-const layoutExtra = new ExternalTokenizer(
+const layoutExtra = new ExternalTokenizer$5(
   (input, stack) => {
     // immediateParen
     if (
@@ -7670,7 +7648,7 @@ const layoutExtra = new ExternalTokenizer(
 
 // This file was generated by lezer-generator. You probably shouldn't edit it.
 const spec_Identifier = {__proto__:null,if:14, elseif:20, else:24, end:26, try:30, catch:34, finally:40, for:44, primitive:74, type:76, abstract:84, mutable:90, struct:92, module:98, baremodule:104, macro:110, in:132, isa:134, function:152, do:164, where:170, true:204, false:204, begin:264, while:320, let:326, const:334, global:342, local:346, quote:350, break:354, continue:358, return:362, using:366, import:368, as:376, export:384};
-const parser$7 = LRParser.deserialize({
+const parser$7 = LRParser$5.deserialize({
   version: 14,
   states: "%<^Q$tQNSOOOOQj'#IP'#IPOOQj'#Gt'#GtO${QNSO'#IOO*cQNTO'#DoO*mQNTO'#DoO/eQNTO'#IRO0OQMyO'#IlOOQk'#Il'#IlO0TQNTO'#IlOOQk'#Do'#DoO:sQNTO'#DoO>{QNQO'#DtOOQk'#Ib'#IbO@WQNUO'#EWO@bONzO'#EhO@mONYO'#ElO@xO!!^O'#EmOATQMyO'#EoODRQNTO'#EoODYQMyO'#EnOGsQNQO'#FiOOQk'#I['#I[OLwQNTO'#I[ONrQNTO'#IOO! tQNSO'#IOOOQk'#IS'#ISO!!OQNTO'#GfO!#hQNTO'#GfO!$}QNQO'#GjO!(`QMxO'#GnO!(eQNTO'#IROOQk'#IR'#IRO! YQNSO'#IOO! YQNSO'#IOQOQMxOOO!(oQNQO'#CbOOQk'#Is'#IsO!$}QNQO'#FxO!,QQNQO'#F|O!/cQNQO'#GOOOQk'#GS'#GSOOQk'#GU'#GUO!2tQNTO'#GWO!4TQNQO'#GYO!4]QNQO'#GcO!4eQNSO'#CaO!4rQNSO'#CjO!5PQNQO'#DQO!5UQNQO'#DVO!5ZQNQO'#DYO!6}QNQO'#DYO!7SQNQO'#D^O!7XQNQO'#DaO!8eQNQO'#DdO!:]QNQO'#DyO!:gQNQO'#CqO!(oQNQO'#FqO!:oQNSO'#FtO!4kQNSO'#GQO!4kQNSO'#GeO!>rQNSO-E:rO!>|QNTO,5>TO!@tQNSO,5>TO!?vQNSO,5>TO!AOQNSO,5>jO!5ZQNQO,59fO!AjQNUO,59iOOQh'#Cw'#CwOOQh'#Cx'#CxO!AqQMxO,59gO!AvQMxO,5:iO!A{QMyO,5:iO!BTQMxO,59jO!BYQMxO,5<ZO!5ZQNQO,5<YO!B_QMxO,5?WO!CwQNRO'#IVO!D_QMxO,5<XO!DjQMxO,5<QO!HdQNQO'#DxOOQ`'#G|'#G|O!HnQMxO,5:`O!I_QNTO,5:`O!NQQMxO,5:`O#!lQNRO'#EoOOQ`'#IV'#IVO#!sQMxO,59`O!5ZQNQO'#CvO#!{QNTO'#EYOOQk'#EX'#EXOOQk,5:r,5:rOOQi'#Ei'#EiOOO!b'#HQ'#HQO#'xONzO,5;SOOQk,5;S,5;SO#(TQNRO'#JQOOOp'#HR'#HRO#(]ONYO,5;WOOQk,5;W,5;WOOO#t'#HS'#HSO#(hO!!^O,5;XOOQk,5;X,5;XO#(sQMxO,5;[O!$}QNQO,5=YO!AvQMxO,5=_O#(xQMxO,5;YO#)QQMxO,5;YOOQk,5<T,5<TO#,RQNRO,5<TO#0jQNQO'#FlO#0tQMxO,5<VO#0|QNQO,5=[O#1XQNSO,5>jO!$}QNQO'#HdO#2TQNSO,5<gO!$}QNQO,5<fO!$}QNQO,5=WO!$}QNQO,5=WO!$}QNQO,5=WO!$}QNQO,5=WO!$}QNQO,5=WO!$}QNQO,5=WO!$}QNQO,5=WO!$}QNQO,5=WO!$}QNQO,5=WO!$}QNQO,5=WO#2[QNQO,5=XO#5mQ!LbO,5=]OOQk,5=^,5=^O!$}QNQO,5=WO#8}QNTO'#HhO#:dQNTO'#HhO#;yQMxO,5=ROOQk'#Hh'#HhO#<OQNTO'#GiO!AvQMxO,5=QO!BYQMxO,5=QOOQk,5=Q,5=QO#=_QNTO,5=UOOQj-E;g-E;gO#C]QNTO,58|O#GhQNRO'#F{O#GrQMxO'#FzOOQk,5<d,5<dO#NfQNTO,5<hO#GzQNTO,5<hOOQk'#Jb'#JbOOQk,5<h,5<hO$'_QNTO,5<jO#NsQNTO,5<jOOQk'#Jc'#JcOOQk,5<j,5<jO$)PQNTO,5<rOOQk,5<r,5<rO$*PQNQO'#G^O$.rQNTO'#G]O$/PQNTO'#G]OOQk,5<t,5<tO$/WQNTO,5<}O$3tQNQO,58{O$4PQNQO,59UO!5ZQNQO,59lO!5ZQNQO,59qO$4sQNTO'#D]O$8aQNTO'#EoO$8tQNQO'#CtO!4kQNSO,59tO!5ZQNQO,59tOOQj'#D`'#D`O!4kQNSO,59xOOQj'#Dc'#DcO!4kQNSO,59{O$8{QMyO'#DoO$9^QMyO'#DfO$9lQNQO'#DmOOQa'#Ic'#IcO$9|QMyO,5:OO$:RQMyO'#ESOOQj'#Iy'#IyOOQj'#D{'#D{O$:wQNTO'#D{O$>yQMyO'#I[O$?TQNSO,5:eO$?_QNQO'#CtO$?oQ!LjO'#CsO$?zQNSO,59]O$@UQNTO'#FsO!4kQNSO,5<]O$BvQMyO'#CzO$COQMzO'#FwO$C^QMzO'#FvO!4kQNSO,5<`O$CiQMzO,5<`O$CqQNQO,5<lO$CvQNQO,5=POOQj-E:r-E:rO$C{QNTO,5>TO$DoQNSO,5>TOOQj,5>T,5>TO$EaQNSO1G4UO$EwQNSO1G4UO$KYQNTO1G/QO%!dQNTO1G/TOOQk'#E`'#E`OOQk1G0e1G0eO%#YQM}O1G/RO%#aQNQO'#DtOOQk'#Iv'#IvO%#hQNTO1G0TO!AvQMxO1G0TO%,VQNQO1G/UO%,aQNQO'#DlOOQk1G1u1G1uO%/xQNTO'#CyOOQk1G1t1G1tOOQk1G4r1G4rO%4kQNQO,59aO%7|QNQO'#IuOOQ`,5:a,5:aO%8_QNQO'#DvOOQk1G1s1G1sO%8gQNQO,5?`O%8wQMxO,5?`O%<qQNQO1G1lO%<xQMxO1G1lOOQk1G1l1G1lOOQ`'#It'#ItO%=QQMxO'#ItOOQ`,5:d,5:dOOQ`-E:z-E:zO%=tQNTO1G/zO%BgQMxO1G/zOOQk1G/z1G/zO%BoQMxO1G.zOOQk1G.z1G.zOOQj,59b,59bOOO!b-E;O-E;OOOQk1G0n1G0nOOO%x,5?l,5?lO%BwQMxO,5?lOOOp-E;P-E;POOQk1G0r1G0rOOO#t-E;Q-E;QOOQk1G0s1G0sO%B|QM|O1G0vO%DfQNTO1G2tOOQk1G2t1G2tO%EfQNQO1G2yO%EqO,UO'#EqO%EvO&jO'#ErOOQk1G0t1G0tO%E{O7[O'#EsO%FQQNQO1G1oO%FXQMxO1G1oOOQk1G1o1G1oO%FaQMxO1G1pO%FfQNRO'#H`OOQh-E;^-E;^O%GiQNQO1G1qO%GpQMxO1G1qOOQk1G1q1G1qO%GxQNTO'#EoO$?_QNQO'#CtOOQk'#Fc'#FcOOQk1G2v1G2vO%NrQNTO,5>OOOQk-E;b-E;bO%NyQNTO1G2QOOQk1G2Q1G2QO&!XQNSO1G2QO&&|QNTO1G2rO&)aQNTO1G2rO&+tQNTO1G2rO&+{QNTO1G2rO&.YQNTO1G2rO&.gQNTO1G2rO&0wQNTO1G2rO&1RQNTO1G2rO&3iQNTO1G2rO&3pQNTO1G2rO&5XQNRO1G2sOOQk1G2w1G2wO&7cQNTO1G2rO&7sQM|O1G2mOOQk-E;f-E;fOOQk'#Je'#JeO&7xQNTO1G2lOOQk1G2l1G2lP]QNSO'#GtOOQk,5<x,5<xO&<iQNQO,5<xO&<nQNQO'#HeO&<vQNTO,5<wO&AdQMxO,5<{O&AiQNQO,5<yO&AnQNQO'#HgO&AvQNTO1G2iO!4eQNSO'#CdOOQh'#Gu'#GuO&FdQNQO1G.gO!(oQNQO'#CeO!4kQNSO'#CgOOQk1G.g1G.gO&FjQNQO1G.gO&JZQNSO'#ClO!4kQNSO'#CoOOQk1G.p1G.pO&JbQNQO1G.pO&JgQNQO1G.pO&JoQMyO'#DTO&JvQMxO1G/WO&J{QNRO'#DXO&KSQNQO1G/]O&KXQMxO,59gO#!sQMxO,59`O&K^QMxO,5<QO&KiQMxO,5<XOOQk,59`,59`O&KnQNQO1G/`O!4kQNSO1G/`O&KsQNQO1G/dO&KxQNQO1G/gO!5ZQNQO,59iO&K}QMxO,5:RO&LSQMxO,5:SO!BYQMxO,5:VO&LXQMyO'#IhOOQ`'#Ih'#IhO&LpQMxO,5:XO!AvQMxO1G/jO!AvQMxO,5:iO!5ZQNQO,5:hO&LxQNQO1G0PO&L}QNQO1G0PO&NgQNRO'#IVO&NzQMxO'#IUOOQh'#E{'#E{OOQh'#E|'#E|ODbQNQO,59_OOQh'#Fp'#FpO!:gQNQO'#HbO$?zQNSO1G.wO' PQNQO1G.wO' UQNQO1G1wO%4kQNQO,5<cO' ZQNQO'#HcO' cQMzO,5<bO' nQNQO1G1zO!4kQNSO1G1zOOQk1G2W1G2WOOQk1G2k1G2kO' sQNSO7+)pOOQk'#C|'#C|O'!ZQMyO'#C}OOQk7+$m7+$mOOQk7+(X7+(XO!NQQMxO,5:`OOQk,5:`,5:`OOQk7+%o7+%oO'!cQNSO'#EPO'!sQNTO7+%oO''|QNRO'#IlO'2SQNRO'#DoO'6eQNRO'#IaO'7OQNQO'#EcO'9rQNRO'#EoO'=_QNQO'#EvOOQi'#I{'#I{O'BPQNRO'#I{O'BZQNRO'#EVO'C^QNRO'#EVO%(qQNQO'#FZO'EqQNRO7+$pO'FRQMxO'#F_O'FWQNRO'#IaOOQi'#Ia'#IaOOQk7+$p7+$pO'FbQMxO7+$pO'FgQMxO7+$pO'FoQMxO7+$pO'HXQNRO,5:WO'HcQMxO,5:WO'HkQNRO1G.{OOQh'#Gz'#GzO'HxQNQO,5?aO'IZQNQO'#DwO'LlQNQO,5:bOOQ`,5=g,5=gO'MQQMxO1G4zO'M`QNQO1G4zOOQ`-E:y-E:yOOQ`,5=x,5=xOOQk7+'W7+'WO'MpQNQO7+'WOOQ`-E;[-E;[O'MwQNQO,5?`O'NRQMxO,5?`OOQk7+%f7+%fOOQk7+$f7+$fOOQh'#Ej'#EjO'N^QNQO1G5WOOQa7+&b7+&bO!$}QNQO,5=ZO!$}QNQO7+(eO!BYQMxO7+(eO(#oOMhO,5;]O(#tOMhO,5;^O(#yOMhO,5;_O($OQNRO,5=yOOQk7+'Z7+'ZO($YQNQO7+'ZOOQ`-E;]-E;]OOQk7+'[7+'[OOQ`,5={,5={OOQk7+']7+']O($aQNQO7+']OOQ`-E;_-E;_O!AvQMxO,5<OO($hQMxO,5<PO!$}QNQO7+(_OOQk'#Gh'#GhOOQk7+(W7+(WOOQk1G2d1G2dO($mQNTO,5>POOQk,5>P,5>POOQk-E;c-E;cO()^QNQO1G2gOOQk1G2e1G2eOOQk,5>R,5>ROOQk-E;e-E;eOOQh,59O,59OOOQh-E:s-E:sOOQk7+$R7+$RO()kQNQO7+$RO()pQNTO,59POOQh,59R,59RO(,hQNTO'#CnOOQh,59W,59WO(2SQNSO,59WOOQh,59Z,59ZOOQk7+$[7+$[O(2ZQNQO7+$[O(2`QNQO7+$rOOQk7+$w7+$wO%!wQM}O1G/RO(2eQNQO,5>pO(2oQMxO,5>pOOQk7+$z7+$zO(2zQNQO7+$zOOQk7+%O7+%OOOQk7+%R7+%RO(3PQM|O1G/mO(3[QNQO1G/nOOQa1G/q1G/qO$9rQNQO,5:YO(3fQNQO1G/sO(3yQMxO1G/sOOQa1G/s1G/sO!4kQNSO7+%UO(4RQNTO'#IvOOQj1G0Y1G0YOOQj1G0S1G0SOOQk7+%k7+%kOOQj'#EU'#EUO!4kQNSO7+%kO(9jQNTO1G.yOOQj,5=|,5=|OOQj-E;`-E;`O(<_QNQO7+$cOOQk7+$c7+$cOOQk7+'c7+'cO(<dQNTO1G1}OOQb,5=},5=}OOQb-E;a-E;aOOQk7+'f7+'fO(<qQNQO7+'fO(<vQNTO'#IwOOQj'#Iw'#IwO(?kQNSO'#ERO!4kQNSO,5:kOOQk<<IZ<<IZO(CYQMxO,5:vO(C_QMxO,5:wO(CdQMxO,5:{O(CiQMyO,5:{O(CqQMxO,5;nO!5ZQNQO,5;mO(CvQNRO'#JOOOQ`'#JO'#JOO(DZQMxO,5;lO(DfQMxO,5;`O(DwQNQO'#EeOOQ`'#HP'#HPO(EXQMxO,5:}O(EaQNRO,5:}O(JTQMxO,5:}O(J]QMxO,5;aO%(qQNQO,5;yOOQi,5;b,5;bO(MdQNRO,5;bO)$OQNQO'#FPO)$YQMxO,5;jO#0|QNQO,5;{O)$bQMxO,5:uO)'`QNRO'#H[O)(uQNRO'#H[OOQi'#H['#H[O)*[QNRO'#FWO(CdQMxO,5:qO(CqQMxO,5:qOOQi,5:q,5:qO)+UQNRO,5;uO)2tQNQO<<H[O)2{QMxO<<H[O)3TQNQO'#JUO%(qQNQO,5;wO%(qQNQO,5;wO%(qQNQO,5;wO%(qQNQO,5;wO%(qQNQO,5;wO%(qQNQO,5;wO%(qQNQO,5;wO%(qQNQO,5;wO%(qQNQO,5;wO%(qQNQO,5;wO)3cQNQO,5;xO)6wQ!LbO,5;|OOQi,5<R,5<ROOQ`,59k,59kO)6|QNQO,5<SOOQk<<H[<<H[O):bQNQO'#ExO%(qQNQO,5;wO)3OQMxO<<H[O):jQNQO1G/rO):qQMxO1G/rOOQk1G/r1G/rOOQh-E:x-E:xO)<ZQNRO,5:cO%8_QNQO'#GyO)<nQNQO1G/|O)=SQMxO7+*fP)=bQNQO'#G{OOQk<<Jr<<JrP%9YQNQO'#H^OOQ`1G4z1G4zO)=lQNQO1G4zO)?WQNRO7+*rO)?_QNTO1G2uOOQk1G2u1G2uO)@_QNTO<<LPOOQj<<LP<<LPO)ARQMxO<<LPOOQk1G0w1G0wOOQk1G0x1G0xOOQk1G0y1G0yOOQk<<Ju<<JuP%4kQNQO'#H_OOQk<<Jw<<JwP#-XQNQO'#HaOOQk'#J`'#J`OOQk1G1j1G1jO)AZQM|O1G1kO)CSQNTO<<KyO)CyQNRO'#G^O)HrQNTO'#JdO)HyQNQO'#GbO)IRQNTO'#JdO)MoQNTO'#JdOOQk7+(R7+(ROOQk<<Gm<<GmOOQh1G.r1G.rOOQk<<Gv<<GvOOQk<<H^<<H^OOQ`1G4[1G4[O)MvQNQO1G4[OOQk<<Hf<<HfOOQa7+%X7+%XO)NQQNRO7+%YOOQa7+%Y7+%YO)NbQMxO7+%YO)NgQMxO7+%YO)NoQMxO7+%YO)NwQMyO1G/tOOQ`,5=d,5=dOOQa7+%_7+%_O* YQNQO7+%_OOQ`-E:v-E:vO* mQNQO<<HpO* rQNQO<<IVOOQk<<G}<<G}OOQk<<KQ<<KQO'!iQNQO'#G}O* wQNSO,5:mO*%fQNQO1G0VO*%kQM}O1G0bO*&PQNQO1G0cO*&ZQNQO'#EcOOQi'#I|'#I|O*&kQNRO1G0gO(CdQMxO1G0gO*+_QNQO'#FTOOQi1G1Y1G1YOOQi1G1X1G1XO)6|QNQO,5;OOOQi1G1W1G1WO*+iQNQO,5?iO*,PQMxO,5?iO*/|QNQO1G0zO*0TQMxO1G0zOOQi1G0z1G0zOOQ`'#I}'#I}O*0]QMxO'#I}OOQ`,5;P,5;POOQ`-E:}-E:}O*0hQNRO1G0iO*5[QMxO1G0iOOQi1G0i1G0iO*5dQMxO1G0{OOQi1G0{1G0{O*7PQNRO1G1eOOQi1G1e1G1eO*7gQNQO1G0|O*7nQMxO1G0|OOQi1G0|1G0|O*7vQMxO1G0}O*7{QNRO'#HXOOQh-E;V-E;VO*9OQNQO1G1UO*9VQMxO1G1UOOQi1G1U1G1UOOQi1G1g1G1gO*9_QM|O1G0aO'9yQNQO'#H]O*9dQNRO,5;tO'9yQNQO,5;sOOQi-E;Y-E;YOOQi'#JW'#JWO*=nQNRO1G0]OOQi1G0]1G0]O*C]QNRO,5=bOOQ`,5=b,5=bOOQkAN=vAN=vO*CmQNQOAN=vOOQ`-E:t-E:tOOQh'#HW'#HWO*CtQNQO,5?pO*DSQNQO'#E}O*KoQNRO1G1cO*MjQNRO1G1cO+ eQNRO1G1cO+ lQNRO1G1cO+#aQNRO1G1cO+#nQNRO1G1cO+%fQNRO1G1cO+%pQNRO1G1cO+'nQNRO1G1cO+'uQNRO1G1cO+)^QNRO1G1dOOQi1G1h1G1hO+*uQNRO1G1nO++PQNQO'#EuO++aQ!LjO'#EyO++lQNQO,5;dO+-kQNRO1G1cO+-{QNRO,5=cOOQ`,5=c,5=cOOQk7+%^7+%^O+.VQNQO7+%^OOQ`-E:u-E:uOOQh,5=e,5=eOOQh-E:w-E:wOOQ`7+*f7+*fOOO%x'#Ek'#EkOOO%x<<N^<<N^O!$}QNQOANAkOOQk7+'V7+'VO+.^QNQO'#HfO+.kQNTO,5@OO+3XQNQO,5<|OOQ`7+)v7+)vO)6|QNQO,5:TO+3fQNQO<<HtO+3mQMxO<<HtOOQa<<Ht<<HtO+3pQMxO<<HtOOQa<<Hy<<HyP$9lQNQO'#GxOOQkAN>[AN>[OOQkAN>qAN>qOOQj,5=i,5=iOOQj-E:{-E:{OOQk7+%q7+%qOOQi7+%|7+%|OOQi7+%{7+%{O+3uQNRO7+%}OOQi7+%}7+%}O+4VQMxO7+%}O+4[QMxO7+%}O+4dQMxO7+%}O(JTQMxO,5:}OOQi,5:},5:}OOQi7+&R7+&RO+4lQNRO7+&RO+9`QNRO,5;oO+9jQMxO,5;oO+9rQNRO1G0jOOQ`,5=j,5=jO+:PQMxO1G5TO+:_QNQO1G5TOOQ`-E:|-E:|O+<VQNRO'#JOOOQ`,5=o,5=oOOQi7+&f7+&fO+<gQNQO7+&fOOQ`-E;R-E;RO+<nQNQO,5?iO+=OQMxO,5?iOOQi7+&T7+&TOOQi7+&g7+&gO%(qQNQO,5;zO+=ZQNRO,5=pOOQi7+&h7+&hO+=eQNQO7+&hOOQ`-E;S-E;SOOQi7+&i7+&iOOQ`,5=t,5=tOOQi7+&p7+&pO+=lQNQO7+&pOOQ`-E;W-E;WOOQi'#FV'#FVO+?QQNRO,5=wOOQi-E;Z-E;ZO+BRQNRO1G1_OOQi1G1_1G1_O+ESQNRO1G1_OOQi7+%w7+%wO)6|QNQO,5:UOOQkG23bG23bP)/`QNQO'#GvOOQh-E;U-E;UO+JnQNRO,5;iO%(qQNQO7+'OO(J]QMxO,5;aO+KOQMxO'#JTOOQh,5;a,5;aO*DSQNQO,5;eOOQh'#Ez'#EzO):bQNQO'#HVO+KTQNQO1G1OOOQk<<Hx<<HxP%,aQNQO'#GwO+KiQNTOG27VOOQjG27VG27VO,!yQNTO,5>QOOQk,5>Q,5>QO,#QQNTO,5>QOOQk-E;d-E;dOOQk1G2h1G2hO,#XQNRO1G/oOOQaAN>`AN>`O,#cQNQOAN>`O,#jQNQO<<IiO,#qQMxO<<IiO)6|QNQO,5:xOOQi<<Ii<<IiO,#tQMxO<<IiOOQi<<Im<<ImO,#yQNQO1G1ZO,$WQMxO1G1ZOOQi1G1Z1G1ZO,$`QMxO7+*oP,$nQNQO'#HOOOQi<<JQ<<JQP*,bQNQO'#HTOOQ`1G5T1G5TO,$xQNQO1G5TO,%YQNRO1G1fOOQi1G1f1G1fOOQi<<JS<<JSP)6|QNQO'#HUOOQi<<J[<<J[P(NjQNQO'#HYO,%pQNRO1G/pO,'OQNRO<<JjO,'uQNQO,5?oO,(VQMxO,5?oO,(bQNRO1G1POOQh,5=q,5=qOOQh-E;T-E;TOOQaG23zG23zOOQiAN?TAN?TO,(xQNQOAN?TO,)PQNRO1G0dO,)ZQNRO,5=uOOQ`,5=u,5=uOOQi7+&u7+&uO,)eQNQO7+&uOOQ`-E;X-E;XOOQ`7+*o7+*oOOQ`1G5Z1G5ZO,)rQNQO1G5ZOOQiG24oG24oOOQi<<Ja<<JaP*+_QNQO'#HZOOQ`7+*u7+*uO,*SQNRO'#IlO,/oQNTO'#IlO,2QQNRO'#IlO,7kQNRO'#IlO,7uQNTO'#IlO,<gQNRO'#DoO,<nQNRO'#DoO,AVQNRO'#DoO,AaQNTO'#DoO,AkQNQO'#GjODbQNQO'#GjO,D|QNQO'#GjO,H_QNQO'#GjO%4kQNQO'#GjO,KpQNRO'#GWO,LdQNTO'#GWO,MsQNRO'#GWO,NgQNRO'#GWO- ZQNTO'#GWO-!QQNTO'#GWO-!}QNRO'#GWO-#hQNRO'#GWO-$XQNTO,5:`O,AkQNQO,5=YODbQNQO,5=YO,D|QNQO,5=YO!(oQNQO,5=YODbQNQO'#HdO,D|QNQO'#HdO,H_QNQO'#HdO,AkQNQO'#HdO%4kQNQO'#HdO-'xQNTO,5<gO--lQNRO,5<gO-/dQNRO,5<gO-/nQNRO,5<gO-1iQNTO,5<gODbQNQO,5<fO,D|QNQO,5<fO,AkQNQO,5<fO,AkQNQO,5=WODbQNQO,5=WO,D|QNQO,5=WO,H_QNQO,5=WO!(oQNQO,5=WO%4kQNQO,5=WO#2[QNQO,5=WO,AkQNQO,5=WODbQNQO,5=WO,D|QNQO,5=WO,H_QNQO,5=WO!(oQNQO,5=WO%4kQNQO,5=WO#2[QNQO,5=WO,AkQNQO,5=WODbQNQO,5=WO,D|QNQO,5=WO,H_QNQO,5=WO!(oQNQO,5=WO%4kQNQO,5=WO#2[QNQO,5=WO,AkQNQO,5=WODbQNQO,5=WO,D|QNQO,5=WO,H_QNQO,5=WO!(oQNQO,5=WO%4kQNQO,5=WO#2[QNQO,5=WO,AkQNQO,5=WODbQNQO,5=WO,D|QNQO,5=WO,H_QNQO,5=WO!(oQNQO,5=WO%4kQNQO,5=WO#2[QNQO,5=WO,AkQNQO,5=WODbQNQO,5=WO,D|QNQO,5=WO,H_QNQO,5=WO!(oQNQO,5=WO%4kQNQO,5=WO#2[QNQO,5=WO,AkQNQO,5=WODbQNQO,5=WO,D|QNQO,5=WO,H_QNQO,5=WO!(oQNQO,5=WO%4kQNQO,5=WO#2[QNQO,5=WO,AkQNQO,5=WODbQNQO,5=WO,D|QNQO,5=WO,H_QNQO,5=WO!(oQNQO,5=WO%4kQNQO,5=WO#2[QNQO,5=WO,AkQNQO,5=WODbQNQO,5=WO,D|QNQO,5=WO,H_QNQO,5=WO!(oQNQO,5=WO%4kQNQO,5=WO#2[QNQO,5=WO,AkQNQO,5=WODbQNQO,5=WO,D|QNQO,5=WO,H_QNQO,5=WO!(oQNQO,5=WO%4kQNQO,5=WO#2[QNQO,5=WO,AkQNQO,5=WODbQNQO,5=WO,D|QNQO,5=WO,H_QNQO,5=WO!(oQNQO,5=WO%4kQNQO,5=WO#2[QNQO,5=WO-1pQNRO'#F{O-1zQNRO'#F{O-2UQNRO'#F{O-2`QMxO'#FzO-2hQMxO'#FzO-2pQMxO'#FzO-2xQNTO,5<hO-8sQNRO,5<hO-<TQNTO,5<hO-?nQNTO,5<hO-ElQNRO,5<hO-IPQNTO,5<hO-LmQNTO,5<jO.$hQNRO,5<jO.'xQNTO,5<jO.+cQNTO,5<jO.1aQNRO,5<jO.4tQNTO,5<jO.8bQNRO,5<rO.8{QNTO,5<rO.=jQNRO,5<rO.?hQNRO,5<rO.@OQNTO,5<rO.@iQMyO1G/QO.@pQNTO1G/QO.AQQMyO1G/TO.AXQNTO1G/TO.AiQNTO1G/zO.EYQNRO1G2tO.EsQNTO1G2tO.ITQNRO1G2tO.IqQNTO1G2tO.NSQNTO,5>OO/$hQNRO,5>OO/&fQNRO,5>OO/'PQNTO,5>OO/(qQNTO,5>OO/*lQNRO,5>OO/+YQNTO1G2QO//`QNRO1G2QO/0PQNTO1G2QO/1xQNRO1G2QO/2fQNTO1G2QO/8]QNRO1G2QO/8jQNRO1G2QO/:hQNRO1G2rO/:oQNTO1G2rO/:vQNRO1G2rO/<qQNRO1G2rO/@yQNTO1G2rO/BtQNTO1G2rO/D]QNRO1G2rO/DdQNRO1G2rO/IkQNTO1G2rO/IrQNRO1G2rO/JcQNRO1G2rO/N}QNTO1G2rO0 UQNTO1G2rO0#SQNRO1G2rO0$}QNRO1G2rO0%UQNTO1G2rO0)gQNRO1G2rO0)nQNRO1G2rO0)uQNTO1G2rO0)|QNTO1G2rO0*TQNRO1G2rO0*[QNRO1G2rO0*cQNTO1G2rO0,}QNRO1G2rO0.lQNRO1G2rO02tQNTO1G2rO04oQNTO1G2rO06ZQNRO1G2rO06hQNRO1G2rO07RQNTO1G2rO07YQNRO1G2rO07vQNRO1G2rO08^QNTO1G2rO08eQNTO1G2rO09OQNRO1G2rO0:vQNRO1G2rO0?hQNTO1G2rO0AfQNRO1G2rO0C^QNRO1G2rO0GfQNTO1G2rO0IaQNTO1G2rO0JxQNRO1G2rO0KSQNRO1G2rO0K^QNTO1G2rO0KhQNRO1G2rO0KrQNRO1G2rO0K|QNTO1G2rO0LWQNTO1G2rO0LbQNRO1G2rO0N`QNRO1G2rO1%QQNTO1G2rO1'OQNRO1G2rO1(vQNRO1G2rO1-OQNTO1G2rO1.yQNTO1G2rO10bQNRO1G2rO10iQNRO1G2rO10pQNTO1G2rO10wQNRO1G2rO11OQNRO1G2rO11VQNTO1G2rO11^QNTO1G2rO11eQNRO1G2rO13VQNRO1G2rO13gQNTO1G2rO16UQNRO1G2rO16iQNRO1G2rO16yQNTO1G2rO17ZQNTO1G2rO18rQNRO1G2rO!5ZQNQO,59iO!5ZQNQO,59iO,H_QNQO,59_O19SQMyO'#C}O19[QMyO'#C}O19dQNRO'#IlO1;{QNRO'#IlO1AiQNRO'#IlO1AsQNRO'#IlO1AyQNRO'#IlO1BTQNRO'#DoO1FuQNRO'#DoO1GPQNRO'#DoO1GlQNRO'#DoO'9yQNQO'#FZO1LOQNQO'#FZO*DSQNQO'#FZO)/`QNQO'#FZO)6|QNQO'#FZO(NjQNQO'#FZO)3cQNQO'#FZO,AkQNQO,5=ZODbQNQO,5=ZO,D|QNQO,5=ZO!(oQNQO,5=ZO,AkQNQO7+(_ODbQNQO7+(_O,D|QNQO7+(_O,H_QNQO7+(_O!(oQNQO7+(_O%4kQNQO7+(_O#2[QNQO7+(_O)AZQM|O1G/mO2 dQNRO1G.yO'9yQNQO,5;yO1LOQNQO,5;yO)/`QNQO,5;yO(NjQNQO,5;yO'9yQNQO,5;wO1LOQNQO,5;wO*DSQNQO,5;wO)/`QNQO,5;wO)6|QNQO,5;wO(NjQNQO,5;wO)3cQNQO,5;wO'9yQNQO,5;wO1LOQNQO,5;wO*DSQNQO,5;wO)/`QNQO,5;wO)6|QNQO,5;wO(NjQNQO,5;wO)3cQNQO,5;wO'9yQNQO,5;wO1LOQNQO,5;wO*DSQNQO,5;wO)/`QNQO,5;wO)6|QNQO,5;wO(NjQNQO,5;wO)3cQNQO,5;wO'9yQNQO,5;wO1LOQNQO,5;wO*DSQNQO,5;wO)/`QNQO,5;wO)6|QNQO,5;wO(NjQNQO,5;wO)3cQNQO,5;wO'9yQNQO,5;wO1LOQNQO,5;wO*DSQNQO,5;wO)/`QNQO,5;wO)6|QNQO,5;wO(NjQNQO,5;wO)3cQNQO,5;wO'9yQNQO,5;wO1LOQNQO,5;wO*DSQNQO,5;wO)/`QNQO,5;wO)6|QNQO,5;wO(NjQNQO,5;wO)3cQNQO,5;wO'9yQNQO,5;wO1LOQNQO,5;wO*DSQNQO,5;wO)/`QNQO,5;wO)6|QNQO,5;wO(NjQNQO,5;wO)3cQNQO,5;wO'9yQNQO,5;wO1LOQNQO,5;wO*DSQNQO,5;wO)/`QNQO,5;wO)6|QNQO,5;wO(NjQNQO,5;wO)3cQNQO,5;wO'9yQNQO,5;wO1LOQNQO,5;wO*DSQNQO,5;wO)/`QNQO,5;wO)6|QNQO,5;wO(NjQNQO,5;wO)3cQNQO,5;wO'9yQNQO,5;wO1LOQNQO,5;wO*DSQNQO,5;wO)/`QNQO,5;wO)6|QNQO,5;wO(NjQNQO,5;wO)3cQNQO,5;wO'9yQNQO,5;wO1LOQNQO,5;wO*DSQNQO,5;wO)/`QNQO,5;wO)6|QNQO,5;wO(NjQNQO,5;wO)3cQNQO,5;wO2 zQNRO1G2uO2%pQNTO1G2uO2'YQNRO1G2uO2'yQNTO1G2uO2)}QNRO<<KyO2*tQNTO<<KyO2-xQNRO<<KyO2/pQNRO<<KyO23oQNTO<<KyO25jQNTO<<KyO27wQNRO<<KyO28UQNRO1G1eO2<jQNRO1G1eO2=TQNRO1G1eO2?RQNRO1G1eO2ApQNRO1G1cO2AwQNRO1G1cO2CxQNRO1G1cO2EsQNRO1G1cO2GhQNRO1G1cO2KjQNRO1G1cO2MRQNRO1G1cO2MYQNRO1G1cO3$QQNRO1G1cO3%xQNRO1G1cO3'sQNRO1G1cO3)hQNRO1G1cO3-jQNRO1G1cO3/RQNRO1G1cO3/YQNRO1G1cO31zQNRO1G1cO32[QNRO1G1cO32cQNRO1G1cO32jQNRO1G1cO32qQNRO1G1cO32xQNRO1G1cO33PQNRO1G1cO35qQNRO1G1cO37iQNRO1G1cO39dQNRO1G1cO3;XQNRO1G1cO3?ZQNRO1G1cO3@uQNRO1G1cO3ASQNRO1G1cO3DTQNRO1G1cO3D[QNRO1G1cO3DcQNRO1G1cO3DjQNRO1G1cO3DqQNRO1G1cO3DxQNRO1G1cO3ITQNRO1G1cO3KRQNRO1G1cO3LyQNRO1G1cO3NtQNRO1G1cO4!iQNRO1G1cO4&kQNRO1G1cO4(SQNRO1G1cO4(^QNRO1G1cO4(hQNRO1G1cO4(rQNRO1G1cO4(|QNRO1G1cO4)WQNRO1G1cO4)bQNRO1G1cO4)lQNRO1G1cO4-}QNRO1G1cO4/{QNRO1G1cO41sQNRO1G1cO43nQNRO1G1cO45cQNRO1G1cO49eQNRO1G1cO4:|QNRO1G1cO4;TQNRO1G1cO4;[QNRO1G1cO4;cQNRO1G1cO4;jQNRO1G1cO4;qQNRO1G1cO4;xQNRO1G1cO4<PQNRO1G1cO4<WQNRO1G1cO4>{QNRO1G1cO4?`QNRO1G1cO4?pQNRO1G1cO4@QQNRO1G1cO4@bQNRO1G1cO4AyQNRO1G1cO'9yQNQO,5;zO1LOQNQO,5;zO)/`QNQO,5;zO(NjQNQO,5;zO'9yQNQO7+'OO1LOQNQO7+'OO*DSQNQO7+'OO)/`QNQO7+'OO)6|QNQO7+'OO(NjQNQO7+'OO)3cQNQO7+'OO4BZQNRO1G1fO4E[QNRO1G1fO4GSQNRO1G1fO4GpQNRO1G1fO4J_QNRO<<JjO4MiQNRO<<JjO5 aQNRO<<JjO5#eQNRO<<JjO5$|QNRO<<JjO5&zQNRO<<JjO5+VQNRO<<JjO5+dQNQO'#DtO5+kQMxO'#GnO5+pQMxO'#GnO5+uQMxO'#GnO5+zQMxO'#GnO!$}QNQO'#FxO!$}QNQO'#FxO!$}QNQO'#FxO!,QQNQO'#F|O!,QQNQO'#F|O!,QQNQO'#F|O5,PQNQO'#F|O5/bQNQO'#F|O52sQNQO'#F|O5,PQNQO'#F|O5,PQNQO'#F|O5/bQNQO'#F|O52sQNQO'#F|O!/cQNQO'#GOO!/cQNQO'#GOO!/cQNQO'#GOO56UQNQO'#GOO59gQNQO'#GOO5<xQNQO'#GOO56UQNQO'#GOO56UQNQO'#GOO59gQNQO'#GOO5<xQNQO'#GOO!5ZQNQO,59fO!5ZQNQO,59fO5@ZQMxO,5:`O5@cQNTO'#EoO5@vQNRO'#EoO5AQQNTO'#EoO5AbQNTO'#EoO5EkQNQO,5=YO!$}QNQO'#HdO5H|QNTO,5<gO!$}QNQO,5<fO5EkQNQO,5=WO5EkQNQO,5=WO5EkQNQO,5=WO5EkQNQO,5=WO5EkQNQO,5=WO5EkQNQO,5=WO5EkQNQO,5=WO5EkQNQO,5=WO5EkQNQO,5=WO5EkQNQO,5=WO5EkQNQO,5=WO5ImQMxO'#FzO5IuQMyO'#DoO$?oQ!LjO'#CsO5JVQMyO'#CzO5J_QMyO'#CzO'N^QNQO,59aO5KzQNRO1G2tO5L[QNTO1G2QO5NTQNRO1G2rO6![QNRO1G2rO6!cQNRO1G2rO6!|QNRO1G2rO6#gQNRO1G2rO6%XQNRO1G2rO6%cQNRO1G2rO6'ZQNRO1G2rO6'bQNRO1G2rO6'iQNRO1G2sO6'pQNRO1G2sO6'wQNRO1G2sO6(OQNRO1G2sO6(VQNRO1G2sO6(^QNRO1G2sO6(eQNRO1G2sO6(lQNRO1G2rO6)YQMxO,5:RO6*lQNRO'#IVO6+PQNRO'#EoO6+dQNRO'#EoO6-zQNRO'#EoO60hQNRO'#EoO62yQMxO'#F_O63OQMxO'#F_O63TQMxO'#F_O63YQMxO'#F_O5EkQNQO,5=ZO5EkQNQO7+(_O63_QNRO1G2uO63oQNRO<<KyO64lQNQO,5;OO68QQNQO'#E}O6;fQNRO1G1dO6;mQNRO1G1dO6;tQNRO1G1dO6;{QNRO1G1dO6<SQNRO1G1dO6<ZQNRO1G1dO6<bQNRO1G1dO6<iQNRO'#JOO!(oQNQO'#GjO#-XQNQO'#GjO6<|QNQO'#GjO'IZQNQO'#GjO#2[QNQO'#GjO'N^QNQO'#GjO#-XQNQO,5=YO6<|QNQO,5=YO#-XQNQO,5=WO6<|QNQO,5=WO'IZQNQO,5=WO'N^QNQO,5=WO#-XQNQO,5=WO6<|QNQO,5=WO'IZQNQO,5=WO'N^QNQO,5=WO#-XQNQO,5=WO6<|QNQO,5=WO'IZQNQO,5=WO'N^QNQO,5=WO#-XQNQO,5=WO6<|QNQO,5=WO'IZQNQO,5=WO'N^QNQO,5=WO#-XQNQO,5=WO6<|QNQO,5=WO'IZQNQO,5=WO'N^QNQO,5=WO#-XQNQO,5=WO6<|QNQO,5=WO'IZQNQO,5=WO'N^QNQO,5=WO#-XQNQO,5=WO6<|QNQO,5=WO'IZQNQO,5=WO'N^QNQO,5=WO#-XQNQO,5=WO6<|QNQO,5=WO'IZQNQO,5=WO'N^QNQO,5=WO#-XQNQO,5=WO6<|QNQO,5=WO'IZQNQO,5=WO'N^QNQO,5=WO#-XQNQO,5=WO6<|QNQO,5=WO'IZQNQO,5=WO'N^QNQO,5=WO#-XQNQO,5=WO6<|QNQO,5=WO'IZQNQO,5=WO'N^QNQO,5=WO6ArQNRO1G2tO6EqQNRO1G2tO6JPQNRO1G2rO6KzQNRO1G2rO6MoQNRO1G2rO7 ZQNRO1G2rO7%YQNRO1G2rO7'TQNRO1G2rO7(xQNRO1G2rO7*dQNRO1G2rO7*kQNRO1G2rO7*rQNRO1G2rO7*yQNRO1G2rO7+QQNRO1G2rO7.vQNRO1G2rO70qQNRO1G2rO72fQNRO1G2rO74QQNRO1G2rO74bQNRO1G2rO74iQNRO1G2rO74pQNRO1G2rO74wQNRO1G2rO78sQNRO1G2rO7:nQNRO1G2rO7<cQNRO1G2rO7=}QNRO1G2rO7>XQNRO1G2rO7>cQNRO1G2rO7>mQNRO1G2rO7>wQNRO1G2rO7ByQNRO1G2rO7DtQNRO1G2rO7FiQNRO1G2rO7HTQNRO1G2rO7H[QNRO1G2rO7HcQNRO1G2rO7HjQNRO1G2rO7HqQNRO1G2rO7HxQNRO1G2rO7IYQNRO1G2rO7IjQNRO1G2rO7IzQNRO1G2rO7J[QNQO'#FZO68QQNQO'#FZO7MpQNQO'#FZO64lQNQO'#FZO#-XQNQO,5=ZO6<|QNQO,5=ZO#-XQNQO7+(_O6<|QNQO7+(_O'IZQNQO7+(_O'N^QNQO7+(_O7J[QNQO,5;yO7MpQNQO,5;yO7J[QNQO,5;wO68QQNQO,5;wO7MpQNQO,5;wO64lQNQO,5;wO7J[QNQO,5;wO68QQNQO,5;wO7MpQNQO,5;wO64lQNQO,5;wO7J[QNQO,5;wO68QQNQO,5;wO7MpQNQO,5;wO64lQNQO,5;wO7J[QNQO,5;wO68QQNQO,5;wO7MpQNQO,5;wO64lQNQO,5;wO7J[QNQO,5;wO68QQNQO,5;wO7MpQNQO,5;wO64lQNQO,5;wO7J[QNQO,5;wO68QQNQO,5;wO7MpQNQO,5;wO64lQNQO,5;wO7J[QNQO,5;wO68QQNQO,5;wO7MpQNQO,5;wO64lQNQO,5;wO7J[QNQO,5;wO68QQNQO,5;wO7MpQNQO,5;wO64lQNQO,5;wO7J[QNQO,5;wO68QQNQO,5;wO7MpQNQO,5;wO64lQNQO,5;wO7J[QNQO,5;wO68QQNQO,5;wO7MpQNQO,5;wO64lQNQO,5;wO7J[QNQO,5;wO68QQNQO,5;wO7MpQNQO,5;wO64lQNQO,5;wO8#UQNRO1G2uO8%pQNRO1G2uO8&WQNRO<<KyO8'QQNRO<<KyO8'}QNRO<<KyO8*OQNRO<<KyO8+sQNRO1G1eO8,ZQNRO1G1eO8.bQNRO1G1cO80VQNRO1G1cO80^QNRO1G1cO82[QNRO1G1cO84VQNRO1G1cO85zQNRO1G1cO87oQNRO1G1cO89ZQNRO1G1cO89bQNRO1G1cO89iQNRO1G1cO89pQNRO1G1cO8:ZQNRO1G1cO8;{QNRO1G1cO8=pQNRO1G1cO8>QQNRO1G1cO8?uQNRO1G1cO8@VQNRO1G1cO8@^QNRO1G1cO8@eQNRO1G1cO8@lQNRO1G1cO8BdQNRO1G1cO8DXQNRO1G1cO8E|QNRO1G1cO8GhQNRO1G1cO8GrQNRO1G1cO8G|QNRO1G1cO8HWQNRO1G1cO8HbQNRO1G1cO8J`QNRO1G1cO8LTQNRO1G1cO8MxQNRO1G1cO9 dQNRO1G1cO9 kQNRO1G1cO9 rQNRO1G1cO9 yQNRO1G1cO9!QQNRO1G1cO9!XQNRO1G1cO9!iQNRO1G1cO9!yQNRO1G1cO9#gQNRO1G1cO7J[QNQO,5;zO7MpQNQO,5;zO7J[QNQO7+'OO68QQNQO7+'OO7MpQNQO7+'OO64lQNQO7+'OO9#wQNRO1G1fO9%iQNRO1G1fO9&SQNRO<<JjO9&|QNRO<<JjO9'sQNRO<<JjO9)hQNRO<<JjO9)xQMyO'#DoO9*ZQMyO'#DoO5EkQNQO'#GjO9*kQMxO'#GnO#2[QNQO,5=XO#2[QNQO,5=XO#2[QNQO,5=XO#2[QNQO,5=XO#2[QNQO,5=XO#2[QNQO,5=XO#2[QNQO,5=XO9*pQNRO1G2sO9*wQNRO1G.{O9+RQNQO'#JUO)3cQNQO,5;xO)3cQNQO,5;xO)3cQNQO,5;xO)3cQNQO,5;xO)3cQNQO,5;xO)3cQNQO,5;xO)3cQNQO,5;xO9+dQNQO,5?pO9+uQNRO1G0jO9,nQNRO,5;iO9-zQMxO'#GnO9.PQMxO'#GnO9.UQNRO'#EoO92UQNRO'#EoO94QQNRO'#EoO95vQNRO1G2sO95}QNRO1G2sO96UQNRO1G2sO96]QNRO1G2sO96dQNRO'#EoO96nQNRO'#EoO98}QMxO'#F_O99SQMxO'#F_O99XQNRO1G1dO99`QNRO1G1dO99gQNRO1G1dO99nQNRO1G1dO#2[QNQO,5=XO#2[QNQO,5=XO#2[QNQO,5=XO#2[QNQO,5=XO#2[QNQO,5=XO)3cQNQO,5;xO)3cQNQO,5;xO)3cQNQO,5;xO)3cQNQO,5;x",
   stateData: "99w~O&qOSROSQOS~OPcOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$qwO$sxO$u!]O$wyO$yzO${{O$}|O%O|O%W}O&hPO&tPO&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_ZO'aWO'bXO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O&^&rP~P]O&^&rXY&rX[&rX]&rXa&rXd&rX~P]O!d!cX!e!cX!f!cX!g!cX&^!cX&a!cX&b!cX&c!cX&f!cX&h!cX&t!cX&z!cX&{!cX&|!cX&}!cX'P!cX'Q!cX'R!cX'W!cX'^!cX'a!cX'b!cX'c!cX'd!cX'e!cX'f!cX'{!cX'|!cX'}!cX(O!cX(T!cXf!cX']!cXP!cXV!cX_!cXu!cXx!cXz!cX}!cX!O!cX!R!cX!U!cX!X!cX!n!cX#Y!cX#Z!cX#x!cX$f!cX$i!cX$m!cX$q!cX$s!cX$u!cX$w!cX$y!cX${!cX$}!cX%O!cX%W!cX&w!cX'S!cX'X!cX'_!cX'n!cX's!cX'u!cX'v!cXY!cX[!cX]!cXa!cXd!cX(P!cX'Z!cX!w!cX~O&_!dO&g!dO~P%cO&_!eO&g!eO~P%cO!d&uX!e&uX!f&uX!g&uX&^&uX&c&uX&h&uX&t&uX&z&uX&{&uX'P&uX'Q&uX'R&uX'W&uX'^&uX'a&uX'b&uX'c&uX'd&uX'e&uX'f&uX'{&uX'|&uX'}&uX(O&uX(T&uXf&uX']&uXP&uXV&uX_&uXu&uXx&uXz&uX}&uX!O&uX!R&uX!U&uX!X&uX!n&uX#Y&uX#Z&uX#x&uX$f&uX$i&uX$m&uX$q&uX$s&uX$u&uX$w&uX$y&uX${&uX$}&uX%O&uX%W&uX&w&uX'S&uX'X&uX'_&uX'n&uX's&uX'u&uX'v&uXY&uX[&uX]&uXa&uXd&uX(P&uX'Z&uX~O&_!iO&a!lO&b!kO&f!hO&g!iO&|!fO&}!gO~P*wO&g!nO~OP%_XV%_X_%_Xf%_Xu%_Xx%_Xz%_X}%_X!O%_X!R%_X!U%_X!X%_X!d%_X!d'`X!e%_X!e'`X!f%_X!f'`X!g%_X!g'`X!n%_X#Y%_X#Z%_X#x%_X$f%_X$i%_X$m%_X$q%_X$s%_X$u%_X$w%_X$y%_X${%_X$}%_X%O%_X%W%_X&^'`X&_'`X&a'`X&b'`X&c'`X&f'`X&g'`X&h'`X&t'`X&w%_X&z%_X&z'`X&{%_X&{'`X&|'`X&}'`X'P%_X'P'`X'Q%_X'Q'`X'R%_X'R'`X'S%_X'W'`X'^%_X'^'`X'_%_X'a%_X'a'`X'b%_X'b'`X'c%_X'c'`X'd%_X'd'`X'e%_X'e'`X'f%_X'f'`X'n%_X's%_X'u%_X'v%_X'{'`X'|'`X'}'`X(O'`X(T'`XY'`X['`X]'`Xa'`Xd'`X']'`X(P'`X'Z'`X'X'`X~OP%_XV%_X_%_Xf%_Xu%_Xx%_Xz%_X}%_X!O%_X!R%_X!U%_X!X%_X!d!cX!e!cX!f!cX!g!cX!n%_X#Y%_X#Z%_X#x%_X$f%_X$i%_X$m%_X$q%_X$s%_X$u%_X$w%_X$y%_X${%_X$}%_X%O%_X%W%_X&_!cX&a!cX&b!cX&c!cX&f!cX&g!cX&h!cX&t!cX&w%_X&|!cX&}!cX'P!cX'Q!cX'R!cX'S%_X'W!cX'^!cX'_%_X'a!cX'b!cX'c!cX'd!cX'e!cX'f!cX'n%_X's%_X'u%_X'v%_X'{!cX'|!cX'}!cX(O!cX(T!cX']!cX(P!cX'Z!cX'X!cX~O&^!cX&z!cX&{!cXY!cX[!cX]!cXa!cXd!cX~P6YOP!wOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$m<hO$q<kO$s<uO$u!]O$wyO$yzO${2wO$}|O%O|O%W}O&t!rO&w[O&zYO&{YO&|!fO&}!gO'PSO'QVO'RTO'SeO'^YO'_2nO'aWO'b2iO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O']!uO~P;aO!duO!euO!fYO!gYO&zYO&{YO'PYO'RYO'^YO'_YO'aWO'bWO'cYO'dYO'eYO'fYO~O&i!|O'Q!{O~P?SO&k#PO'P#OO's#RO~O&j#TO'P#OO'u#VO~O&l#WO'P#OO'v#YO~O&f#ZO&d#cX&e#cX~O(Q#[O!d'OX!e'OX!f'OX!g'OX&^'OX&_'OX&a'OX&b'OX&c'OX&d#cX&e#cX&f'OX&g'OX&h'OX&t'OX&z'OX&{'OX&|'OX&}'OX'P'OX'Q'OX'R'OX'W'OX'^'OX'a'OX'b'OX'c'OX'd'OX'e'OX'f'OX'{'OX'|'OX'}'OX(O'OX(T'OXY'OX['OX]'OXa'OXd'OX~O&_#]O~PA`O&d#^O&e#_O~OP=SOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$m<iO$q<lO$s<vO$u!]O$wyO$yzO${2xO$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_YO'aWO'b2jO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O'X#`O~PDbO!d'OX!e'OX!f'OX!g'OX&^'OX&a'OX&b'OX&c'OX&f'OX&h'OX&t'OX&z'OX&{'OX&|'OX&}'OX'P'OX'Q'OX'R'OX'W'OX'^'OX'a'OX'b'OX'c'OX'd'OX'e'OX'f'OX'{'OX'|'OX'}'OX(O'OX(T'OXf'OX']'OXP'OXV'OX_'OXu'OXx'OXz'OX}'OX!O'OX!R'OX!U'OX!X'OX!n'OX#Y'OX#Z'OX#x'OX$f'OX$i'OX$m'OX$q'OX$s'OX$u'OX$w'OX$y'OX${'OX$}'OX%O'OX%W'OX&w'OX'S'OX'X'OX'_'OX'n'OX's'OX'u'OX'v'OXY'OX['OX]'OXa'OXd'OX(P'OX'Z'OX~O&_#dO&g#dO~PGzO!duO!euO!f#oO!g#pO&c#tO&hPO&tPO&z#hO&{#hO'P#mO'QVO'R#vO'W#fO'^#jO'aWO'bWO'c#lO'd#iO'e#oO'f#nO'{#kO'|#qO'}#rO(O#sO(T#uO~O&^&rXY&rX[&rX]&rXa&rXd&rX~PMRO&hPO&tPO&^&rXY&rX[&rX]&rXa&rXd&rX~O&z#hO&{#hO~P! YO&_#|O&a#}O&f#yO&^%YX&c%YX&h%YX&t%YX'W%YX'{%YX'|%YX'}%YX(O%YX(T%YX']%YX'X%YXY%YX[%YX]%YXa%YXd%YX(P%YX'Z%YX~PDbO&_#|O&a#}O&^%YX&c%YX&h%YX&t%YX'W%YX'{%YX'|%YX'}%YX(O%YX(T%YX']%YX'X%YXY%YX[%YX]%YXa%YXd%YX(P%YX'Z%YX~PDbOP=UOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$qwO$sxO$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_ZO'aWO'bXO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O(Q#[O~O&_#dO&g#dO~P*wOP=VOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$m<iO$q<rO$s<|O$u!]O$wyO$yzO${2{O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_YO'aWO'b2jO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OP$VOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$qwO$sxO$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_ZO'aWO'bXO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OP$ZOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$qwO$sxO$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_ZO'aWO'bXO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O&^$zX&c$zX&h$zX&t$zX'W$zX'{$zX'|$zX'}$zX(O$zX(T$zXY$zX[$zX]$zXa$zXd$zX']$zX(P$zX'X$zX'Z$zX~P!$}OP$bO'Q$aO~OP$eO'n^O~OY&rP[&rP]&rP~P]O]&rPa&rPd&rP~P]Ov$hO~Ov$iO~OP$kOxfO!duO!euO!fYO!gYO#YfO#ZfO&w$lO&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_YO'aWO'bWO'cYO'dYO'eYO'fYO's_O'u`O'vaO~O!O$nO~OP$oO~OP$qO~OP$vO!duO!euO!fYO!gYO&w$uO&zYO&{YO'QVO'^YO'_YO'aWO'bWO'cYO'dYO'eYO'fYO~O'PCUO'R$sO~P!7^OxfO!duO!euO!fYO!gYO#YfO#ZfO&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_YO'aWO'bWO'cYO'dYO'eYO'fYO's_O'u`O'vaO~OP${O&w<cO~P!8oOP%PO&w%OO~OP%UO&hPO&tPO'P%TO~OPcOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$qwO$sxO$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_ZO'aWO'bXO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO&^&raY&ra[&ra]&raa&rad&ra~O&h%hc&t%hc~P!:}O&^&]a&^&raY&]aY&ra[&]a[&ra]&]a]&raa&]aa&rad&]ad&ra~PMRO&hPO&tPO&^&]a&^&raY&]aY&ra[&]a[&ra]&]a]&raa&]aa&rad&]ad&ra~O&z#hO&{#hO~P!?vO&hPO&tPO&^&raY&ra[&ra]&raa&rad&ra~O&i%dO~P!5ZO'Q%fO~O&w%gO~O&_%jO&g%jO~O'S%kO~O'Y%lO~O'a%pO'b%pO~O!duO!euO!f4_O!g4fO&c#tO'P4PO'QVO'R4{O'^3jO'aWO'bWO'c3xO'd3cO'e4_O'f4WO'{3qO'|4mO'}4tO(OCYO(T#uO~Of%tO&z%qO&{%qO&t&yX'W&yX']&yX~P!BgO']%uO&t'hX']'hX~O&t%xO'W%vO']%zO&t'hX']'hX~OP!wOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$m<hO$q<kO$s<uO$u!]O$wyO$yzO${2wO$}|O%O|O%W}O&w[O&zYO&{YO&|!fO&}!gO'PSO'QVO'RTO'SeO'^YO'_2nO'aWO'b2iO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O&t!lX']!lX~P!D{O&t!rO']&PO~O&_ha&aha&bha&fha&gha&|ha&}ha~O!dha!eha!fha!gha&^ha&cha&hha&tha&zha&{ha'Pha'Qha'Rha'Wha'^ha'aha'bha'cha'dha'eha'fha'{ha'|ha'}ha(Oha(Q!ha(Thafha']haPhaVha_hauhaxhazha}ha!Oha!Rha!Uha!Xha!nha#Yha#Zha#xha$fha$iha$mha$qha$sha$uha$wha$yha${ha$}ha%Oha%Wha&wha'Sha'Xha'_ha'nha'sha'uha'vhaYha[ha]haahadha(Pha'Zha~P!HvO&t!rO']&RO~Of'OX!d'OX!e'OX!f'OX!g'OX&_'OX&a'OX&b'OX&c'OX&d#cX&e#cX&f'OX&g'OX&t'OX&z'OX&{'OX&|'OX&}'OX'P'OX'Q'OX'R'OX'W'OX']'OX'^'OX'a'OX'b'OX'c'OX'd'OX'e'OX'f'OX'{'OX'|'OX'}'OX(O'OX(T'OX'X'OX~O(Q3QO~P!NYO&t!rO']&TO~O&g!nOP!|XV!|X_!|Xf!|Xu!|Xx!|Xz!|X}!|X!O!|X!R!|X!U!|X!X!|X!d!|X!e!|X!f!|X!g!|X!n!|X#Y!|X#Z!|X#x!|X$f!|X$i!|X$m!|X$q!|X$s!|X$u!|X$w!|X$y!|X${!|X$}!|X%O!|X%W!|X&^!|X&_!|X&a!|X&c!|X&f!|X&h!|X&t!|X&w!|X&z!|X&{!|X'P!|X'Q!|X'R!|X'S!|X'W!|X'^!|X'_!|X'a!|X'b!|X'c!|X'd!|X'e!|X'f!|X'n!|X's!|X'u!|X'v!|X'{!|X'|!|X'}!|X(O!|X(T!|X']!|X'X!|XY!|X[!|X]!|Xa!|Xd!|X(P!|X'Z!|X%S!|X~O&k#PO'P#OO's&WO~OP&XO&_&YO~O&j#TO'P#OO'u&[O~O&l#WO'P#OO'v&^O~O'Q&_O~O's&cO'u&dO~O'v&fO~O!duO!euO&c#tO'QVO'aWO'bWO(T#uOP&SXV&SX_&SXu&SXx&SXz&SX}&SX!O&SX!R&SX!U&SX!X&SX!n&SX#Y&SX#Z&SX#x&SX$f&SX$i&SX$m&SX$q&SX$s&SX$u&SX$w&SX$y&SX${&SX$}&SX%O&SX%W&SX&t&SX&w&SX&z&SX&{&SX'S&SX'_&SX'n&SX's&SX'u&SX'v&SX~Of%tO!f4`O!g4gO'P4QO'R4|O'W&gO'X&iO'^3kO'c3yO'd3dO'e4`O'f4XO'{3rO'|4nO'}4uO(OCZO~P#)VOPCpOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$m<iO$q<rO$s<|O$u!]O$wyO$yzO${2xO$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_YO'aWO'b2jO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O&t$`X'X$`X~P#-XO&t&mO'X&oO~OP&pO&w&qO'P%TO~O&hPO&tPO~P!:}O&^$oa&h$oa&t$oa&z$oa&{$oaY$oa[$oa]$oaa$oad$oa~O'W#fO~P#1cOPCrOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$q<tO$s=OO$u!]O$wyO$yzO${2}O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_2qO'aWO'b2mO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O(R'UO~O&z3`O&{3`OP&[XV&[X_&[Xf&[Xu&[Xx&[Xz&[X}&[X!O&[X!R&[X!U&[X!X&[X!n&[X#Y&[X#Z&[X#x&[X$f&[X$i&[X$m&[X$q&[X$s&[X$u&[X$w&[X$y&[X${&[X$}&[X%O&[X%W&[X&^&[X&h&[X&t&[X&w&[X'S&[X'_&[X'n&[X's&[X'u&[X'v&[X']&[X'X&[XY&[X[&[X]&[Xa&[Xd&[X(P&[X'Z&[X~O!duO!euO!f4`O!g4gO&c#tO'P4QO'QVO'R4|O'W3UO'^3kO'aWO'bWO'c3yO'd3dO'e4`O'f4XO'{3rO'|4nO'}4uO(OCZO(T#uO~P#5rO!d&[X!e&[X!f&[X!g&[X&c&[X'P&[X'Q&[X'R&[X'W&[X'^&[X'a&[X'b&[X'c&[X'd&[X'e&[X'f&[X'{&[X'|&[X'}&[X(O&[X(T&[X~P#5rO'Q'WO~O&^%]X&c%]X&h%]X&t%]X'W%]X'{%]X'|%]X'}%]X(O%]X(T%]X']%]X'X%]XY%]X[%]X]%]Xa%]Xd%]X(P%]X'Z%]X~PDbO(T#uO!d%^a!e%^a!f%^a!g%^a&^%^a&c%^a&h%^a&t%^a&z%^a&{%^a'P%^a'Q%^a'R%^a'W%^a'^%^a'a%^a'b%^a'c%^a'd%^a'e%^a'f%^a'{%^a'|%^a'}%^a(O%^af%^a']%^aP%^aV%^a_%^au%^ax%^az%^a}%^a!O%^a!R%^a!U%^a!X%^a!n%^a#Y%^a#Z%^a#x%^a$f%^a$i%^a$m%^a$q%^a$s%^a$u%^a$w%^a$y%^a${%^a$}%^a%O%^a%W%^a&w%^a'S%^a'X%^a'_%^a'n%^a's%^a'u%^a'v%^aY%^a[%^a]%^aa%^ad%^a(P%^a'Z%^a~O!duO!euO!f4cO!g4jO&c#tO'P4TO'QVO'R5PO'^3nO'aWO'bWO'c3|O'd3gO'e4cO'f4[O'{3uO'|4qO'}4xO(OC^O(T#uO~OPUaVUaYUa[Ua]Ua_UafUauUaxUazUa}Ua!OUa!RUa!UUa!XUa!nUa#YUa#ZUa#xUa$fUa$iUa$mUa$qUa$sUa$uUa$wUa$yUa${Ua$}Ua%OUa%WUa&hUa&tUa&wUa&zUa&{Ua'SUa'_Ua'nUa'sUa'uUa'vUa~P#A{O!duO!euO!f#oO!g#pO&c#tO'P#mO'QVO'R#vO'W#fO'^#jO'aWO'bWO'c#lO'd#iO'e#oO'f#nO'{#kO'|#qO'}#rO(O#sO(T#uO~O&z=ZO&{=ZO~P#FTO&z=ZO&{=ZO~O!d$pa!d'OX!e$pa!e'OX!f$pa!f'OX!g$pa!g'OX&^$pa&_'OX&a'OX&b'OX&c$pa&c'OX&f'OX&g'OX&h$pa&t$pa&z$pa&z'OX&{$pa&{'OX&|'OX&}'OX'P$pa'P'OX'Q$pa'Q'OX'R$pa'R'OX'W$pa'W'OX'^$pa'^'OX'a$pa'a'OX'b$pa'b'OX'c$pa'c'OX'd$pa'd'OX'e$pa'e'OX'f$pa'f'OX'{$pa'{'OX'|$pa'|'OX'}$pa'}'OX(O$pa(O'OX(T$pa(T'OXf$pa']$paP$paV$pa_$pau$pax$paz$pa}$pa!O$pa!R$pa!U$pa!X$pa!n$pa#Y$pa#Z$pa#x$pa$f$pa$i$pa$m$pa$q$pa$s$pa$u$pa$w$pa$y$pa${$pa$}$pa%O$pa%W$pa&w$pa'S$pa'X$pa'_$pa'n$pa's$pa'u$pa'v$paY$pa[$pa]$paa$pad$pa(P$pa'Z$pa~O(Q#[O&d#cX&e#cX~P#GzO!d$ra!d'OX!e$ra!e'OX!f$ra!f'OX!g$ra!g'OX&^$ra&_'OX&a'OX&b'OX&c$ra&c'OX&f'OX&g'OX&h$ra&t$ra&z$ra&z'OX&{$ra&{'OX&|'OX&}'OX'P$ra'P'OX'Q$ra'Q'OX'R$ra'R'OX'W$ra'W'OX'^$ra'^'OX'a$ra'a'OX'b$ra'b'OX'c$ra'c'OX'd$ra'd'OX'e$ra'e'OX'f$ra'f'OX'{$ra'{'OX'|$ra'|'OX'}$ra'}'OX(O$ra(O'OX(T$ra(T'OXf$ra']$raP$raV$ra_$rau$rax$raz$ra}$ra!O$ra!R$ra!U$ra!X$ra!n$ra#Y$ra#Z$ra#x$ra$f$ra$i$ra$m$ra$q$ra$s$ra$u$ra$w$ra$y$ra${$ra$}$ra%O$ra%W$ra&w$ra'S$ra'X$ra'_$ra'n$ra's$ra'u$ra'v$raY$ra[$ra]$raa$rad$ra(P$ra'Z$ra~O(Q#[O&d#cX&e#cX~P#NsO!duO!euO&c#tO'QVO'aWO'bWO(T#uO&^$za&h$za&t$za&z$za&{$zaY$za[$za]$zaa$zad$za']$za(P$za'X$za'Z$za~O!f#oO!g#pO'P#mO'R#vO'W=XO'^#jO'c#lO'd#iO'e#oO'f#nO'{#kO'|#qO'}#rO(O#sO~P$'lOP'^O'Q$aO~O'W'`O!d%PX!e%PX!f%PX!g%PX&^%PX&c%PX&h%PX&t%PX&z%PX&{%PX'P%PX'R%PX'^%PX'a%PX'b%PX'c%PX'd%PX'e%PX'f%PX'{%PX'|%PX'}%PX(O%PX(T%PXf%PX']%PXP%PXV%PX_%PXu%PXx%PXz%PX}%PX!O%PX!R%PX!U%PX!X%PX!n%PX#Y%PX#Z%PX#x%PX$f%PX$i%PX$m%PX$q%PX$s%PX$u%PX$w%PX$y%PX${%PX$}%PX%O%PX%W%PX&w%PX'S%PX'X%PX'_%PX'n%PX's%PX'u%PX'v%PXY%PX[%PX]%PXa%PXd%PX(P%PX'Z%PX~O%S'cO&`'bO'Q'_O~P$*XO'Q%PX~P$*XO'W'dO!d%Va!e%Va!f%Va!g%Va&^%Va&c%Va&h%Va&t%Va&z%Va&{%Va'P%Va'Q%Va'R%Va'^%Va'a%Va'b%Va'c%Va'd%Va'e%Va'f%Va'{%Va'|%Va'}%Va(O%Va(T%Vaf%Va']%VaP%VaV%Va_%Vau%Vax%Vaz%Va}%Va!O%Va!R%Va!U%Va!X%Va!n%Va#Y%Va#Z%Va#x%Va$f%Va$i%Va$m%Va$q%Va$s%Va$u%Va$w%Va$y%Va${%Va$}%Va%O%Va%W%Va&w%Va'S%Va'X%Va'_%Va'n%Va's%Va'u%Va'v%VaY%Va[%Va]%Vaa%Vad%Va(P%Va'Z%Va~OY'iO['jO]'kO~O]'oOa'mOd'nO~O&_!iO&a!lO&b!kO&f'vO&g!iO&|!fO&}!gO~OP!PXV!PX]!PX_!PXf!PXu!PXx!PXz!PX}!PX!O!PX!R!PX!U!PX!X!PX!d!PX!e!PX!f!PX!g!PX!n!PX#Y!PX#Z!PX#x!PX$f!PX$i!PX$m!PX$q!PX$s!PX$u!PX$w!PX$y!PX${!PX$}!PX%O!PX%W!PX&h!PX&t!PX&w!PX&z!PX&{!PX'P!PX'Q!PX'R!PX'S!PX'^!PX'_!PX'a!PX'b!PX'c!PX'd!PX'e!PX'f!PX'n!PX's!PX'u!PX'v!PX~P$4[O&_'OX&d#cX&e#cX&g'OX!w'OX~PGzO']'zO~P;aO&_(PO&g(PO&a!cX&b!cX&f!cX~O&a(SO&b(RO&f(QO&_!YX~O&|!fO&}!gO'PCVO'R=hO~P!7^O&_(WO~O&_(XO~P$4_O&_'OX&a'OX&b'OX&d#cX&e#cX&f'OX&g'OX&|'OX&}'OX~OP!oXV!oX]!oX_!oXf!oXu!oXx!oXz!oX}!oX!O!oX!R!oX!U!oX!X!oX!d!oX!e!oX!f!oX!g!oX!n!oX!w!oX#Y!oX#Z!oX#x!oX$f!oX$i!oX$m!oX$q!oX$s!oX$u!oX$w!oX$y!oX${!oX$}!oX%O!oX%W!oX&h!oX&t!oX&w!oX&z!oX&{!oX'P!oX'Q!oX'R!oX'S!oX'^!oX'_!oX'a!oX'b!oX'c!oX'd!oX'e!oX'f!oX'n!oX's!oX'u!oX'v!oX~P$:YO&_'OX&a'OX&b'OX&f'OX&g'OX~O&|!fO&}!gO~P$>hO!w([O]&rP~P]O&t!rO&|!fO&}!gO']'zO~P!$}O!d(bO&{(_O'y(`O~O'W(cO]&rP~P]OP$gXV$gX]$gX_$gXf$gXu$gXx$gXz$gX}$gX!O$gX!R$gX!U$gX!X$gX!n$gX#Y$gX#Z$gX#x$gX$f$gX$i$gX$m$gX$q$gX$s$gX$u$gX$w$gX$y$gX${$gX$}$gX%O$gX%W$gX&h$gX&t$gX&w$gX&z$gX&{$gX'S$gX'_$gX'n$gX's$gX'u$gX'v$gX~P#A{O&_=QO&g=QO~O&{(gO&h$kX&t$kX'W$kX~O'W(hO&h$jX&t$jX~O&hPO&tPO~O](lO~O](mO~O&z#hO&{#hO&^&]a&h&]a&t&]aY&]a[&]a]&]aa&]ad&]a~P#FTO&z#hO&{#hO&^&]a&h&]a&t&]aY&]a[&]a]&]aa&]ad&]a~O&^&riY&ri[&ri]&ria&rid&ri~P]O&hPO&tPO&^&riY&ri[&ri]&ria&rid&ri~O&a!lO&b!kO&f'vO!dni!eni!fni!gni&^ni&cni&hni&tni&zni&{ni'Pni'Qni'Rni'Wni'^ni'ani'bni'cni'dni'eni'fni'{ni'|ni'}ni(Oni(Tnifni']niPniVni_niunixnizni}ni!Oni!Rni!Uni!Xni!nni#Yni#Zni#xni$fni$ini$mni$qni$sni$uni$wni$yni${ni$}ni%Oni%Wni&wni'Sni'Xni'_ni'nni'sni'uni'vniYni[ni]nianidni(Pni'Zni~O&_ni&gni&|ni&}ni!wni~P$FcO&a!lO&b!kO&f'vO!dqi!eqi!fqi!gqi&^qi&cqi&hqi&tqi&zqi&{qi'Pqi'Qqi'Rqi'Wqi'^qi'aqi'bqi'cqi'dqi'eqi'fqi'{qi'|qi'}qi(Oqi(Tqifqi']qiPqiVqi_qiuqixqizqi}qi!Oqi!Rqi!Uqi!Xqi!nqi#Yqi#Zqi#xqi$fqi$iqi$mqi$qqi$sqi$uqi$wqi$yqi${qi$}qi%Oqi%Wqi&wqi'Sqi'Xqi'_qi'nqi'sqi'uqi'vqiYqi[qi]qiaqidqi(Pqi'Zqi~O&_qi&gqi&|qi&}qi!wqi~P$KmO&i(oO'P=jO'R(pO&_!ra&g!ra~O'n^O~P%!wO'](tO~P;aO!t(vO!d!qi!e!qi!f!qi!g!qi&^!qi&_!qi&a!qi&b!qi&c!qi&f!qi&g!qi&h!qi&t!qi&z!qi&{!qi&|!qi&}!qi'P!qi'Q!qi'R!qi'W!qi'^!qi'a!qi'b!qi'c!qi'd!qi'e!qi'f!qi'{!qi'|!qi'}!qi(O!qi(T!qif!qi']!qiP!qiV!qi_!qiu!qix!qiz!qi}!qi!O!qi!R!qi!U!qi!X!qi!n!qi#Y!qi#Z!qi#x!qi$f!qi$i!qi$m!qi$q!qi$s!qi$u!qi$w!qi$y!qi${!qi$}!qi%O!qi%W!qi&w!qi'S!qi'X!qi'_!qi'n!qi's!qi'u!qi'v!qiY!qi[!qi]!qia!qid!qi(P!qi'Z!qi!w!qi~OP(|OVtO])OO_!POf!YOu!QOx)POz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#Y)OO#Z)OO#x)OO$f!ZO$i![O$m<hO$q<kO$s<uO$u!]O$wyO$yzO${2wO$}|O%O|O%W}O&w({O&zYO&{YO'PSO'QVO'RTO'S(}O'^YO'_(yO'aWO'b(xO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O'W)YO'X)XO~P%(qOP=UOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$q<sO$s<}O$u!]O$wyO$yzO${2|O$}|O%O|O%W}O&w[O&zYO&{YO&|!fO&}!gO'PSO'QVO'RTO'SeO'^YO'_2qO'aWO'b2mO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O!dmX!emX!fmX!gmX&^mX&cmX&hmX&tmX&zmX&{mX'PmX'QmX'RmX'WmX'^mX'amX'bmX'cmX'dmX'emX'fmX'{mX'|mX'}mX(OmX(TmX']mXfmXPmXVmX_mXumXxmXzmX}mX!OmX!RmX!UmX!XmX!nmX#YmX#ZmX#xmX$fmX$imX$mmX$qmX$smX$umX$wmX$ymX${mX$}mX%OmX%WmX&wmX'SmX'XmX'_mX'nmX'smX'umX'vmXYmX[mX]mXamXdmX!wmX'ZmX(PmX~P$4[OP=UOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$q<sO$s<}O$u!]O$wyO$yzO${2|O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_2qO'aWO'b2mO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OV)bOf%tO&t'iX']'iX'X'iX~OP=iO&w%OO~O&t&xa&t'ha']&xa']'ha~P!D{O'W)fO&t&xa&t'ha']&xa']'ha~OPCrOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$q<qO$s<{O$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w[O&zYO&{YO&|!fO&}!gO'PSO'QVO'RTO'SeO'^YO'_ZO'aWO'bXO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O'])iO~P%9YO&t)jO'])iO~O'W)lO&t'hX']'hX~O&_hi&ahi&bhi&fhi&ghi&|hi&}hi~O!dhi!ehi!fhi!ghi&^hi&chi&hhi&thi&zhi&{hi'Phi'Qhi'Rhi'Whi'^hi'ahi'bhi'chi'dhi'ehi'fhi'{hi'|hi'}hi(Ohi(Q!hi(Thifhi']hiPhiVhi_hiuhixhizhi}hi!Ohi!Rhi!Uhi!Xhi!nhi#Yhi#Zhi#xhi$fhi$ihi$mhi$qhi$shi$uhi$whi$yhi${hi$}hi%Ohi%Whi&whi'Shi'Xhi'_hi'nhi'shi'uhi'vhiYhi[hi]hiahidhi(Phi'Zhi~P%=]O&t!rO'])nO~O&t!rO'])oO~O&w)pO~O&i(oO~O!duO!euO!f#oO!g#pO&c#tO&z)sO&{)sO'P#mO'QVO'R#vO'^#jO'aWO'bWO'c#lO'd#iO'e#oO'{#kO'|#qO'}#rO(O#sO(T#uO~O'f#nO&^%bi&h%bi&t%bi'W%biY%bi[%bi]%bia%bid%bi'Z%bi']%bi'X%bi(P%bi~P%CRO!w)uO&z)tO&{)tO~O&n)vO~O&m)wO~O&o)xO~O'X)zO~P%4kO'W){O'X)zO~O'X)}O~O!f?[O!g?`O'P?SO'R?lO'^>vO'c?OO'd>rO'e?[O'f?WO'{>zO'|?dO'}?hO(ODQOf&SX'X&SX~P#)VO'X*PO~P#-XO&t*QO'X*PO~O&_*SO&f*TO!d$VX!e$VX!f$VX!g$VX&^$VX&c$VX&d#cX&e#cX&h$VX&t$VX&z$VX&{$VX'P$VX'Q$VX'R$VX'W$VX'^$VX'a$VX'b$VX'c$VX'd$VX'e$VX'f$VX'{$VX'|$VX'}$VX(O$VX(T$VXf$VX']$VXP$VXV$VX_$VXu$VXx$VXz$VX}$VX!O$VX!R$VX!U$VX!X$VX!n$VX#Y$VX#Z$VX#x$VX$f$VX$i$VX$m$VX$q$VX$s$VX$u$VX$w$VX$y$VX${$VX$}$VX%O$VX%W$VX&w$VX'S$VX'X$VX'_$VX'n$VX's$VX'u$VX'v$VXY$VX[$VX]$VXa$VXd$VX(P$VX'Z$VX~O!duO!euO!f#oO!g#pO&c#tO'P#mO'QVO'R#vO'^#jO'aWO'bWO'c#lO'd#iO'e#oO'{#kO'|#qO'}#rO(O#sO(T#uO&^&Wa&h&Wa&t&Wa&z&Wa&{&Wa'W&WaY&Wa[&Wa]&Waa&Wad&Wa~O'f#nO~P%LrO&z#hO&{#hO&^$ni&h$ni&t$niY$ni[$ni]$nia$nid$ni~P#FTO&^$ni&h$ni&t$niY$ni[$ni]$nia$nid$ni~O&z#hO&{#hO~P& mO&c#tO(T#uO!d%`i!e%`i!f%`i!g%`i&^%`i&h%`i&t%`i&z%`i&{%`i'P%`i'Q%`i'R%`i'W%`i'^%`i'a%`i'b%`i'c%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`if%`i']%`iP%`iV%`i_%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&w%`i'S%`i'X%`i'_%`i'n%`i's%`i'u%`i'v%`iY%`i[%`i]%`ia%`id%`i(P%`i'Z%`i~O'd%`i~P&!cO&c#tO'd#iO(T#uO!d%`i!e%`i!f%`i!g%`i&^%`i&h%`i&t%`i&z%`i&{%`i'P%`i'Q%`i'R%`i'W%`i'a%`i'b%`i'c%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`iY%`i[%`i]%`ia%`id%`i']%`i'Z%`i'X%`i(P%`i~O'^%`i~P&'TO!duO!euO!f#oO!g#pO&c#tO'P#mO'QVO'R#vO'^#jO'aWO'bWO'c#lO'd#iO'e#oO'{#kO'|#qO'}#rO(O#sO(T#uO&^%`i&h%`i&t%`i&z%`i&{%`i'W%`iY%`i[%`i]%`ia%`id%`i']%`i'Z%`i'X%`i(P%`i~O'f%`i~P&)hO'^#jO~P&'TO&c#tO(T#uO!d%`i!e%`i!f%`i!g%`i&^%`i&h%`i&t%`i&z%`i&{%`i'P%`i'Q%`i'R%`i'W%`i'a%`i'b%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`iY%`i[%`i]%`ia%`id%`i']%`i'Z%`i'X%`i(P%`i~O'^#jO'c#lO'd#iO~P&,SO'f#nO~P&)hO&c#tO'P#mO'QVO'R#vO'^#jO'aWO'bWO'c#lO'd#iO(T#uO!d%`i!e%`i&^%`i&h%`i&t%`i&z%`i&{%`i'W%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`iY%`i[%`i]%`ia%`id%`i']%`i'Z%`i'X%`i(P%`i~O!f#oO!g#pO~P&.nO!f%`i!g%`i~P&.nO!duO!euO!f#oO!g#pO&c#tO'P#mO'QVO'R#vO'^#jO'aWO'bWO'c#lO'd#iO'e#oO'}#rO(T#uO&^%`i&h%`i&t%`i&z%`i&{%`i'W%`i'f%`i'{%`i(O%`iY%`i[%`i]%`ia%`id%`i']%`i'Z%`i'X%`i(P%`i~O'|#qO~P&1]O'|%`i~P&1]O!duO!euO!f4eO!g4lO&c#tO'P4VO'QVO'R5RO'^3pO'aWO'bWO'c4OO'd3iO'e4eO'f4^O'{3wO'|4sO'}4zO(OC`O(T#uO~O(P*UO~P&3wO&c#tO'QVO'aWO'bWO(T#uO!d%`i!e%`i!f%`i!g%`i&^%`i&h%`i&t%`i&z%`i&{%`i'R%`i'W%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`iY%`i[%`i]%`ia%`id%`i']%`i'Z%`i'X%`i(P%`i~O'P#mO'^#jO'c#lO'd#iO~P&5`O&i*VO~O!t(vO!d%Yi!e%Yi!f%Yi!g%Yi&^%Yi&c%Yi&h%Yi&t%Yi&z%Yi&{%Yi'P%Yi'Q%Yi'R%Yi'W%Yi'^%Yi'a%Yi'b%Yi'c%Yi'd%Yi'e%Yi'f%Yi'{%Yi'|%Yi'}%Yi(O%Yi(T%Yif%Yi']%YiP%YiV%Yi_%Yiu%Yix%Yiz%Yi}%Yi!O%Yi!R%Yi!U%Yi!X%Yi!n%Yi#Y%Yi#Z%Yi#x%Yi$f%Yi$i%Yi$m%Yi$q%Yi$s%Yi$u%Yi$w%Yi$y%Yi${%Yi$}%Yi%O%Yi%W%Yi&w%Yi'S%Yi'X%Yi'_%Yi'n%Yi's%Yi'u%Yi'v%YiY%Yi[%Yi]%Yia%Yid%Yi(P%Yi'Z%Yi~OP*XO~OP*YO'Q$aO~O'W'`O!d%Pa!e%Pa!f%Pa!g%Pa&^%Pa&c%Pa&h%Pa&t%Pa&z%Pa&{%Pa'P%Pa'Q%Pa'R%Pa'^%Pa'a%Pa'b%Pa'c%Pa'd%Pa'e%Pa'f%Pa'{%Pa'|%Pa'}%Pa(O%Pa(T%Paf%Pa']%PaP%PaV%Pa_%Pau%Pax%Paz%Pa}%Pa!O%Pa!R%Pa!U%Pa!X%Pa!n%Pa#Y%Pa#Z%Pa#x%Pa$f%Pa$i%Pa$m%Pa$q%Pa$s%Pa$u%Pa$w%Pa$y%Pa${%Pa$}%Pa%O%Pa%W%Pa&w%Pa'S%Pa'X%Pa'_%Pa'n%Pa's%Pa'u%Pa'v%PaY%Pa[%Pa]%Paa%Pad%Pa(P%Pa'Z%Pa~O'R*]O~OP*^O~OP*_O'n^O~O'W'dO!d%Vi!e%Vi!f%Vi!g%Vi&^%Vi&c%Vi&h%Vi&t%Vi&z%Vi&{%Vi'P%Vi'Q%Vi'R%Vi'^%Vi'a%Vi'b%Vi'c%Vi'd%Vi'e%Vi'f%Vi'{%Vi'|%Vi'}%Vi(O%Vi(T%Vif%Vi']%ViP%ViV%Vi_%Viu%Vix%Viz%Vi}%Vi!O%Vi!R%Vi!U%Vi!X%Vi!n%Vi#Y%Vi#Z%Vi#x%Vi$f%Vi$i%Vi$m%Vi$q%Vi$s%Vi$u%Vi$w%Vi$y%Vi${%Vi$}%Vi%O%Vi%W%Vi&w%Vi'S%Vi'X%Vi'_%Vi'n%Vi's%Vi'u%Vi'v%ViY%Vi[%Vi]%Via%Vid%Vi(P%Vi'Z%Vi~OY'iO['jO]*cO~OVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$qwO$sxO$u!]O$wyO$yzO${{O$}|O%O|O%W}O&hPO&tPO&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_ZO'aWO'bXO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO]&rPd&rP~OP*gO~P&FoO]*kO~O]*kOd'nO~OxwX~P$4[Ox*mO~O]{X~P$4[O]*nO~O'Q*oO~O&t%xO'W*pO']%zO~O']%uO~O]*rO~O]*tO~O]*uO~O'Q*vO~O'S*wO~O&a(SO&b(RO&f>QO&z*yO&{*yO&t'[X']'[X~O&t*zO']*|O~O]+RO~OP+SO'Y%lO~O!duO!euO!f#oO!g#pO&c#tO'P#mO'QVO'R#vO'^#jO'aWO'bWO'c#lO'd#iO'e#oO'f#nO'{#kO'|#qO'}#rO(O#sO(T#uO~O&z%qO&{%qO'W&yX&t&yX']&yX~P&MVO'W*pO~O]+YO~O]+ZO~OP%UO'P%TO~O'W(hO&h$ja&t$ja~O]+_O~O&^&rqY&rq[&rq]&rqa&rqd&rq~P]O&_7lO&g7lO~O&hPO&tPO&|!fO&}!gO~PDbO!t(vO!d!qq!e!qq!f!qq!g!qq&^!qq&_!qq&a!qq&b!qq&c!qq&f!qq&g!qq&h!qq&t!qq&z!qq&{!qq&|!qq&}!qq'P!qq'Q!qq'R!qq'W!qq'^!qq'a!qq'b!qq'c!qq'd!qq'e!qq'f!qq'{!qq'|!qq'}!qq(O!qq(T!qqf!qq']!qqP!qqV!qq_!qqu!qqx!qqz!qq}!qq!O!qq!R!qq!U!qq!X!qq!n!qq#Y!qq#Z!qq#x!qq$f!qq$i!qq$m!qq$q!qq$s!qq$u!qq$w!qq$y!qq${!qq$}!qq%O!qq%W!qq&w!qq'S!qq'X!qq'_!qq'n!qq's!qq'u!qq'v!qqY!qq[!qq]!qqa!qqd!qq(P!qq'Z!qq!w!qq~OP$OXV$OX]$OX_$OXf$OXf'`Xu$OXx$OXz$OX}$OX!O$OX!R$OX!U$OX!X$OX!d$OX!d'`X!e$OX!e'`X!f$OX!f'`X!g$OX!g'`X!n$OX#Y$OX#Z$OX#x$OX$f$OX$i$OX$m$OX$q$OX$s$OX$u$OX$w$OX$y$OX${$OX$}$OX%O$OX%W$OX&_'`X&a'`X&b'`X&c'`X&f'`X&g'`X&w$OX&z$OX&z'`X&{$OX&{'`X&|'`X&}'`X'P$OX'P'`X'Q$OX'Q'`X'R$OX'R'`X'S$OX'W'`X'X'`X'^$OX'^'`X'_$OX'a$OX'a'`X'b$OX'b'`X'c$OX'c'`X'd$OX'd'`X'e$OX'e'`X'f$OX'f'`X'n$OX's$OX'u$OX'v$OX'{'`X'|'`X'}'`X(O'`X(T'`X&t'`X']'`X~OP$OXV$OX]$OX_$OXu$OXx$OXz$OX}$OX!O$OX!R$OX!U$OX!X$OX!d!cX!e!cX!f!cX!g!cX!n$OX#Y$OX#Z$OX#x$OX$f$OX$i$OX$m$OX$q$OX$s$OX$u$OX$w$OX$y$OX${$OX$}$OX%O$OX%W$OX&_!cX&a!cX&b!cX&c!cX&f!cX&g!cX&w$OX&z!cX&{!cX&|!cX&}!cX'P!cX'Q!cX'R!cX'S$OX'W!cX'X!cX'^!cX'_$OX'a!cX'b!cX'c!cX'd!cX'e!cX'f!cX'n$OX's$OX'u$OX'v$OX'{!cX'|!cX'}!cX(O!cX(T!cX&t!cX']!cX~Of!cX~P'-lOf'TX!d'TX!e'TX!f'TX!g'TX&c'TX&z'TX&{'TX'P'TX'Q'TX'R'TX'W'TX'X'TX'^'TX'a'TX'b'TX'c'TX'd'TX'e'TX'f'TX'{'TX'|'TX'}'TX(O'TX(T'TX&t'TX']'TXP'TXV'TX]'TX_'TXu'TXx'TXz'TX}'TX!O'TX!R'TX!U'TX!X'TX!n'TX#Y'TX#Z'TX#x'TX$f'TX$i'TX$m'TX$q'TX$s'TX$u'TX$w'TX$y'TX${'TX$}'TX%O'TX%W'TX&w'TX'S'TX'_'TX'n'TX's'TX'u'TX'v'TX(P'TX'Z'TX~O&_+hO&a+jO&b+gO&f+fO&g+hO&|!fO&}!gO~P'2ZO&t+pO&|!fO&}!gO']+sO~P%(qOf'oX!d'oX!e'oX!f'oX!g'oX&_'oX&a'oX&b'oX&c'oX&d#cX&e#cX&f'oX&g'oX&z'oX&{'oX&|'oX&}'oX'P'oX'Q'oX'R'oX'W'oX'X'oX'^'oX'a'oX'b'oX'c'oX'd'oX'e'oX'f'oX'{'oX'|'oX'}'oX(O'oX(T'oX&t'oX']'oX~O(Q+vO~P'7`OP>SOVtO])OO_!POf!YOu!QOx)POz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#Y)OO#Z)OO#x)OO$f!ZO$i![O$m<iO$q<lO$s<vO$u!]O$wyO$yzO${2xO$}|O%O|O%W}O&w({O&zYO&{YO'PSO'QVO'RTO'S(}O'^YO'_YO'aWO'b7pO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O'X+wO~P'9yOf'oX!d'oX!e'oX!f'oX!g'oX&a'oX&b'oX&c'oX&f'oX&z'oX&{'oX&|'oX&}'oX'P'oX'Q'oX'R'oX'W'oX'X'oX'^'oX'a'oX'b'oX'c'oX'd'oX'e'oX'f'oX'{'oX'|'oX'}'oX(O'oX(T'oX&t'oX']'oXP'oXV'oX]'oX_'oXu'oXx'oXz'oX}'oX!O'oX!R'oX!U'oX!X'oX!n'oX#Y'oX#Z'oX#x'oX$f'oX$i'oX$m'oX$q'oX$s'oX$u'oX$w'oX$y'oX${'oX$}'oX%O'oX%W'oX&w'oX'S'oX'_'oX'n'oX's'oX'u'oX'v'oX(P'oX'Z'oX~O&_+{O&g+{O~P'=fO&_,RO&a,SO&f+|O&c!yX'W!yX'X!yX'{!yX'|!yX'}!yX(O!yX(T!yX&t!yX']!yX(P!yX'Z!yX~P'9yO&_,RO&a,SO&c!yX'W!yX'X!yX'{!yX'|!yX'}!yX(O!yX(T!yX&t!yX']!yX(P!yX'Z!yX~P'9yOf,jO!duO!euO!f,`O!g,aO&c,eO'P,^O'QVO'R,kO'^,ZO'aWO'bWO'c,]O'd,YO'e,`O'f,_O'{,[O'|,bO'},cO(O,dO(T,fO~O&z,hO&{,hO'W,VO'X,iO~P'D^O(Q+vO~O&_+{O&g+{O~P'2ZO'X,iO~O'W,lO'X,iO~O'W,VO'X,iO~O!duO!euO!f4dO!g4kO&c#tO'P4UO'QVO'R5QO'^3oO'aWO'bWO'c3}O'd3hO'e4dO'f4]O'{3vO'|4rO'}4yO(OC_O(T#uO~O'W,mO'Z,oO~P'FwO'W,mO'Z,oO~O&tii'Wii']ii~P'FwOV)bOf%tO&t'ia']'ia'X'ia~OPCqOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$m<jO$q<pO$s<zO$u!]O$wyO$yzO${2zO$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_2pO'aWO'b2lO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O'W,rOV!jaf!ja&t!ja']!ja'X!ja~O&t&xi&t'hi']&xi']'hi~O&t&xi&t'hi']&xi']'hi~P!D{O'],vO~P%9YO&t'ha']'ha~P!D{O'W,yO&t'ha']'ha~OPCrOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$q<tO$s=OO$u!]O$wyO$yzO${2|O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_2qO'aWO'b2mO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O's-QO~O'u-RO~O'v-SO~O'W&Ra'X&Ra~P'FwO'X-TO~P%4kO'X-VO~P#-XO'Q-ZO~O%S'cO'Q'_O!d&Xa!e&Xa!f&Xa!g&Xa&^&Xa&c&Xa&h&Xa&t&Xa&z&Xa&{&Xa'P&Xa'R&Xa'W&Xa'^&Xa'a&Xa'b&Xa'c&Xa'd&Xa'e&Xa'f&Xa'{&Xa'|&Xa'}&Xa(O&Xa(T&Xaf&Xa']&XaP&XaV&Xa_&Xau&Xax&Xaz&Xa}&Xa!O&Xa!R&Xa!U&Xa!X&Xa!n&Xa#Y&Xa#Z&Xa#x&Xa$f&Xa$i&Xa$m&Xa$q&Xa$s&Xa$u&Xa$w&Xa$y&Xa${&Xa$}&Xa%O&Xa%W&Xa&w&Xa'S&Xa'X&Xa'_&Xa'n&Xa's&Xa'u&Xa'v&XaY&Xa[&Xa]&Xaa&Xad&Xa(P&Xa'Z&Xa~OP-^O'Q-]O'n^O~P?SO]-cO~OPXaVXaYXa[Xa]Xa_XafXauXaxXazXa}Xa!OXa!RXa!UXa!XXa!nXa#YXa#ZXa#xXa$fXa$iXa$mXa$qXa$sXa$uXa$wXa$yXa${Xa$}Xa%OXa%WXa&hXa&tXa&wXa&zXa&{Xa'SXa'_Xa'nXa'sXa'uXa'vXa~P#A{O&_#]O(Q#[OPbXVbX]bX]'OX_bXdbXd'OXfbXubXxbXzbX}bX!ObX!RbX!UbX!XbX!dbX!d'OX!ebX!e'OX!fbX!f'OX!gbX!g'OX!nbX#YbX#ZbX#xbX$fbX$ibX$mbX$qbX$sbX$ubX$wbX$ybX${bX$}bX%ObX%WbX&c'OX&hbX&h'OX&tbX&t'OX&wbX&zbX&z'OX&{bX&{'OX'PbX'P'OX'QbX'Q'OX'RbX'R'OX'SbX'W'OX'^bX'^'OX'_bX'abX'a'OX'bbX'b'OX'cbX'c'OX'dbX'd'OX'ebX'e'OX'fbX'f'OX'nbX'sbX'ubX'vbX'{'OX'|'OX'}'OX(O'OX(T'OX~P$:YOPcO~P&FoO]-eO~O]-fO~O&t&xa']&xa~P!D{O'W-hO&t&xa']&xa~O]-iO~O&i(oO'P=kO'R7nO~O'W-mO'X-lO~P%(qO&|!fO&}!gO'PCVO'R=hO']-rO~P!7^O&t-sO']-rO~OP'lXV'lX]'lX_'lXf'lXu'lXx'lXz'lX}'lX!O'lX!R'lX!U'lX!X'lX!d'lX!e'lX!f'lX!g'lX!n'lX!t'jX!w'lX#Y'lX#Z'lX#x'lX$f'lX$i'lX$m'lX$q'lX$s'lX$u'lX$w'lX$y'lX${'lX$}'lX%O'lX%W'lX&_'jX&a'jX&b'jX&f'jX&g'jX&h'lX&t'lX&w'lX&z'lX&{'lX&|'jX&}'jX'P'lX'Q'lX'R'lX'S'lX'^'lX'_'lX'a'lX'b'lX'c'lX'd'lX'e'lX'f'lX'n'lX's'lX'u'lX'v'lX~O!duO!euO!f4`O!g4gO&c#tO'P4QO'QVO'R4|O'^3kO'aWO'bWO'c3yO'd3dO'e4`O'f4XO'{3rO'|4nO'}4uO(OCZO(T#uO~OPgiVgi]gi_gifgiugixgizgi}gi!Ogi!Rgi!Ugi!Xgi!ngi#Ygi#Zgi#xgi$fgi$igi$mgi$qgi$sgi$ugi$wgi$ygi${gi$}gi%Ogi%Wgi&hgi&tgi&wgi&zgi&{gi'Sgi'Wgi'_gi'ngi'sgi'ugi'vgi~P(8YO]-wO~O&h$ki&t$ki'W$ki~P'FwO]-xO~OP'kXV'kX]'kX_'kXf'kXu'kXx'kXz'kX}'kX!O'kX!R'kX!U'kX!X'kX!n'kX#Y'kX#Z'kX#x'kX$f'kX$i'kX$m'kX$q'kX$s'kX$u'kX$w'kX$y'kX${'kX$}'kX%O'kX%W'kX&h'kX&t'kX&w'kX&z'kX&{'kX'S'kX'W'kX'_'kX'n'kX's'kX'u'kX'v'kX~P(8YO'W-yOP!uXV!uX]!uX_!uXf!uXu!uXx!uXz!uX}!uX!O!uX!R!uX!U!uX!X!uX!d!uX!e!uX!f!uX!g!uX!n!uX#Y!uX#Z!uX#x!uX$f!uX$i!uX$m!uX$q!uX$s!uX$u!uX$w!uX$y!uX${!uX$}!uX%O!uX%W!uX&h!uX&t!uX&w!uX&z!uX&{!uX'P!uX'Q!uX'R!uX'S!uX'^!uX'_!uX'a!uX'b!uX'c!uX'd!uX'e!uX'f!uX'n!uX's!uX'u!uX'v!uX~O'Q-|O~O'S-}O~O&w.OO~O&_.RO&g.RO~O'Y.SO~O&z.VO&{.VO&t'rX'W'rX']'rX~P'D^O'].WO&t'qX']'qX~O&t.ZO'W.XO'].]O&t'qX']'qX~O&|!fO&}!gO&t#XX']#XX~P%(qO&t+pO'].bO~Of#ia!d#ia!e#ia!f#ia!g#ia&_#ia&a#ia&b#ia&c#ia&f#ia&g#ia&z#ia&{#ia&|#ia&}#ia'P#ia'Q#ia'R#ia'W#ia'X#ia'^#ia'a#ia'b#ia'c#ia'd#ia'e#ia'f#ia'{#ia'|#ia'}#ia(O#ia(Q#Va(T#ia&t#ia']#iaP#iaV#ia]#ia_#iau#iax#iaz#ia}#ia!O#ia!R#ia!U#ia!X#ia!n#ia#Y#ia#Z#ia#x#ia$f#ia$i#ia$m#ia$q#ia$s#ia$u#ia$w#ia$y#ia${#ia$}#ia%O#ia%W#ia&w#ia'S#ia'_#ia'n#ia's#ia'u#ia'v#ia(P#ia'Z#ia~O&t+pO'].dO~O&t+pO'].fO~O!duO!euO&c,eO'QVO'aWO'bWO(T,fOP%{XV%{X]%{X_%{Xu%{Xx%{Xz%{X}%{X!O%{X!R%{X!U%{X!X%{X!n%{X#Y%{X#Z%{X#x%{X$f%{X$i%{X$m%{X$q%{X$s%{X$u%{X$w%{X$y%{X${%{X$}%{X%O%{X%W%{X&t%{X&w%{X&z%{X&{%{X'S%{X'_%{X'n%{X's%{X'u%{X'v%{X~Of,jO!f9_O!g9fO'P9PO'R9{O'W.iO'X.kO'^8jO'c8xO'd8cO'e9_O'f9WO'{8qO'|9mO'}9tO(OCdO~P(JeOP>VOVtO])OO_!POf!YOu!QOx)POz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#Y)OO#Z)OO#x)OO$f!ZO$i![O$m<iO$q<rO$s<|O$u!]O$wyO$yzO${3OO$}|O%O|O%W}O&w({O&zYO&{YO'PSO'QVO'RTO'S(}O'^YO'_YO'aWO'b7pO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O&t#sX'X#sX~P(NjO&t.oO'X.qO~O'Q.sO~O&z.vO&{.vOP&OXV&OX]&OX_&OXf&OXu&OXx&OXz&OX}&OX!O&OX!R&OX!U&OX!X&OX!n&OX#Y&OX#Z&OX#x&OX$f&OX$i&OX$m&OX$q&OX$s&OX$u&OX$w&OX$y&OX${&OX$}&OX%O&OX%W&OX&w&OX'S&OX'X&OX'_&OX'n&OX's&OX'u&OX'v&OX&t&OX']&OX(P&OX'Z&OX~O!duO!euO!f9_O!g9fO&c,eO'P9PO'QVO'R9{O'W.tO'^8jO'aWO'bWO'c8xO'd8cO'e9_O'f9WO'{8qO'|9mO'}9tO(OCdO(T,fO~P)$gO!d&OX!e&OX!f&OX!g&OX&c&OX'P&OX'Q&OX'R&OX'W&OX'^&OX'a&OX'b&OX'c&OX'd&OX'e&OX'f&OX'{&OX'|&OX'}&OX(O&OX(T&OX~P)$gO&c#zX'W#zX'X#zX'{#zX'|#zX'}#zX(O#zX(T#zX&t#zX']#zX(P#zX'Z#zX~P'9yO(T,fOf#}a!d#}a!e#}a!f#}a!g#}a&c#}a&z#}a&{#}a'P#}a'Q#}a'R#}a'W#}a'X#}a'^#}a'a#}a'b#}a'c#}a'd#}a'e#}a'f#}a'{#}a'|#}a'}#}a(O#}a&t#}a']#}aP#}aV#}a]#}a_#}au#}ax#}az#}a}#}a!O#}a!R#}a!U#}a!X#}a!n#}a#Y#}a#Z#}a#x#}a$f#}a$i#}a$m#}a$q#}a$s#}a$u#}a$w#}a$y#}a${#}a$}#}a%O#}a%W#}a&w#}a'S#}a'_#}a'n#}a's#}a'u#}a'v#}a(P#}a'Z#}a~OP>UOVtO])OO_!POf!YOu!QOx)POz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#Y)OO#Z)OO#x)OO$f!ZO$i![O$mvO$qwO$sxO$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w({O&zYO&{YO'PSO'QVO'RTO'S(}O'^YO'_7uO'aWO'b7sO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O'X.}O~P)/`O'W/OO'X.}O~OV/SOf,jO'W'xX'X'xX~OPCxOVtO])OO_!POf!YOu!QOx)POz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#Y)OO#Z)OO#x)OO$f!ZO$i![O$mvO$q<tO$s=OO$u!]O$wyO$yzO${2}O$}|O%O|O%W}O&w({O&zYO&{YO'PSO'QVO'RTO'S(}O'^YO'_7xO'aWO'b7tO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O(R/`O~OP>UOVtO])OO_!POf!YOu!QOx)POz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#Y)OO#Z)OO#x)OO$f!ZO$i![O$mvO$q<sO$s<}O$u!]O$wyO$yzO${2|O$}|O%O|O%W}O&w({O&zYO&{YO'PSO'QVO'RTO'S(}O'^YO'_7xO'aWO'b7tO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OP/cO&w/bO~O'Z/hO~P%,aO'W/iO'Z/hO~O!duO!euO!f?^O!g?bO&c#tO'P?UO'QVO'R?nO'^>xO'aWO'bWO'c?QO'd>tO'e?^O'f?YO'{>|O'|?fO'}?jO(ODSO(T#uO~OV!kaf!ka&t!ka']!ka'X!ka~P):yO'W,rOV!jif!ji&t!ji']!ji'X!ji~O&t&xq&t'hq']&xq']'hq~O&|!fO&}!gO~P!$}O&t'hi']'hi~P!D{O!duO!euO!f?_O!g?cO&c#tO'P?VO'QVO'R?oO'^>yO'aWO'bWO'c?RO'd>uO'e?_O'f?ZO'{>}O'|?gO'}?kO(ODTO(T#uO~O']/nO~P)=vO&^%ci&h%ci&t%ci'W%ci'f%ciY%ci[%ci]%cia%cid%ci'Z%ci']%ci'X%ci(P%ci~P%CRO&z#hO&{#hO&^%gy&h%gy&t%gyY%gy[%gy]%gya%gyd%gy~P#FTO&z/pO&{/pO~O&i(oO'P%TO'R7oO~O!duO!euO&c#tO'QVO'aWO'bWO(T#uO&^%ay&h%ay&t%ay&z%ay&{%ay'W%ay'f%ay'{%ayY%ay[%ay]%aya%ayd%ay']%ay'Z%ay'X%ay(P%ay~O!f#oO!g#pO'P#mO'R#vO'^#jO'c#lO'd#iO'e#oO'|#qO'}#rO(O#sO~P)AfOP'^O&g!nO'Q$aO~O%S/tO'W/rO!d(WX!e(WX!f(WX!g(WX&^(WX&c(WX&h(WX&t(WX&z(WX&{(WX'P(WX'R(WX'^(WX'a(WX'b(WX'c(WX'd(WX'e(WX'f(WX'{(WX'|(WX'}(WX(O(WX(T(WXf(WX'](WXP(WXV(WX_(WXu(WXx(WXz(WX}(WX!O(WX!R(WX!U(WX!X(WX!n(WX#Y(WX#Z(WX#x(WX$f(WX$i(WX$m(WX$q(WX$s(WX$u(WX$w(WX$y(WX${(WX$}(WX%O(WX%W(WX&w(WX'S(WX'X(WX'_(WX'n(WX's(WX'u(WX'v(WXY(WX[(WX](WXa(WXd(WX(P(WX'Z(WX~O'Q'_O~P)DUO%S/tO'Q'_O~O'W/rO!d(WX!e(WX!f(WX!g(WX&^(WX&c(WX&h(WX&t(WX&z(WX&{(WX'P(WX'Q(WX'R(WX'^(WX'a(WX'b(WX'c(WX'd(WX'e(WX'f(WX'{(WX'|(WX'}(WX(O(WX(T(WXf(WX'](WXP(WXV(WX_(WXu(WXx(WXz(WX}(WX!O(WX!R(WX!U(WX!X(WX!n(WX#Y(WX#Z(WX#x(WX$f(WX$i(WX$m(WX$q(WX$s(WX$u(WX$w(WX$y(WX${(WX$}(WX%O(WX%W(WX&w(WX'S(WX'X(WX'_(WX'n(WX's(WX'u(WX'v(WXY(WX[(WX](WXa(WXd(WX(P(WX'Z(WX~O'Q(WX~P)DUO&t&xi']&xi~P!D{O&z/vO&{/vO'W/wO'X/yO~P'D^O'X/yO~O'W/zO'X/yO~O'W/wO'X/yO~O&a(SO&b(RO&f>QO&t!bi']!bi~O&|!fO&}!gO'PCVO'R=hO']/{O~P!7^O]/}O~O]0OO~O'W-yOP!uaV!ua]!ua_!uaf!uau!uax!uaz!ua}!ua!O!ua!R!ua!U!ua!X!ua!d!ua!e!ua!f!ua!g!ua!n!ua#Y!ua#Z!ua#x!ua$f!ua$i!ua$m!ua$q!ua$s!ua$u!ua$w!ua$y!ua${!ua$}!ua%O!ua%W!ua&h!ua&t!ua&w!ua&z!ua&{!ua'P!ua'Q!ua'R!ua'S!ua'^!ua'_!ua'a!ua'b!ua'c!ua'd!ua'e!ua'f!ua'n!ua's!ua'u!ua'v!ua~O]0RO~O&i(oO'P=jO'R(pO'n^O&_#Ua&g#Ua~O'W0WO'X0VO~P%(qO&t+pO&|!fO&}!gO']0[O~P%(qO!t(vOf#Ti!d#Ti!e#Ti!f#Ti!g#Ti&_#Ti&a#Ti&b#Ti&c#Ti&f#Ti&g#Ti&z#Ti&{#Ti&|#Ti&}#Ti'P#Ti'Q#Ti'R#Ti'W#Ti'X#Ti'^#Ti'a#Ti'b#Ti'c#Ti'd#Ti'e#Ti'f#Ti'{#Ti'|#Ti'}#Ti(O#Ti(T#Ti&t#Ti']#TiP#TiV#Ti]#Ti_#Tiu#Tix#Tiz#Ti}#Ti!O#Ti!R#Ti!U#Ti!X#Ti!n#Ti#Y#Ti#Z#Ti#x#Ti$f#Ti$i#Ti$m#Ti$q#Ti$s#Ti$u#Ti$w#Ti$y#Ti${#Ti$}#Ti%O#Ti%W#Ti&w#Ti'S#Ti'_#Ti'n#Ti's#Ti'u#Ti'v#Ti(P#Ti'Z#Ti~O&|!fO&}!gO~P)6|O&|!fO&}!gO&t'qa&t'wa']'qa']'wa~P%(qO'W0dO&t'qa&t'wa']'qa']'wa~OPCxOVtO])OO_!POf!YOu!QOx)POz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#Y)OO#Z)OO#x)OO$f!ZO$i![O$mvO$q<qO$s<{O$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w({O&zYO&{YO&|!fO&}!gO'PSO'QVO'RTO'S(}O'^YO'_7uO'aWO'b7sO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O']0hO~P*,bO&t0iO']0hO~O'W0kO&t'qX']'qX~Of#ii!d#ii!e#ii!f#ii!g#ii&_#ii&a#ii&b#ii&c#ii&f#ii&g#ii&z#ii&{#ii&|#ii&}#ii'P#ii'Q#ii'R#ii'W#ii'X#ii'^#ii'a#ii'b#ii'c#ii'd#ii'e#ii'f#ii'{#ii'|#ii'}#ii(O#ii(Q#Vi(T#ii&t#ii']#iiP#iiV#ii]#ii_#iiu#iix#iiz#ii}#ii!O#ii!R#ii!U#ii!X#ii!n#ii#Y#ii#Z#ii#x#ii$f#ii$i#ii$m#ii$q#ii$s#ii$u#ii$w#ii$y#ii${#ii$}#ii%O#ii%W#ii&w#ii'S#ii'_#ii'n#ii's#ii'u#ii'v#ii(P#ii'Z#ii~O&t+pO']0mO~O&t+pO']0nO~O!duO!euO!f,`O!g,aO&c,eO&z0oO&{0oO'P,^O'QVO'R,kO'^,ZO'aWO'bWO'c,]O'd,YO'e,`O'{,[O'|,bO'},cO(O,dO(T,fO~O'f,_Of$Ri'W$Ri'X$Ri&t$Ri']$Ri~P*5lO'X0qO~P)6|O'W0rO'X0qO~O'X0tO~O!f9dO!g9kO'P9UO'R:QO'^8oO'c8}O'd8hO'e9dO'f9]O'{8vO'|9rO'}9yO(OCiOf%{X'X%{X~P(JeO'X0vO~P(NjO&t0wO'X0vO~O&i0yO~O'W.tOP#|aV#|a]#|a_#|af#|au#|ax#|az#|a}#|a!O#|a!R#|a!U#|a!X#|a!d#|a!e#|a!f#|a!g#|a!n#|a#Y#|a#Z#|a#x#|a$f#|a$i#|a$m#|a$q#|a$s#|a$u#|a$w#|a$y#|a${#|a$}#|a%O#|a%W#|a&c#|a&w#|a&z#|a&{#|a'P#|a'Q#|a'R#|a'S#|a'X#|a'^#|a'_#|a'a#|a'b#|a'c#|a'd#|a'e#|a'f#|a'n#|a's#|a'u#|a'v#|a'{#|a'|#|a'}#|a(O#|a(T#|a&t#|a']#|a(P#|a'Z#|a~O!t(vOf!yi!d!yi!e!yi!f!yi!g!yi&c!yi&z!yi&{!yi'P!yi'Q!yi'R!yi'W!yi'X!yi'^!yi'a!yi'b!yi'c!yi'd!yi'e!yi'f!yi'{!yi'|!yi'}!yi(O!yi(T!yi&t!yi']!yiP!yiV!yi]!yi_!yiu!yix!yiz!yi}!yi!O!yi!R!yi!U!yi!X!yi!n!yi#Y!yi#Z!yi#x!yi$f!yi$i!yi$m!yi$q!yi$s!yi$u!yi$w!yi$y!yi${!yi$}!yi%O!yi%W!yi&w!yi'S!yi'_!yi'n!yi's!yi'u!yi'v!yi(P!yi'Z!yi~O!duO!euO!f9bO!g9iO&c,eO'P9SO'QVO'R:OO'^8mO'aWO'bWO'c8{O'd8fO'e9bO'f9ZO'{8tO'|9pO'}9wO(OCgO(T,fO~O&z1QO&{1QO'W%ja'X%ja~P*A{O'X1RO~P)/`OV/SOf,jO'W'xa'X'xa~OP>TOVtO])OO_!POf!YOu!QOx)POz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#Y)OO#Z)OO#x)OO$f!ZO$i![O$m<jO$q<oO$s<yO$u!]O$wyO$yzO${2zO$}|O%O|O%W}O&w({O&zYO&{YO'PSO'QVO'RTO'S(}O'^YO'_7wO'aWO'b7rO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O&c,eO(T,fOf$Pi!d$Pi!e$Pi!f$Pi!g$Pi&z$Pi&{$Pi'P$Pi'Q$Pi'R$Pi'W$Pi'X$Pi'^$Pi'a$Pi'b$Pi'c$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi&t$Pi']$PiP$PiV$Pi]$Pi_$Piu$Pix$Piz$Pi}$Pi!O$Pi!R$Pi!U$Pi!X$Pi!n$Pi#Y$Pi#Z$Pi#x$Pi$f$Pi$i$Pi$m$Pi$q$Pi$s$Pi$u$Pi$w$Pi$y$Pi${$Pi$}$Pi%O$Pi%W$Pi&w$Pi'S$Pi'_$Pi'n$Pi's$Pi'u$Pi'v$Pi(P$Pi'Z$Pi~O'd$Pi~P*GhO&c,eO'd,YO(T,fOf$Pi!d$Pi!e$Pi!f$Pi!g$Pi&z$Pi&{$Pi'P$Pi'Q$Pi'R$Pi'W$Pi'X$Pi'a$Pi'b$Pi'c$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi&t$Pi']$Pi~O'^$Pi~P*KvO!duO!euO!f,`O!g,aO&c,eO'P,^O'QVO'R,kO'^,ZO'aWO'bWO'c,]O'd,YO'e,`O'{,[O'|,bO'},cO(O,dO(T,fOf$Pi&z$Pi&{$Pi'W$Pi'X$Pi&t$Pi']$Pi~O'f$Pi~P*MqO'^,ZO~P*KvO&c,eO(T,fOf$Pi!d$Pi!e$Pi!f$Pi!g$Pi&z$Pi&{$Pi'P$Pi'Q$Pi'R$Pi'W$Pi'X$Pi'a$Pi'b$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi&t$Pi']$Pi~O'^,ZO'c,]O'd,YO~P+ sO'f,_O~P*MqO&c,eO'P,^O'QVO'R,kO'^,ZO'aWO'bWO'c,]O'd,YO(T,fOf$Pi!d$Pi!e$Pi&z$Pi&{$Pi'W$Pi'X$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi&t$Pi']$Pi~O!f,`O!g,aO~P+#uO!f$Pi!g$Pi~P+#uO!duO!euO!f,`O!g,aO&c,eO'P,^O'QVO'R,kO'^,ZO'aWO'bWO'c,]O'd,YO'e,`O'},cO(T,fOf$Pi&z$Pi&{$Pi'W$Pi'X$Pi'f$Pi'{$Pi(O$Pi&t$Pi']$Pi~O'|,bO~P+%zO'|$Pi~P+%zO!duO!euO!f9eO!g9lO&c,eO'P9VO'QVO'R:RO'^8pO'aWO'bWO'c9OO'd8iO'e9eO'f9^O'{8wO'|9sO'}9zO(OCjO(T,fO~O(P1VO~P+'|O!duO!euO!f9cO!g9jO&c,eO'P9TO'QVO'R:PO'^8nO'aWO'bWO'c8|O'd8gO'e9cO'f9[O'{8uO'|9qO'}9xO(OChO(T,fO~O'W$[i'X$[i~P+)eO&t+pO&|!fO&}!gO']1YO~P)/`O!d1[O&{(_O'y(`O~O'W1]OV#laf#la'X#la&t#la']#la~O&c,eO'QVO'aWO'bWO(T,fOf$Pi!d$Pi!e$Pi!f$Pi!g$Pi&z$Pi&{$Pi'R$Pi'W$Pi'X$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi&t$Pi']$Pi~O'P,^O'^,ZO'c,]O'd,YO~P+,QO'W%ka'Z%ka~P'FwO'Z1_O~P%,aOP1cO'Q-]O'n^O~P?SO'W/rO!d(Wa!e(Wa!f(Wa!g(Wa&^(Wa&c(Wa&h(Wa&t(Wa&z(Wa&{(Wa'P(Wa'Q(Wa'R(Wa'^(Wa'a(Wa'b(Wa'c(Wa'd(Wa'e(Wa'f(Wa'{(Wa'|(Wa'}(Wa(O(Wa(T(Waf(Wa'](WaP(WaV(Wa_(Wau(Wax(Waz(Wa}(Wa!O(Wa!R(Wa!U(Wa!X(Wa!n(Wa#Y(Wa#Z(Wa#x(Wa$f(Wa$i(Wa$m(Wa$q(Wa$s(Wa$u(Wa$w(Wa$y(Wa${(Wa$}(Wa%O(Wa%W(Wa&w(Wa'S(Wa'X(Wa'_(Wa'n(Wa's(Wa'u(Wa'v(WaY(Wa[(Wa](Waa(Wad(Wa(P(Wa'Z(Wa~OP1gO'QVO'n^O~P?SO'X1iO~P)/`O'W1jO'X1iO~O&z1mO&{1mO'W1kO'X1nO~P'D^O'X1nO~O'W1oO'X1nO~O'W1kO'X1nO~O!t(vOf#Tq!d#Tq!e#Tq!f#Tq!g#Tq&_#Tq&a#Tq&b#Tq&c#Tq&f#Tq&g#Tq&z#Tq&{#Tq&|#Tq&}#Tq'P#Tq'Q#Tq'R#Tq'W#Tq'X#Tq'^#Tq'a#Tq'b#Tq'c#Tq'd#Tq'e#Tq'f#Tq'{#Tq'|#Tq'}#Tq(O#Tq(T#Tq&t#Tq']#TqP#TqV#Tq]#Tq_#Tqu#Tqx#Tqz#Tq}#Tq!O#Tq!R#Tq!U#Tq!X#Tq!n#Tq#Y#Tq#Z#Tq#x#Tq$f#Tq$i#Tq$m#Tq$q#Tq$s#Tq$u#Tq$w#Tq$y#Tq${#Tq$}#Tq%O#Tq%W#Tq&w#Tq'S#Tq'_#Tq'n#Tq's#Tq'u#Tq'v#Tq(P#Tq'Z#Tq~O'W1qO'Z1sO~P+)eO'W1qO'Z1sO~O&t#Wi'W#Wi']#Wi~P+)eO&t'qi&t'wi']'qi']'wi~O&|!fO&}!gO&t'qi&t'wi']'qi']'wi~P%(qO!duO!euO!fAdO!gAhO&c,eO'PA[O'QVO'RAtO'^AOO'aWO'bWO'cAWO'd@zO'eAdO'fA`O'{ASO'|AlO'}ApO(ODWO(T,fO~O&z>`O&{>`O&t'rX']'rX~P+:uO']1vO~P*,bO&|!fO&}!gO&t'qa']'qa~P%(qO'W1yO&t'qa']'qa~O'W%xa'X%xa~P+)eO'X1|O~P)6|O'X2OO~P(NjO!duO!euO!f9_O!g9fO&c,eO'P9PO'QVO'R9{O'^8jO'aWO'bWO'c8xO'd8cO'e9_O'{8qO'|9mO'}9tO(OCdO(T,fO~OP&PaV&Pa]&Pa_&Paf&Pau&Pax&Paz&Pa}&Pa!O&Pa!R&Pa!U&Pa!X&Pa!n&Pa#Y&Pa#Z&Pa#x&Pa$f&Pa$i&Pa$m&Pa$q&Pa$s&Pa$u&Pa$w&Pa$y&Pa${&Pa$}&Pa%O&Pa%W&Pa&w&Pa&z&Pa&{&Pa'S&Pa'W&Pa'X&Pa'_&Pa'f&Pa'n&Pa's&Pa'u&Pa'v&Pa&t&Pa']&Pa(P&Pa'Z&Pa~P+=sO&z.vO&{.vO'W.tOP#{iV#{i]#{i_#{if#{iu#{ix#{iz#{i}#{i!O#{i!R#{i!U#{i!X#{i!n#{i#Y#{i#Z#{i#x#{i$f#{i$i#{i$m#{i$q#{i$s#{i$u#{i$w#{i$y#{i${#{i$}#{i%O#{i%W#{i&w#{i'S#{i'X#{i'_#{i'f#{i'n#{i's#{i'u#{i'v#{i&t#{i']#{i(P#{i'Z#{i~P+=sO&z.vO&{.vOP#{iV#{i]#{i_#{if#{iu#{ix#{iz#{i}#{i!O#{i!R#{i!U#{i!X#{i!d#{i!e#{i!f#{i!g#{i!n#{i#Y#{i#Z#{i#x#{i$f#{i$i#{i$m#{i$q#{i$s#{i$u#{i$w#{i$y#{i${#{i$}#{i%O#{i%W#{i&c#{i&w#{i'P#{i'Q#{i'R#{i'S#{i'W#{i'X#{i'^#{i'_#{i'a#{i'b#{i'c#{i'd#{i'e#{i'f#{i'n#{i's#{i'u#{i'v#{i'{#{i'|#{i'}#{i(O#{i(T#{i&t#{i']#{i(P#{i'Z#{i~O!duO!euO!f9aO!g9hO&c,eO'P9RO'QVO'R9}O'^8lO'aWO'bWO'c8zO'd8eO'e9aO'f9YO'{8sO'|9oO'}9vO(OCfO(T,fO~OV#qaf#qa'W#qa'X#qa~P+I^O'W2SO~O'W1]OV#lif#li'X#li&t#li']#li~O&z#hO&{#hO&^%g!Z&h%g!Z&t%g!ZY%g!Z[%g!Z]%g!Za%g!Zd%g!Z~P#FTO%S/tO!d&Ya!e&Ya!f&Ya!g&Ya&^&Ya&c&Ya&h&Ya&t&Ya&z&Ya&{&Ya'P&Ya'R&Ya'W&Ya'^&Ya'a&Ya'b&Ya'c&Ya'd&Ya'e&Ya'f&Ya'{&Ya'|&Ya'}&Ya(O&Ya(T&Yaf&Ya']&YaP&YaV&Ya_&Yau&Yax&Yaz&Ya}&Ya!O&Ya!R&Ya!U&Ya!X&Ya!n&Ya#Y&Ya#Z&Ya#x&Ya$f&Ya$i&Ya$m&Ya$q&Ya$s&Ya$u&Ya$w&Ya$y&Ya${&Ya$}&Ya%O&Ya%W&Ya&w&Ya'S&Ya'X&Ya'_&Ya'n&Ya's&Ya'u&Ya'v&YaY&Ya[&Ya]&Yaa&Yad&Ya(P&Ya'Z&Ya~O'Q'_O~P+L]O'Q&Ya~P+L]O'W!]i'X!]i~P+)eO'X2XO~P)/`O'X2YO~P)/`O'W2ZO'X2YO~O&|!fO&}!gO'Z2_O~P)6|O'W2`O'Z2_O~O&t'qq&t'wq']'qq']'wq~O&|!fO&}!gO~P)/`O&|!fO&}!gO&t'qi']'qi~P%(qOf$Si'W$Si'X$Si'f$Si&t$Si']$Si~P*5lO'W!^i'X!^i~P+)eO!duO!euO&c,eO'QVO'aWO'bWO(T,fOf$Qy&z$Qy&{$Qy'W$Qy'X$Qy'f$Qy'{$Qy&t$Qy']$Qy~O!f,`O!g,aO'P,^O'R,kO'^,ZO'c,]O'd,YO'e,`O'|,bO'},cO(O,dO~P,%zO&|!fO&}!gO&t'wa']'wa~P%(qO'W2dO&t'wa']'wa~OV#mif#mi'W#mi'X#mi&t#mi']#mi~P+I^O'X2eO~P)/`O'W#Qi'X#Qi~P+)eO'W%}a'Z%}a~P+)eO&|!fO&}!gO'Z2fO~P)6|O&|!fO&}!gO&t'wi']'wi~P%(qOP%_XV%_X_%_Xf%_Xf'`Xu%_Xx%_Xz%_X}%_X!O%_X!R%_X!U%_X!X%_X!d%_X!d'`X!e%_X!e'`X!f%_X!f'`X!g%_X!g'`X!n%_X#Y%_X#Z%_X#x%_X$f%_X$i%_X$m%_X$q%_X$s%_X$u%_X$w%_X$y%_X${%_X$}%_X%O%_X%W%_X&_'`X&a'`X&b'`X&c'`X&f'`X&g'`X&t'`X&w%_X&z%_X&z'`X&{%_X&{'`X&|'`X&}'`X'P%_X'P'`X'Q%_X'Q'`X'R%_X'R'`X'S%_X'W'`X']'`X'^%_X'^'`X'_%_X'a%_X'a'`X'b%_X'b'`X'c%_X'c'`X'd%_X'd'`X'e%_X'e'`X'f%_X'f'`X'n%_X's%_X'u%_X'v%_X'{'`X'|'`X'}'`X(O'`X(T'`X'X'`X~OP'`XV'`X_'`Xf'`Xu'`Xx'`Xz'`X}'`X!O'`X!R'`X!U'`X!X'`X!n'`X#Y'`X#Z'`X#x'`X$f'`X$i'`X$m'`X$q'`X$s'`X$u'`X$w'`X$y'`X${'`X$}'`X%O'`X%W'`X&w'`X'S'`X'_'`X'n'`X's'`X'u'`X'v'`X~P0TOV'`X~P,*SOP%_XV%_X_%_Xf%_Xu%_Xx%_Xz%_X}%_X!O%_X!R%_X!U%_X!X%_X!d%_X!d'`X!e%_X!e'`X!f%_X!f'`X!g%_X!g'`X!n%_X#Y%_X#Z%_X#x%_X$f%_X$i%_X$m%_X$q%_X$s%_X$u%_X$w%_X$y%_X${%_X$}%_X%O%_X%W%_X&_'`X&a'`X&b'`X&c'`X&f'`X&g'`X&t'`X&w%_X&z%_X&{%_X&|'`X&}'`X'P%_X'P'`X'Q%_X'Q'`X'R%_X'R'`X'S%_X']'`X'^%_X'^'`X'_%_X'a%_X'a'`X'b%_X'b'`X'c%_X'c'`X'd%_X'd'`X'e%_X'e'`X'f%_X'f'`X'n%_X's%_X'u%_X'v%_X'{'`X'|'`X'}'`X(O'`X(T'`X'X'`X'W'`X~OV'`Xf'`X~P,2XO(P'`X'Z'`X&h'`X~P,2XOP%_X_%_Xf!cXu%_Xx%_Xz%_X}%_X!O%_X!R%_X!U%_X!X%_X!d!cX!e!cX!f!cX!g!cX!n%_X#Y%_X#Z%_X#x%_X$f%_X$i%_X$m%_X$q%_X$s%_X$u%_X$w%_X$y%_X${%_X$}%_X%O%_X%W%_X&_!cX&a!cX&b!cX&c!cX&f!cX&g!cX&t!cX&w%_X&z!cX&{!cX&|!cX&}!cX'P!cX'Q!cX'R!cX'S%_X'W!cX']!cX'^!cX'_%_X'a!cX'b!cX'c!cX'd!cX'e!cX'f!cX'n%_X's%_X'u%_X'v%_X'{!cX'|!cX'}!cX(O!cX(T!cX'X!cX~OV%_X~P,8SOV!cX~P,8SOP%_X_%_Xu%_Xx%_Xz%_X}%_X!O%_X!R%_X!U%_X!X%_X!d!cX!e!cX!f!cX!g!cX!n%_X#Y%_X#Z%_X#x%_X$f%_X$i%_X$m%_X$q%_X$s%_X$u%_X$w%_X$y%_X${%_X$}%_X%O%_X%W%_X&_!cX&a!cX&b!cX&c!cX&f!cX&g!cX&t!cX&w%_X&z%_X&{%_X&|!cX&}!cX'P!cX'Q!cX'R!cX'S%_X']!cX'^!cX'_%_X'a!cX'b!cX'c!cX'd!cX'e!cX'f!cX'n%_X's%_X'u%_X'v%_X'{!cX'|!cX'}!cX(O!cX(T!cX'X!cX'W!cX~OV!cXf!cX~P,<uO&z%_X&{%_X~P6YOP!wOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$m<hO$q<kO$s<uO$u!]O$wyO$yzO${2wO$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_2nO'aWO'b2iO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OP=TOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$m<jO$q<mO$s<wO$u!]O$wyO$yzO${2yO$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_2oO'aWO'b2kO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OP=TOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$m<jO$q<oO$s<yO$u!]O$wyO$yzO${2zO$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_2pO'aWO'b2lO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O&c$zX&t$zX'W$zX']$zX'{$zX'|$zX'}$zX(O$zX(T$zX'X$zX~P,AkO&c$zX&t$zX'W$zX'X$zX'{$zX'|$zX'}$zX(O$zX(T$zX&^$zX&h$zX']$zXY$zX[$zX]$zXa$zXd$zX(P$zX'Z$zX~PDbO&c$zX&t$zX']$zX'{$zX'|$zX'}$zX(O$zX(T$zX'X$zX'W$zX~P,D|O&c$zX&t$zX']$zX'{$zX'|$zX'}$zX(O$zX(T$zX'X$zX'W$zX~P,H_OY$zX[$zX]$zX&c$zX&h$zX&t$zX'{$zX'|$zX'}$zX(O$zX(T$zX~PDbO&c$zX'W$zX'Z$zX'{$zX'|$zX'}$zX(O$zX(T$zX&t$zX']$zX'X$zX(P$zX&h$zX~P%4kO&c$zX'{$zX'|$zX'}$zX(O$zX(P$zX(T$zX~P%4kO]$zX&c$zX&t$zX'X$zX'{$zX'|$zX'}$zX(O$zX(T$zX~PDbOP!haV!ha]!ha_!haf!hau!hax!haz!ha}!ha!O!ha!R!ha!U!ha!X!ha!d!ha!e!ha!f!ha!g!ha!n!ha!w!ha#Y!ha#Z!ha#x!ha$f!ha$i!ha$m!ha$q!ha$s!ha$u!ha$w!ha$y!ha${!ha$}!ha%O!ha%W!ha&h!ha&t!ha&w!ha&z!ha&{!ha'P!ha'Q!ha'R!ha'S!ha'^!ha'_!ha'a!ha'b!ha'c!ha'd!ha'e!ha'f!ha'n!ha's!ha'u!ha'v!ha~P!HvO'W3UOP$oaV$oa_$oaf$oau$oax$oaz$oa}$oa!O$oa!R$oa!U$oa!X$oa!d$oa!e$oa!f$oa!g$oa!n$oa#Y$oa#Z$oa#x$oa$f$oa$i$oa$m$oa$q$oa$s$oa$u$oa$w$oa$y$oa${$oa$}$oa%O$oa%W$oa&c$oa&w$oa'P$oa'Q$oa'R$oa'S$oa'^$oa'_$oa'a$oa'b$oa'c$oa'd$oa'e$oa'f$oa'n$oa's$oa'u$oa'v$oa'{$oa'|$oa'}$oa(O$oa(T$oa']$oa'X$oa(P$oa'Z$oa~P#1cOf$oa!d$oa!e$oa!f$oa!g$oa&c$oa&t$oa&z$oa&{$oa'P$oa'Q$oa'R$oa']$oa'^$oa'a$oa'b$oa'c$oa'd$oa'e$oa'f$oa'{$oa'|$oa'}$oa(O$oa(T$oa'X$oa~O'W3VOV$oa~P-+xOf$oa!d$oa!e$oa!f$oa!g$oa&c$oa&t$oa'P$oa'Q$oa'R$oa']$oa'^$oa'a$oa'b$oa'c$oa'd$oa'e$oa'f$oa'{$oa'|$oa'}$oa(O$oa(T$oa'X$oa~O'W3WOV$oa~P--vO'W3XO~P-+xO!d$oa!e$oa!f$oa!g$oa&c$oa'P$oa'Q$oa'R$oa'^$oa'a$oa'b$oa'c$oa'd$oa'e$oa'f$oa'{$oa'|$oa'}$oa(O$oa(P$oa(T$oa'Z$oa&t$oa']$oa'X$oa&h$oa~O'W3YO~P-/uO&z3bO&{3bO~P#FTO&z3`O&{3`O~P#FTO&z3aO&{3aO~P#FTO&z3bO&{3bO~O&z3`O&{3`O~O&z3aO&{3aO~O(Q#[OP$paV$paY$pa[$pa]$pa_$paf$pau$pax$paz$pa}$pa!O$pa!R$pa!U$pa!X$pa!d$pa!d'OX!e$pa!e'OX!f$pa!f'OX!g$pa!g'OX!n$pa#Y$pa#Z$pa#x$pa$f$pa$i$pa$m$pa$q$pa$s$pa$u$pa$w$pa$y$pa${$pa$}$pa%O$pa%W$pa&c$pa&c'OX&h$pa&t$pa&w$pa&z$pa&z'OX&{$pa&{'OX'P$pa'P'OX'Q$pa'Q'OX'R$pa'R'OX'S$pa'W'OX'^$pa'^'OX'_$pa'a$pa'a'OX'b$pa'b'OX'c$pa'c'OX'd$pa'd'OX'e$pa'e'OX'f$pa'f'OX'n$pa's$pa'u$pa'v$pa'{$pa'{'OX'|$pa'|'OX'}$pa'}'OX(O$pa(O'OX(T$pa(T'OX'X$pa']$pa(P$pa~P$:YO(Q#[O!d$pa!d'OX!e$pa!e'OX!f$pa!f'OX!g$pa!g'OX&c$pa&c'OX&z'OX&{'OX'P$pa'P'OX'Q$pa'Q'OX'R$pa'R'OX'W'OX'^$pa'^'OX'a$pa'a'OX'b$pa'b'OX'c$pa'c'OX'd$pa'd'OX'e$pa'e'OX'f$pa'f'OX'{$pa'{'OX'|$pa'|'OX'}$pa'}'OX(O$pa(O'OX(P$pa(T$pa(T'OXV$paf$pa&t$pa']$pa'X$pa~P$:YO(Q#[O!d$pa!d'OX!e$pa!e'OX!f$pa!f'OX!g$pa!g'OX&c$pa&c'OX&z'OX&{'OX'P$pa'P'OX'Q$pa'Q'OX'R$pa'R'OX'W$pa'W'OX'Z$pa'^$pa'^'OX'a$pa'a'OX'b$pa'b'OX'c$pa'c'OX'd$pa'd'OX'e$pa'e'OX'f$pa'f'OX'{$pa'{'OX'|$pa'|'OX'}$pa'}'OX(O$pa(O'OX(T$pa(T'OX&t$pa']$pa'X$pa(P$pa&h$paV$paf$pa~P$:YOP$paV$paY$pa[$pa]$pa_$paf$pau$pax$paz$pa}$pa!O$pa!R$pa!U$pa!X$pa!d$pa!d'OX!e$pa!e'OX!f$pa!f'OX!g$pa!g'OX!n$pa#Y$pa#Z$pa#x$pa$f$pa$i$pa$m$pa$q$pa$s$pa$u$pa$w$pa$y$pa${$pa$}$pa%O$pa%W$pa&c$pa&c'OX&h$pa&t$pa&w$pa&z$pa&z'OX&{$pa&{'OX&|'OX&}'OX'P$pa'P'OX'Q$pa'Q'OX'R$pa'R'OX'S$pa'W'OX'^$pa'^'OX'_$pa'a$pa'a'OX'b$pa'b'OX'c$pa'c'OX'd$pa'd'OX'e$pa'e'OX'f$pa'f'OX'n$pa's$pa'u$pa'v$pa'{$pa'{'OX'|$pa'|'OX'}$pa'}'OX(O$pa(O'OX(T$pa(T'OX'X$pa']$pa(P$pa~P$>hO!d$pa!d'OX!e$pa!e'OX!f$pa!f'OX!g$pa!g'OX&c$pa&c'OX&z'OX&{'OX&|'OX&}'OX'P$pa'P'OX'Q$pa'Q'OX'R$pa'R'OX'W'OX'^$pa'^'OX'a$pa'a'OX'b$pa'b'OX'c$pa'c'OX'd$pa'd'OX'e$pa'e'OX'f$pa'f'OX'{$pa'{'OX'|$pa'|'OX'}$pa'}'OX(O$pa(O'OX(P$pa(T$pa(T'OXV$paf$pa&t$pa']$pa'X$pa~P$>hO!d$pa!d'OX!e$pa!e'OX!f$pa!f'OX!g$pa!g'OX&c$pa&c'OX&z'OX&{'OX&|'OX&}'OX'P$pa'P'OX'Q$pa'Q'OX'R$pa'R'OX'W$pa'W'OX'Z$pa'^$pa'^'OX'a$pa'a'OX'b$pa'b'OX'c$pa'c'OX'd$pa'd'OX'e$pa'e'OX'f$pa'f'OX'{$pa'{'OX'|$pa'|'OX'}$pa'}'OX(O$pa(O'OX(T$pa(T'OX&t$pa']$pa'X$pa(P$pa&h$paV$paf$pa~P$>hO(Q#[OP$raV$raY$ra[$ra]$ra_$raf$rau$rax$raz$ra}$ra!O$ra!R$ra!U$ra!X$ra!d$ra!d'OX!e$ra!e'OX!f$ra!f'OX!g$ra!g'OX!n$ra#Y$ra#Z$ra#x$ra$f$ra$i$ra$m$ra$q$ra$s$ra$u$ra$w$ra$y$ra${$ra$}$ra%O$ra%W$ra&c$ra&c'OX&h$ra&t$ra&w$ra&z$ra&z'OX&{$ra&{'OX'P$ra'P'OX'Q$ra'Q'OX'R$ra'R'OX'S$ra'W'OX'^$ra'^'OX'_$ra'a$ra'a'OX'b$ra'b'OX'c$ra'c'OX'd$ra'd'OX'e$ra'e'OX'f$ra'f'OX'n$ra's$ra'u$ra'v$ra'{$ra'{'OX'|$ra'|'OX'}$ra'}'OX(O$ra(O'OX(T$ra(T'OX'X$ra']$ra(P$ra~P$:YO(Q#[O!d$ra!d'OX!e$ra!e'OX!f$ra!f'OX!g$ra!g'OX&c$ra&c'OX&z'OX&{'OX'P$ra'P'OX'Q$ra'Q'OX'R$ra'R'OX'W'OX'^$ra'^'OX'a$ra'a'OX'b$ra'b'OX'c$ra'c'OX'd$ra'd'OX'e$ra'e'OX'f$ra'f'OX'{$ra'{'OX'|$ra'|'OX'}$ra'}'OX(O$ra(O'OX(P$ra(T$ra(T'OXV$raf$ra&t$ra']$ra'X$ra~P$:YO(Q#[O!d$ra!d'OX!e$ra!e'OX!f$ra!f'OX!g$ra!g'OX&c$ra&c'OX&z'OX&{'OX'P$ra'P'OX'Q$ra'Q'OX'R$ra'R'OX'W$ra'W'OX'Z$ra'^$ra'^'OX'a$ra'a'OX'b$ra'b'OX'c$ra'c'OX'd$ra'd'OX'e$ra'e'OX'f$ra'f'OX'{$ra'{'OX'|$ra'|'OX'}$ra'}'OX(O$ra(O'OX(T$ra(T'OX&t$ra']$ra'X$ra(P$ra&h$raV$raf$ra~P$:YOP$raV$raY$ra[$ra]$ra_$raf$rau$rax$raz$ra}$ra!O$ra!R$ra!U$ra!X$ra!d$ra!d'OX!e$ra!e'OX!f$ra!f'OX!g$ra!g'OX!n$ra#Y$ra#Z$ra#x$ra$f$ra$i$ra$m$ra$q$ra$s$ra$u$ra$w$ra$y$ra${$ra$}$ra%O$ra%W$ra&c$ra&c'OX&h$ra&t$ra&w$ra&z$ra&z'OX&{$ra&{'OX&|'OX&}'OX'P$ra'P'OX'Q$ra'Q'OX'R$ra'R'OX'S$ra'W'OX'^$ra'^'OX'_$ra'a$ra'a'OX'b$ra'b'OX'c$ra'c'OX'd$ra'd'OX'e$ra'e'OX'f$ra'f'OX'n$ra's$ra'u$ra'v$ra'{$ra'{'OX'|$ra'|'OX'}$ra'}'OX(O$ra(O'OX(T$ra(T'OX'X$ra']$ra(P$ra~P$>hO!d$ra!d'OX!e$ra!e'OX!f$ra!f'OX!g$ra!g'OX&c$ra&c'OX&z'OX&{'OX&|'OX&}'OX'P$ra'P'OX'Q$ra'Q'OX'R$ra'R'OX'W'OX'^$ra'^'OX'a$ra'a'OX'b$ra'b'OX'c$ra'c'OX'd$ra'd'OX'e$ra'e'OX'f$ra'f'OX'{$ra'{'OX'|$ra'|'OX'}$ra'}'OX(O$ra(O'OX(P$ra(T$ra(T'OXV$raf$ra&t$ra']$ra'X$ra~P$>hO!d$ra!d'OX!e$ra!e'OX!f$ra!f'OX!g$ra!g'OX&c$ra&c'OX&z'OX&{'OX&|'OX&}'OX'P$ra'P'OX'Q$ra'Q'OX'R$ra'R'OX'W$ra'W'OX'Z$ra'^$ra'^'OX'a$ra'a'OX'b$ra'b'OX'c$ra'c'OX'd$ra'd'OX'e$ra'e'OX'f$ra'f'OX'{$ra'{'OX'|$ra'|'OX'}$ra'}'OX(O$ra(O'OX(T$ra(T'OX&t$ra']$ra'X$ra(P$ra&h$raV$raf$ra~P$>hO'W3XOf$za&t$za&z$za&{$za']$za'X$za~P!BgO!f4`O!g4gO'P4QO'R4|O'W3UO'^3kO'c3yO'd3dO'e4`O'f4XO'{3rO'|4nO'}4uO(OCZOP$zaV$za_$zaf$zau$zax$zaz$za}$za!O$za!R$za!U$za!X$za!n$za#Y$za#Z$za#x$za$f$za$i$za$m$za$q$za$s$za$u$za$w$za$y$za${$za$}$za%O$za%W$za&w$za'S$za'_$za'n$za's$za'u$za'v$za~P$'lO!duO!euO!f4aO!g4hO&c#tO'P4RO'QVO'R4}O'^3lO'aWO'bWO'c3zO'd3eO'e4aO'f4YO'{3sO'|4oO'}4vO(OC[O(T#uO~O'W3VOV$zaf$za&t$za&z$za&{$za']$za'X$za~P.<YO!duO!euO!f4bO!g4iO&c#tO'P4SO'QVO'R5OO'^3mO'aWO'bWO'c3{O'd3fO'e4bO'f4ZO'{3tO'|4pO'}4wO(OC]O(T#uO~O'W3WOV$zaf$za&t$za']$za'X$za~P.>WO'W3YO(P$za'Z$za&t$za']$za'X$za&h$za~P'FwO&_ni~P$4_O&_!iO&g!iO&|!fO&}!gO~P$FcO&_qi~P$4_O&_!iO&g!iO&|!fO&}!gO~P$KmOP!hiV!hi]!hi_!hif!hiu!hix!hiz!hi}!hi!O!hi!R!hi!U!hi!X!hi!d!hi!e!hi!f!hi!g!hi!n!hi!w!hi#Y!hi#Z!hi#x!hi$f!hi$i!hi$m!hi$q!hi$s!hi$u!hi$w!hi$y!hi${!hi$}!hi%O!hi%W!hi&h!hi&t!hi&w!hi&z!hi&{!hi'P!hi'Q!hi'R!hi'S!hi'^!hi'_!hi'a!hi'b!hi'c!hi'd!hi'e!hi'f!hi'n!hi's!hi'u!hi'v!hi~P%=]O&z8QO&{8QOf%bi&t%bi'W%bi']%bi'X%bi~P!BgO&z8RO&{8ROP%biV%bi_%bif%biu%bix%biz%bi}%bi!O%bi!R%bi!U%bi!X%bi!n%bi#Y%bi#Z%bi#x%bi$f%bi$i%bi$m%bi$q%bi$s%bi$u%bi$w%bi$y%bi${%bi$}%bi%O%bi%W%bi&t%bi&w%bi'S%bi'W%bi'X%bi'_%bi'n%bi's%bi'u%bi'v%bi&^%bi&h%bi']%biY%bi[%bi]%bia%bid%bi(P%bi'Z%bi~P(8YO&z8SO&{8SOV%bif%bi&t%bi'W%bi']%bi'X%bi~P.<YO&z8TO&{8TOP%biV%biY%bi[%bi]%bi_%bif%biu%bix%biz%bi}%bi!O%bi!R%bi!U%bi!X%bi!n%bi#Y%bi#Z%bi#x%bi$f%bi$i%bi$m%bi$q%bi$s%bi$u%bi$w%bi$y%bi${%bi$}%bi%O%bi%W%bi&h%bi&t%bi&w%bi'S%bi'_%bi'n%bi's%bi'u%bi'v%bi~P#A{O!duO!euO&c#tO'QVO'aWO'bWO(T#uO&^&Wa&h&Wa&t&Wa&z&Wa&{&Wa'W&Wa'f&Wa']&Wa'X&WaY&Wa[&Wa]&Waa&Wad&Wa(P&Wa'Z&Wa~O!f4`O!g4gO'P4QO'R4|O'^3kO'c3yO'd3dO'e4`O'{3rO'|4nO'}4uO(OCZOP&WaV&Wa_&Waf&Wau&Wax&Waz&Wa}&Wa!O&Wa!R&Wa!U&Wa!X&Wa!n&Wa#Y&Wa#Z&Wa#x&Wa$f&Wa$i&Wa$m&Wa$q&Wa$s&Wa$u&Wa$w&Wa$y&Wa${&Wa$}&Wa%O&Wa%W&Wa&w&Wa'S&Wa'_&Wa'n&Wa's&Wa'u&Wa'v&Wa~P.LiO!duO!euO!f4aO!g4hO&c#tO'P4RO'QVO'R4}O'^3lO'aWO'bWO'c3zO'd3eO'e4aO'{3sO'|4oO'}4vO(OC[O(T#uO~OV&Waf&Wa&t&Wa&z&Wa&{&Wa'W&Wa']&Wa'f&Wa'X&Wa~P/#ZO!duO!euO!f4bO!g4iO&c#tO'P4SO'QVO'R5OO'^3mO'aWO'bWO'c3{O'd3fO'e4bO'{3tO'|4pO'}4wO(OC]O(T#uO~OV&Waf&Wa&t&Wa'W&Wa']&Wa'f&Wa'X&Wa~P/%XO'f&Wa']&Wa(P&Wa'X&Wa'Z&Wa~P%LrO!duO!euO!f4dO!g4kO&c#tO'P4UO'QVO'R5QO'^3oO'aWO'bWO'c3}O'd3hO'e4dO'{3vO'|4rO'}4yO(OC_O(T#uO~O'W&Wa'f&Wa(P&Wa'Z&Wa&t&Wa']&Wa'X&Wa&h&Wa~P/'dO!duO!euO!f4_O!g4fO&c#tO'P4PO'QVO'R4{O'^3jO'aWO'bWO'c3xO'd3cO'e4_O'{3qO'|4mO'}4tO(OCYO(T#uO~Of&Wa&t&Wa&z&Wa&{&Wa'W&Wa']&Wa'f&Wa'X&Wa~P/)_O!duO!euO!f4`O!g4gO&c#tO&z3`O&{3`O'P4QO'QVO'R4|O'W3UO'^3kO'aWO'bWO'c3yO'd3dO'e4`O'{3rO'|4nO'}4uO(OCZO(T#uOP$niV$ni_$nif$niu$nix$niz$ni}$ni!O$ni!R$ni!U$ni!X$ni!n$ni#Y$ni#Z$ni#x$ni$f$ni$i$ni$m$ni$q$ni$s$ni$u$ni$w$ni$y$ni${$ni$}$ni%O$ni%W$ni&w$ni'S$ni'_$ni'f$ni'n$ni's$ni'u$ni'v$ni']$ni'X$ni(P$ni'Z$ni~P& mO&z3aO&{3aO'W3VOV$nif$ni&t$ni']$ni'f$ni'X$ni~P/#ZO!duO!euO!f#oO!g#pO&c#tO&z=ZO&{=ZO'P#mO'QVO'R#vO'W=XO'^#jO'aWO'bWO'c#lO'd#iO'e#oO'{#kO'|#qO'}#rO(O#sO(T#uO'f$ni(P$ni'Z$ni']$ni'X$ni~P& mO&z3bO&{3bO'W3XOf$ni&t$ni']$ni'f$ni'X$ni~P/)_O&z3`O&{3`OP$niV$ni_$nif$niu$nix$niz$ni}$ni!O$ni!R$ni!U$ni!X$ni!d$ni!e$ni!f$ni!g$ni!n$ni#Y$ni#Z$ni#x$ni$f$ni$i$ni$m$ni$q$ni$s$ni$u$ni$w$ni$y$ni${$ni$}$ni%O$ni%W$ni&c$ni&w$ni'P$ni'Q$ni'R$ni'S$ni'W$ni'^$ni'_$ni'a$ni'b$ni'c$ni'd$ni'e$ni'f$ni'n$ni's$ni'u$ni'v$ni'{$ni'|$ni'}$ni(O$ni(T$ni']$ni'X$ni(P$ni'Z$ni~P& mOf$ni!d$ni!e$ni!f$ni!g$ni&c$ni&t$ni'P$ni'Q$ni'R$ni']$ni'^$ni'a$ni'b$ni'c$ni'd$ni'e$ni'f$ni'{$ni'|$ni'}$ni(O$ni(T$ni'X$ni'W$ni~O&z3aO&{3aOV$ni~P/6lO&z3bO&{3bO~P/6lO&c#tO(T#uOf%`i!d%`i!e%`i!f%`i!g%`i&t%`i&z%`i&{%`i'P%`i'Q%`i'R%`i'W%`i']%`i'^%`i'a%`i'b%`i'c%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O'd3cO~P/8tO'd3dO~P&!cO'd3eOV%`i~P/8tO&c#tO'd3fO(T#uOV%`if%`i!d%`i!e%`i!f%`i!g%`i&t%`i'P%`i'Q%`i'R%`i'W%`i']%`i'a%`i'b%`i'c%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O'^%`i~P/;QO&c#tO'd3gO(T#uOP%`iV%`iY%`i[%`i]%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!d%`i!e%`i!f%`i!g%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&h%`i&t%`i&w%`i&z%`i&{%`i'P%`i'Q%`i'R%`i'S%`i'_%`i'a%`i'b%`i'c%`i'e%`i'f%`i'n%`i's%`i'u%`i'v%`i'{%`i'|%`i'}%`i(O%`i~O'^%`i~P/<xO&c#tO'd3hO(T#uO!d%`i!e%`i!f%`i!g%`i'P%`i'Q%`i'R%`i'W%`i'Z%`i'a%`i'b%`i'c%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i&t%`i']%`i'X%`i(P%`i&h%`i~O'^%`i~P/AQO&c#tO'd3iO(T#uO!d%`i!e%`i!f%`i!g%`i'P%`i'Q%`i'R%`i'a%`i'b%`i'c%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i(P%`i~O'^%`i~P/B{Of%`i&t%`i&z%`i&{%`i'W%`i']%`i'f%`i'X%`i~P/)_O!duO!euO!f4`O!g4gO&c#tO'P4QO'QVO'R4|O'^3kO'aWO'bWO'c3yO'd3dO'e4`O'{3rO'|4nO'}4uO(OCZO(T#uOP%`iV%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&t%`i&w%`i&z%`i&{%`i'S%`i'W%`i'X%`i'_%`i'n%`i's%`i'u%`i'v%`i&^%`i&h%`i']%`iY%`i[%`i]%`ia%`id%`i(P%`i'Z%`i~O'f%`i~P/EQOV%`if%`i&t%`i&z%`i&{%`i'W%`i']%`i'f%`i'X%`i~P/#ZOV%`if%`i&t%`i'W%`i']%`i'f%`i'X%`i~P/%XO!duO!euO!f4cO!g4jO&c#tO'P4TO'QVO'R5PO'^3nO'aWO'bWO'c3|O'd3gO'e4cO'{3uO'|4qO'}4xO(OC^O(T#uOP%`iV%`iY%`i[%`i]%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&h%`i&t%`i&w%`i&z%`i&{%`i'S%`i'_%`i'n%`i's%`i'u%`i'v%`i~O'f%`i~P/J|O'W%`i'Z%`i'f%`i&t%`i']%`i'X%`i(P%`i&h%`i~P/'dO!duO!euO!f4eO!g4lO&c#tO'P4VO'QVO'R5RO'^3pO'aWO'bWO'c4OO'd3iO'e4eO'{3wO'|4sO'}4zO(OC`O(T#uO(P%`i~O'f%`i~P0 rO&c#tO'^3jO'd3cO(T#uOf%`i!d%`i!e%`i!f%`i!g%`i&t%`i&z%`i&{%`i'P%`i'Q%`i'R%`i'W%`i']%`i'a%`i'b%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O'c%`i~P0#ZO'^3kO'd3dOP%`iV%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&w%`i'S%`i'_%`i'c%`i'n%`i's%`i'u%`i'v%`i~P&,SO&c#tO'^3lO'd3eO(T#uOV%`if%`i!d%`i!e%`i!f%`i!g%`i&t%`i&z%`i&{%`i'P%`i'Q%`i'R%`i'W%`i']%`i'a%`i'b%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O'c%`i~P0'pO'^3mO~P/;QO'^3nO~P/<xO'^3oO~P/AQO'^3pO~P/B{O'c3xO~P0#ZO'^3kO'c3yO'd3dOP%`iV%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&w%`i'S%`i'_%`i'n%`i's%`i'u%`i'v%`i~P&,SO'c3zO~P0'pO&c#tO'^3mO'c3{O'd3fO(T#uOV%`if%`i!d%`i!e%`i!f%`i!g%`i&t%`i'R%`i'W%`i']%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O'P%`i'Q%`i'a%`i'b%`i~P0-UO&c#tO'^3nO'c3|O'd3gO(T#uOP%`iV%`iY%`i[%`i]%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!d%`i!e%`i!f%`i!g%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&h%`i&t%`i&w%`i&z%`i&{%`i'R%`i'S%`i'_%`i'e%`i'f%`i'n%`i's%`i'u%`i'v%`i'{%`i'|%`i'}%`i(O%`i~O'P%`i'Q%`i'a%`i'b%`i~P0.|O&c#tO'^3oO'c3}O'd3hO(T#uO!d%`i!e%`i!f%`i!g%`i'R%`i'W%`i'Z%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i&t%`i']%`i'X%`i(P%`i&h%`i~O'P%`i'Q%`i'a%`i'b%`i~P03UO&c#tO(T#uO!d%`i!e%`i!f%`i!g%`i'P%`i'Q%`i'R%`i'a%`i'b%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i(P%`i~O'^3pO'c4OO'd3iO~P05POf%`i&t%`i&z%`i&{%`i'W%`i']%`i'X%`i~P!BgO'f4XO~P/EQOV%`if%`i&t%`i&z%`i&{%`i'W%`i']%`i'X%`i~P.<YOV%`if%`i&t%`i'W%`i']%`i'X%`i~P.>WO'f4[O~P/J|O'W%`i'Z%`i&t%`i']%`i'X%`i(P%`i&h%`i~P'FwO(P%`i~P&3wO&c#tO'P4PO'QVO'R4{O'^3jO'aWO'bWO'c3xO'd3cO(T#uOf%`i!d%`i!e%`i&t%`i&z%`i&{%`i'W%`i']%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O!f4_O!g4fO~P09VO&c#tO'P4QO'QVO'R4|O'^3kO'aWO'bWO'c3yO'd3dO(T#uOP%`iV%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!d%`i!e%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&t%`i&w%`i&z%`i&{%`i'S%`i'W%`i'X%`i'_%`i'e%`i'f%`i'n%`i's%`i'u%`i'v%`i'{%`i'|%`i'}%`i(O%`i&^%`i&h%`i']%`iY%`i[%`i]%`ia%`id%`i(P%`i'Z%`i~O!f4`O!g4gO~P0;QO&c#tO'P4RO'QVO'R4}O'^3lO'aWO'bWO'c3zO'd3eO(T#uOV%`if%`i!d%`i!e%`i&t%`i&z%`i&{%`i'W%`i']%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O!f4aO!g4hO~P0?rO&c#tO'P4SO'QVO'R5OO'^3mO'aWO'bWO'c3{O'd3fO(T#uOV%`if%`i!d%`i!e%`i&t%`i'W%`i']%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O!f4bO!g4iO~P0ApO&c#tO'P4TO'QVO'R5PO'^3nO'aWO'bWO'c3|O'd3gO(T#uOP%`iV%`iY%`i[%`i]%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!d%`i!e%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&h%`i&t%`i&w%`i&z%`i&{%`i'S%`i'_%`i'e%`i'f%`i'n%`i's%`i'u%`i'v%`i'{%`i'|%`i'}%`i(O%`i~O!f4cO!g4jO~P0ChO&c#tO'P4UO'QVO'R5QO'^3oO'aWO'bWO'c3}O'd3hO(T#uO!d%`i!e%`i'W%`i'Z%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i&t%`i']%`i'X%`i(P%`i&h%`i~O!f4dO!g4kO~P0GpO&c#tO'P4VO'QVO'R5RO'^3pO'aWO'bWO'c4OO'd3iO(T#uO!d%`i!e%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i(P%`i~O!f4eO!g4lO~P0IkO!f%`i!g%`i~P09VO!f%`i!g%`i~P0;QO!f%`i!g%`i~P0?rO!f%`i!g%`i~P0ApO!f%`i!g%`i~P0ChO!f%`i!g%`i~P0GpO!f%`i!g%`i~P0IkO!duO!euO!f4_O!g4fO&c#tO'P4PO'QVO'R4{O'^3jO'aWO'bWO'c3xO'd3cO'e4_O'}4tO(T#uOf%`i&t%`i&z%`i&{%`i'W%`i']%`i'f%`i'{%`i(O%`i'X%`i~O'|4mO~P0LlO!duO!euO!f4`O!g4gO&c#tO'P4QO'QVO'R4|O'^3kO'aWO'bWO'c3yO'd3dO'e4`O'}4uO(T#uOP%`iV%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&t%`i&w%`i&z%`i&{%`i'S%`i'W%`i'X%`i'_%`i'f%`i'n%`i's%`i'u%`i'v%`i'{%`i(O%`i&^%`i&h%`i']%`iY%`i[%`i]%`ia%`id%`i(P%`i'Z%`i~O'|4nO~P0NgO!duO!euO!f4aO!g4hO&c#tO'P4RO'QVO'R4}O'^3lO'aWO'bWO'c3zO'd3eO'e4aO'}4vO(T#uOV%`if%`i&t%`i&z%`i&{%`i'W%`i']%`i'f%`i'{%`i(O%`i'X%`i~O'|4oO~P1%XO!duO!euO!f4bO!g4iO&c#tO'P4SO'QVO'R5OO'^3mO'aWO'bWO'c3{O'd3fO'e4bO'}4wO(T#uOV%`if%`i&t%`i'W%`i']%`i'f%`i'{%`i(O%`i'X%`i~O'|4pO~P1'VO!duO!euO!f4cO!g4jO&c#tO'P4TO'QVO'R5PO'^3nO'aWO'bWO'c3|O'd3gO'e4cO'}4xO(T#uOP%`iV%`iY%`i[%`i]%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&h%`i&t%`i&w%`i&z%`i&{%`i'S%`i'_%`i'f%`i'n%`i's%`i'u%`i'v%`i'{%`i(O%`i~O'|4qO~P1(}O!duO!euO!f4dO!g4kO&c#tO'P4UO'QVO'R5QO'^3oO'aWO'bWO'c3}O'd3hO'e4dO'}4yO(T#uO'W%`i'Z%`i'f%`i'{%`i(O%`i&t%`i']%`i'X%`i(P%`i&h%`i~O'|4rO~P1-VO!duO!euO!f4eO!g4lO&c#tO'P4VO'QVO'R5RO'^3pO'aWO'bWO'c4OO'd3iO'e4eO'}4zO(T#uO'f%`i'{%`i(O%`i(P%`i~O'|4sO~P1/QO'|%`i~P0LlO'|%`i~P0NgO'|%`i~P1%XO'|%`i~P1'VO'|%`i~P1(}O'|%`i~P1-VO'|%`i~P1/QO&c#tO'QVO'aWO'bWO(T#uOf%`i!d%`i!e%`i!f%`i!g%`i&t%`i&z%`i&{%`i'R%`i'W%`i']%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O'P4PO'^3jO'c3xO'd3cO~P11lO'P4QO'^3kO'c3yO'd3dOP%`iV%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&w%`i'S%`i'_%`i'n%`i's%`i'u%`i'v%`i~P&5`O'P4RO'^3lO'c3zO'd3eOV%`i~P11lO'P4SO'QVO'aWO'bWO~P0-UO'P4TO'QVO'aWO'bWO~P0.|O'P4UO'QVO'aWO'bWO~P03UO&c#tO'QVO'aWO'bWO(T#uO!d%`i!e%`i!f%`i!g%`i'R%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i(P%`i~O'P4VO'^3pO'c4OO'd3iO~P17kO&_(PO&g(PO~O&_7kO&g7kO~OP'`XV'`X]'`X_'`Xu'`Xx'`Xz'`X}'`X!O'`X!R'`X!U'`X!X'`X!n'`X#Y'`X#Z'`X#x'`X$f'`X$i'`X$m'`X$q'`X$s'`X$u'`X$w'`X$y'`X${'`X$}'`X%O'`X%W'`X&w'`X'S'`X'_'`X'n'`X's'`X'u'`X'v'`X(P'`X'Z'`X~P''|OV'`X~P''|OP$OXV$OX]$OX_$OXf$OXu$OXx$OXz$OX}$OX!O$OX!R$OX!U$OX!X$OX!d$OX!d'`X!e$OX!e'`X!f$OX!f'`X!g$OX!g'`X!n$OX#Y$OX#Z$OX#x$OX$f$OX$i$OX$m$OX$q$OX$s$OX$u$OX$w$OX$y$OX${$OX$}$OX%O$OX%W$OX&_'`X&a'`X&b'`X&c'`X&f'`X&g'`X&w$OX&z$OX&{$OX&|'`X&}'`X'P$OX'P'`X'Q$OX'Q'`X'R$OX'R'`X'S$OX'W'`X'X'`X'^$OX'^'`X'_$OX'a$OX'a'`X'b$OX'b'`X'c$OX'c'`X'd$OX'd'`X'e$OX'e'`X'f$OX'f'`X'n$OX's$OX'u$OX'v$OX'{'`X'|'`X'}'`X(O'`X(T'`X&t'`X']'`X~OV'`Xf'`X~P1<SO&z'`X&{'`X(P'`X'Z'`X~P1<SOf$OX(P!cX'Z!cX~P'-lOP$OXV!cX]$OX_$OXf!cXu$OXx$OXz$OX}$OX!O$OX!R$OX!U$OX!X$OX!d!cX!e!cX!f!cX!g!cX!n$OX#Y$OX#Z$OX#x$OX$f$OX$i$OX$m$OX$q$OX$s$OX$u$OX$w$OX$y$OX${$OX$}$OX%O$OX%W$OX&_!cX&a!cX&b!cX&c!cX&f!cX&g!cX&w$OX&|!cX&}!cX'P!cX'Q!cX'R!cX'S$OX'W!cX'X!cX'^!cX'_$OX'a!cX'b!cX'c!cX'd!cX'e!cX'f!cX'n$OX's$OX'u$OX'v$OX'{!cX'|!cX'}!cX(O!cX(T!cX&t!cX']!cX~O&z!cX&{!cX~P1BbO&z$OX&{$OX~P1BbO&a!cX&b!cX&f!cX&t!cX']!cX~OP$OXV$OX]$OX_$OXf$OXu$OXx$OXz$OX}$OX!O$OX!R$OX!U$OX!X$OX!d!cX!e!cX!f!cX!g!cX!n$OX#Y$OX#Z$OX#x$OX$f$OX$i$OX$m$OX$q$OX$s$OX$u$OX$w$OX$y$OX${$OX$}$OX%O$OX%W$OX&_!cX&c!cX&g!cX&w$OX&z$OX&{$OX&|!cX&}!cX'P!cX'Q!cX'R!cX'S$OX'^!cX'_$OX'a!cX'b!cX'c!cX'd!cX'e!cX'f!cX'n$OX's$OX'u$OX'v$OX'{!cX'|!cX'}!cX(O!cX(P!cX(T!cX'W!cX'X!cX'Z!cX~P1GZOP>TOVtO])OO_!POf!YOu!QOx)POz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#Y)OO#Z)OO#x)OO$f!ZO$i![O$m<jO$q<mO$s<wO$u!]O$wyO$yzO${2yO$}|O%O|O%W}O&w({O&zYO&{YO'PSO'QVO'RTO'S(}O'^YO'_7vO'aWO'b7qO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OVgifgi&tgi'Wgi']gi'Xgi~P.>WO&z8QO&{8QOf%ci&t%ci'W%ci']%ci'f%ci'X%ci~P/)_O!duO!euO&c#tO'QVO'aWO'bWO(T#uOP%ciV%ci_%cif%ciu%cix%ciz%ci}%ci!O%ci!R%ci!U%ci!X%ci!n%ci#Y%ci#Z%ci#x%ci$f%ci$i%ci$m%ci$q%ci$s%ci$u%ci$w%ci$y%ci${%ci$}%ci%O%ci%W%ci&t%ci&w%ci'S%ci'_%ci'f%ci'n%ci's%ci'u%ci'v%ci&h%ciY%ci[%ci]%ci~O!f4`O!g4gO&z8RO&{8RO'P4QO'R4|O'^3kO'c3yO'd3dO'e4`O'{3rO'|4nO'}4uO(OCZO'W%ci'X%ci&^%ci']%cia%cid%ci(P%ci'Z%ci~P2!hO&z8SO&{8SOV%cif%ci&t%ci'W%ci']%ci'f%ci'X%ci~P/#ZO!f4cO!g4jO&z8TO&{8TO'P4TO'R5PO'^3nO'c3|O'd3gO'e4cO'{3uO'|4qO'}4xO(OC^O~P2!hO!duO!euO&c#tO'QVO'aWO'bWO(T#uOf%ay&t%ay&z%ay&{%ay'W%ay']%ay'f%ay'{%ay'X%ay~O!f4_O!g4fO'P4PO'R4{O'^3jO'c3xO'd3cO'e4_O'|4mO'}4tO(OCYO~P2(yO!f4`O!g4gO'P4QO'R4|O'^3kO'c3yO'd3dO'e4`O'|4nO'}4uO(OCZOP%ayV%ay_%ayf%ayu%ayx%ayz%ay}%ay!O%ay!R%ay!U%ay!X%ay!n%ay#Y%ay#Z%ay#x%ay$f%ay$i%ay$m%ay$q%ay$s%ay$u%ay$w%ay$y%ay${%ay$}%ay%O%ay%W%ay&w%ay'S%ay'_%ay'n%ay's%ay'u%ay'v%ay~P)AfO!f4aO!g4hO'P4RO'R4}O'^3lO'c3zO'd3eO'e4aO'|4oO'}4vO(OC[OV%ay~P2(yO!duO!euO&c#tO'QVO'aWO'bWO(T#uOV%ayf%ay&t%ay']%ay'f%ay'{%ay'X%ay~O!f4bO!g4iO'P4SO'R5OO'^3mO'c3{O'd3fO'e4bO'|4pO'}4wO(OC]O'W%ay~P2.rO!duO!euO&c#tO'QVO'aWO'bWO(T#uOP%ayV%ay_%ayf%ayu%ayx%ayz%ay}%ay!O%ay!R%ay!U%ay!X%ay!n%ay#Y%ay#Z%ay#x%ay$f%ay$i%ay$m%ay$q%ay$s%ay$u%ay$w%ay$y%ay${%ay$}%ay%O%ay%W%ay&t%ay&w%ay&z%ay&{%ay'S%ay'_%ay'f%ay'n%ay's%ay'u%ay'v%ay'{%ay~O!f4cO!g4jO'P4TO'R5PO'^3nO'c3|O'd3gO'e4cO'|4qO'}4xO(OC^OY%ay[%ay]%ay&h%ay~P20jO!duO!euO&c#tO'QVO'aWO'bWO(T#uO'f%ay'{%ay&t%ay']%ay(P%ay~O!f4dO!g4kO'P4UO'R5QO'^3oO'c3}O'd3hO'e4dO'|4rO'}4yO(OC_O'W%ay'Z%ay'X%ay&h%ay~P24rO!duO!euO!f4eO!g4lO&c#tO'P4VO'QVO'R5RO'^3pO'aWO'bWO'c4OO'd3iO'e4eO'|4sO'}4zO(OC`O(T#uO~O'f%ay'{%ay(P%ay~P26mO&z;{O&{;{O'f9WOP$RiV$Ri]$Ri_$Rif$Riu$Rix$Riz$Ri}$Ri!O$Ri!R$Ri!U$Ri!X$Ri!n$Ri#Y$Ri#Z$Ri#x$Ri$f$Ri$i$Ri$m$Ri$q$Ri$s$Ri$u$Ri$w$Ri$y$Ri${$Ri$}$Ri%O$Ri%W$Ri&t$Ri&w$Ri'S$Ri'W$Ri'X$Ri'_$Ri'n$Ri's$Ri'u$Ri'v$Ri']$Ri(P$Ri'Z$Ri~P+=sO!duO!euO!f9`O!g9gO&c,eO&z;|O&{;|O'P9QO'QVO'R9|O'^8kO'aWO'bWO'c8yO'd8dO'e9`O'{8rO'|9nO'}9uO(OCeO(T,fO~O'f9XOV$Rif$Ri'W$Ri'X$Ri&t$Ri']$Ri~P2;VO&z;}O&{;}O'W$Ri'X$Ri'Z$Ri&t$Ri']$Ri~P*A{O!duO!euO!f9dO!g9kO&c,eO&z<OO&{<OO'P9UO'QVO'R:QO'^8oO'aWO'bWO'c8}O'd8hO'e9dO'{8vO'|9rO'}9yO(OCiO(T,fO~O'f9]OP$RiV$Ri]$Ri_$Rif$Riu$Rix$Riz$Ri}$Ri!O$Ri!R$Ri!U$Ri!X$Ri!n$Ri#Y$Ri#Z$Ri#x$Ri$f$Ri$i$Ri$m$Ri$q$Ri$s$Ri$u$Ri$w$Ri$y$Ri${$Ri$}$Ri%O$Ri%W$Ri&t$Ri&w$Ri'S$Ri'X$Ri'_$Ri'n$Ri's$Ri'u$Ri'v$Ri~P2=nO'd8cO~P*GhO'd8dOV$Pi'^$Pi'c$Pi~P+ sO&c,eO'd8eO(T,fOV$Pif$Pi!d$Pi!e$Pi!f$Pi!g$Pi'P$Pi'Q$Pi'R$Pi'W$Pi'X$Pi'a$Pi'b$Pi'c$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi&t$Pi']$Pi~O'^$Pi~P2BXO&c,eO'd8fO(T,fO!d$Pi!e$Pi!f$Pi!g$Pi&z$Pi&{$Pi'P$Pi'Q$Pi'R$Pi'W$Pi'X$Pi'a$Pi'b$Pi'c$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi'Z$Pi&t$Pi']$Pi~O'^$Pi~P2DPO&c,eO'd8gO(T,fO!d$Pi!e$Pi!f$Pi!g$Pi'P$Pi'Q$Pi'R$Pi'W$Pi'X$Pi'a$Pi'b$Pi'c$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi'Z$Pi&t$Pi']$Pi~O'^$Pi~P2EzO&c,eO'd8hO(T,fOP$PiV$Pi]$Pi_$Pif$Piu$Pix$Piz$Pi}$Pi!O$Pi!R$Pi!U$Pi!X$Pi!d$Pi!e$Pi!f$Pi!g$Pi!n$Pi#Y$Pi#Z$Pi#x$Pi$f$Pi$i$Pi$m$Pi$q$Pi$s$Pi$u$Pi$w$Pi$y$Pi${$Pi$}$Pi%O$Pi%W$Pi&t$Pi&w$Pi&z$Pi&{$Pi'P$Pi'Q$Pi'R$Pi'S$Pi'X$Pi'_$Pi'a$Pi'b$Pi'c$Pi'e$Pi'f$Pi'n$Pi's$Pi'u$Pi'v$Pi'{$Pi'|$Pi'}$Pi(O$Pi~O'^$Pi~P2GoO&c,eO'd8iO(T,fO!d$Pi!e$Pi!f$Pi!g$Pi'P$Pi'Q$Pi'R$Pi'a$Pi'b$Pi'c$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi(P$Pi~O'^$Pi~P2KqOP$PiV$Pi]$Pi_$Pif$Piu$Pix$Piz$Pi}$Pi!O$Pi!R$Pi!U$Pi!X$Pi!n$Pi#Y$Pi#Z$Pi#x$Pi$f$Pi$i$Pi$m$Pi$q$Pi$s$Pi$u$Pi$w$Pi$y$Pi${$Pi$}$Pi%O$Pi%W$Pi&t$Pi&w$Pi&z$Pi&{$Pi'S$Pi'W$Pi'X$Pi'_$Pi'f$Pi'n$Pi's$Pi'u$Pi'v$Pi']$Pi(P$Pi'Z$Pi~P+=sO!duO!euO!f9`O!g9gO&c,eO'P9QO'QVO'R9|O'^8kO'aWO'bWO'c8yO'd8dO'e9`O'{8rO'|9nO'}9uO(OCeO(T,fOV$Pif$Pi&z$Pi&{$Pi'W$Pi'X$Pi&t$Pi']$Pi~O'f$Pi~P3!ZO!duO!euO!f9aO!g9hO&c,eO'P9RO'QVO'R9}O'^8lO'aWO'bWO'c8zO'd8eO'e9aO'{8sO'|9oO'}9vO(OCfO(T,fOV$Pif$Pi'W$Pi'X$Pi&t$Pi']$Pi~O'f$Pi~P3$XO!duO!euO!f9bO!g9iO&c,eO'P9SO'QVO'R:OO'^8mO'aWO'bWO'c8{O'd8fO'e9bO'{8tO'|9pO'}9wO(OCgO(T,fO&z$Pi&{$Pi'W$Pi'X$Pi'Z$Pi&t$Pi']$Pi~O'f$Pi~P3&PO!duO!euO!f9cO!g9jO&c,eO'P9TO'QVO'R:PO'^8nO'aWO'bWO'c8|O'd8gO'e9cO'{8uO'|9qO'}9xO(OChO(T,fO'W$Pi'X$Pi'Z$Pi&t$Pi']$Pi~O'f$Pi~P3'zO!duO!euO!f9dO!g9kO&c,eO'P9UO'QVO'R:QO'^8oO'aWO'bWO'c8}O'd8hO'e9dO'{8vO'|9rO'}9yO(OCiO(T,fOP$PiV$Pi]$Pi_$Pif$Piu$Pix$Piz$Pi}$Pi!O$Pi!R$Pi!U$Pi!X$Pi!n$Pi#Y$Pi#Z$Pi#x$Pi$f$Pi$i$Pi$m$Pi$q$Pi$s$Pi$u$Pi$w$Pi$y$Pi${$Pi$}$Pi%O$Pi%W$Pi&t$Pi&w$Pi&z$Pi&{$Pi'S$Pi'X$Pi'_$Pi'n$Pi's$Pi'u$Pi'v$Pi~O'f$Pi~P3)oO!duO!euO!f9eO!g9lO&c,eO'P9VO'QVO'R:RO'^8pO'aWO'bWO'c9OO'd8iO'e9eO'{8wO'|9sO'}9zO(OCjO(T,fO(P$Pi~O'f$Pi~P3-qO'^8jO'd8cOP$PiV$Pi]$Pi_$Piu$Pix$Piz$Pi}$Pi!O$Pi!R$Pi!U$Pi!X$Pi!n$Pi#Y$Pi#Z$Pi#x$Pi$f$Pi$i$Pi$m$Pi$q$Pi$s$Pi$u$Pi$w$Pi$y$Pi${$Pi$}$Pi%O$Pi%W$Pi&w$Pi'S$Pi'_$Pi'c$Pi'n$Pi's$Pi'u$Pi'v$Pi(P$Pi'Z$Pi~P+ sO'^8kO'd8dOV$Pi'c$Pi~P+ sO'^8lO~P2BXO'^8mO~P2DPO'^8nO~P2EzO'^8oO~P2GoO'^8pO~P2KqO'^8jO'c8xO'd8cOP$PiV$Pi]$Pi_$Piu$Pix$Piz$Pi}$Pi!O$Pi!R$Pi!U$Pi!X$Pi!n$Pi#Y$Pi#Z$Pi#x$Pi$f$Pi$i$Pi$m$Pi$q$Pi$s$Pi$u$Pi$w$Pi$y$Pi${$Pi$}$Pi%O$Pi%W$Pi&w$Pi'S$Pi'_$Pi'n$Pi's$Pi'u$Pi'v$Pi(P$Pi'Z$Pi~P+ sO'^8kO'c8yO'd8dOV$Pi~P+ sO&c,eO'^8lO'c8zO'd8eO(T,fOV$Pif$Pi!d$Pi!e$Pi!f$Pi!g$Pi'R$Pi'W$Pi'X$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi&t$Pi']$Pi~O'P$Pi'Q$Pi'a$Pi'b$Pi~P36RO&c,eO'^8mO'c8{O'd8fO(T,fO!d$Pi!e$Pi!f$Pi!g$Pi&z$Pi&{$Pi'R$Pi'W$Pi'X$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi'Z$Pi&t$Pi']$Pi~O'P$Pi'Q$Pi'a$Pi'b$Pi~P37yO&c,eO'^8nO'c8|O'd8gO(T,fO!d$Pi!e$Pi!f$Pi!g$Pi'R$Pi'W$Pi'X$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi'Z$Pi&t$Pi']$Pi~O'P$Pi'Q$Pi'a$Pi'b$Pi~P39tO&c,eO'^8oO'c8}O'd8hO(T,fOP$PiV$Pi]$Pi_$Pif$Piu$Pix$Piz$Pi}$Pi!O$Pi!R$Pi!U$Pi!X$Pi!d$Pi!e$Pi!f$Pi!g$Pi!n$Pi#Y$Pi#Z$Pi#x$Pi$f$Pi$i$Pi$m$Pi$q$Pi$s$Pi$u$Pi$w$Pi$y$Pi${$Pi$}$Pi%O$Pi%W$Pi&t$Pi&w$Pi&z$Pi&{$Pi'R$Pi'S$Pi'X$Pi'_$Pi'e$Pi'f$Pi'n$Pi's$Pi'u$Pi'v$Pi'{$Pi'|$Pi'}$Pi(O$Pi~O'P$Pi'Q$Pi'a$Pi'b$Pi~P3;iO&c,eO(T,fO!d$Pi!e$Pi!f$Pi!g$Pi'P$Pi'Q$Pi'R$Pi'a$Pi'b$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi(P$Pi~O'^8pO'c9OO'd8iO~P3?kO'f9WOP$PiV$Pi]$Pi_$Pif$Piu$Pix$Piz$Pi}$Pi!O$Pi!R$Pi!U$Pi!X$Pi!n$Pi#Y$Pi#Z$Pi#x$Pi$f$Pi$i$Pi$m$Pi$q$Pi$s$Pi$u$Pi$w$Pi$y$Pi${$Pi$}$Pi%O$Pi%W$Pi&t$Pi&w$Pi&z$Pi&{$Pi'S$Pi'W$Pi'X$Pi'_$Pi'n$Pi's$Pi'u$Pi'v$Pi']$Pi(P$Pi'Z$Pi~P+=sO'f9XO~P3!ZO'f9YO~P3$XO'f9ZO~P3&PO'f9[O~P3'zO'f9]O~P3)oO(P$Pi~P+'|O&c,eO'P9PO'QVO'R9{O'^8jO'aWO'bWO'c8xO'd8cO(T,fOP$PiV$Pi]$Pi_$Pif$Piu$Pix$Piz$Pi}$Pi!O$Pi!R$Pi!U$Pi!X$Pi!d$Pi!e$Pi!n$Pi#Y$Pi#Z$Pi#x$Pi$f$Pi$i$Pi$m$Pi$q$Pi$s$Pi$u$Pi$w$Pi$y$Pi${$Pi$}$Pi%O$Pi%W$Pi&t$Pi&w$Pi&z$Pi&{$Pi'S$Pi'W$Pi'X$Pi'_$Pi'e$Pi'f$Pi'n$Pi's$Pi'u$Pi'v$Pi'{$Pi'|$Pi'}$Pi(O$Pi']$Pi(P$Pi'Z$Pi~O!f9_O!g9fO~P3EPO&c,eO'P9QO'QVO'R9|O'^8kO'aWO'bWO'c8yO'd8dO(T,fOV$Pif$Pi!d$Pi!e$Pi&z$Pi&{$Pi'W$Pi'X$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi&t$Pi']$Pi~O!f9`O!g9gO~P3I_O&c,eO'P9RO'QVO'R9}O'^8lO'aWO'bWO'c8zO'd8eO(T,fOV$Pif$Pi!d$Pi!e$Pi'W$Pi'X$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi&t$Pi']$Pi~O!f9aO!g9hO~P3K]O&c,eO'P9SO'QVO'R:OO'^8mO'aWO'bWO'c8{O'd8fO(T,fO!d$Pi!e$Pi&z$Pi&{$Pi'W$Pi'X$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi'Z$Pi&t$Pi']$Pi~O!f9bO!g9iO~P3MTO&c,eO'P9TO'QVO'R:PO'^8nO'aWO'bWO'c8|O'd8gO(T,fO!d$Pi!e$Pi'W$Pi'X$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi'Z$Pi&t$Pi']$Pi~O!f9cO!g9jO~P4 OO&c,eO'P9UO'QVO'R:QO'^8oO'aWO'bWO'c8}O'd8hO(T,fOP$PiV$Pi]$Pi_$Pif$Piu$Pix$Piz$Pi}$Pi!O$Pi!R$Pi!U$Pi!X$Pi!d$Pi!e$Pi!n$Pi#Y$Pi#Z$Pi#x$Pi$f$Pi$i$Pi$m$Pi$q$Pi$s$Pi$u$Pi$w$Pi$y$Pi${$Pi$}$Pi%O$Pi%W$Pi&t$Pi&w$Pi&z$Pi&{$Pi'S$Pi'X$Pi'_$Pi'e$Pi'f$Pi'n$Pi's$Pi'u$Pi'v$Pi'{$Pi'|$Pi'}$Pi(O$Pi~O!f9dO!g9kO~P4!sO&c,eO'P9VO'QVO'R:RO'^8pO'aWO'bWO'c9OO'd8iO(T,fO!d$Pi!e$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi(P$Pi~O!f9eO!g9lO~P4&uO!f$Pi!g$Pi~P3EPO!f$Pi!g$Pi~P3I_O!f$Pi!g$Pi~P3K]O!f$Pi!g$Pi~P3MTO!f$Pi!g$Pi~P4 OO!f$Pi!g$Pi~P4!sO!f$Pi!g$Pi~P4&uO!duO!euO!f9_O!g9fO&c,eO'P9PO'QVO'R9{O'^8jO'aWO'bWO'c8xO'd8cO'e9_O'}9tO(T,fOP$PiV$Pi]$Pi_$Pif$Piu$Pix$Piz$Pi}$Pi!O$Pi!R$Pi!U$Pi!X$Pi!n$Pi#Y$Pi#Z$Pi#x$Pi$f$Pi$i$Pi$m$Pi$q$Pi$s$Pi$u$Pi$w$Pi$y$Pi${$Pi$}$Pi%O$Pi%W$Pi&t$Pi&w$Pi&z$Pi&{$Pi'S$Pi'W$Pi'X$Pi'_$Pi'f$Pi'n$Pi's$Pi'u$Pi'v$Pi'{$Pi(O$Pi']$Pi(P$Pi'Z$Pi~O'|9mO~P4)vO!duO!euO!f9`O!g9gO&c,eO'P9QO'QVO'R9|O'^8kO'aWO'bWO'c8yO'd8dO'e9`O'}9uO(T,fOV$Pif$Pi&z$Pi&{$Pi'W$Pi'X$Pi'f$Pi'{$Pi(O$Pi&t$Pi']$Pi~O'|9nO~P4.UO!duO!euO!f9aO!g9hO&c,eO'P9RO'QVO'R9}O'^8lO'aWO'bWO'c8zO'd8eO'e9aO'}9vO(T,fOV$Pif$Pi'W$Pi'X$Pi'f$Pi'{$Pi(O$Pi&t$Pi']$Pi~O'|9oO~P40SO!duO!euO!f9bO!g9iO&c,eO'P9SO'QVO'R:OO'^8mO'aWO'bWO'c8{O'd8fO'e9bO'}9wO(T,fO&z$Pi&{$Pi'W$Pi'X$Pi'f$Pi'{$Pi(O$Pi'Z$Pi&t$Pi']$Pi~O'|9pO~P41zO!duO!euO!f9cO!g9jO&c,eO'P9TO'QVO'R:PO'^8nO'aWO'bWO'c8|O'd8gO'e9cO'}9xO(T,fO'W$Pi'X$Pi'f$Pi'{$Pi(O$Pi'Z$Pi&t$Pi']$Pi~O'|9qO~P43uO!duO!euO!f9dO!g9kO&c,eO'P9UO'QVO'R:QO'^8oO'aWO'bWO'c8}O'd8hO'e9dO'}9yO(T,fOP$PiV$Pi]$Pi_$Pif$Piu$Pix$Piz$Pi}$Pi!O$Pi!R$Pi!U$Pi!X$Pi!n$Pi#Y$Pi#Z$Pi#x$Pi$f$Pi$i$Pi$m$Pi$q$Pi$s$Pi$u$Pi$w$Pi$y$Pi${$Pi$}$Pi%O$Pi%W$Pi&t$Pi&w$Pi&z$Pi&{$Pi'S$Pi'X$Pi'_$Pi'f$Pi'n$Pi's$Pi'u$Pi'v$Pi'{$Pi(O$Pi~O'|9rO~P45jO!duO!euO!f9eO!g9lO&c,eO'P9VO'QVO'R:RO'^8pO'aWO'bWO'c9OO'd8iO'e9eO'}9zO(T,fO'f$Pi'{$Pi(O$Pi(P$Pi~O'|9sO~P49lO'|$Pi~P4)vO'|$Pi~P4.UO'|$Pi~P40SO'|$Pi~P41zO'|$Pi~P43uO'|$Pi~P45jO'|$Pi~P49lO'P9PO'^8jO'c8xO'd8cOP$PiV$Pi]$Pi_$Piu$Pix$Piz$Pi}$Pi!O$Pi!R$Pi!U$Pi!X$Pi!n$Pi#Y$Pi#Z$Pi#x$Pi$f$Pi$i$Pi$m$Pi$q$Pi$s$Pi$u$Pi$w$Pi$y$Pi${$Pi$}$Pi%O$Pi%W$Pi&w$Pi'S$Pi'_$Pi'n$Pi's$Pi'u$Pi'v$Pi(P$Pi'Z$Pi~P+,QO'P9QO'^8kO'c8yO'd8dOV$Pi~P+,QO'P9RO'QVO'aWO'bWO~P36RO'P9SO'QVO'aWO'bWO~P37yO'P9TO'QVO'aWO'bWO~P39tO'P9UO'QVO'aWO'bWO~P3;iO&c,eO'QVO'aWO'bWO(T,fO!d$Pi!e$Pi!f$Pi!g$Pi'R$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi(P$Pi~O'P9VO'^8pO'c9OO'd8iO~P4@rO&z;{O&{;{OP$SiV$Si]$Si_$Sif$Siu$Six$Siz$Si}$Si!O$Si!R$Si!U$Si!X$Si!n$Si#Y$Si#Z$Si#x$Si$f$Si$i$Si$m$Si$q$Si$s$Si$u$Si$w$Si$y$Si${$Si$}$Si%O$Si%W$Si&t$Si&w$Si'S$Si'W$Si'X$Si'_$Si'f$Si'n$Si's$Si'u$Si'v$Si']$Si(P$Si'Z$Si~P+=sOV$Sif$Si'W$Si'X$Si'f$Si&t$Si']$Si~P2;VO!duO!euO!f9bO!g9iO&c,eO'P9SO'QVO'R:OO'^8mO'aWO'bWO'c8{O'd8fO'e9bO'{8tO'|9pO'}9wO(OCgO(T,fO~O&z;}O&{;}O'W$Si'X$Si'f$Si'Z$Si&t$Si']$Si~P4EuOP$SiV$Si]$Si_$Sif$Siu$Six$Siz$Si}$Si!O$Si!R$Si!U$Si!X$Si!n$Si#Y$Si#Z$Si#x$Si$f$Si$i$Si$m$Si$q$Si$s$Si$u$Si$w$Si$y$Si${$Si$}$Si%O$Si%W$Si&t$Si&w$Si'S$Si'X$Si'_$Si'f$Si'n$Si's$Si'u$Si'v$Si~P2=nO!f9_O!g9fO'P9PO'R9{O'^8jO'c8xO'd8cO'e9_O'|9mO'}9tO(OCdOP$QyV$Qy]$Qy_$Qyu$Qyx$Qyz$Qy}$Qy!O$Qy!R$Qy!U$Qy!X$Qy!n$Qy#Y$Qy#Z$Qy#x$Qy$f$Qy$i$Qy$m$Qy$q$Qy$s$Qy$u$Qy$w$Qy$y$Qy${$Qy$}$Qy%O$Qy%W$Qy&w$Qy'S$Qy'_$Qy'n$Qy's$Qy'u$Qy'v$Qy(P$Qy'Z$Qy~P,%zO!f9`O!g9gO'P9QO'R9|O'^8kO'c8yO'd8dO'e9`O'|9nO'}9uO(OCeOV$Qy~P,%zO!duO!euO&c,eO'QVO'aWO'bWO(T,fOV$Qyf$Qy'X$Qy'f$Qy'{$Qy&t$Qy']$Qy~O!f9aO!g9hO'P9RO'R9}O'^8lO'c8zO'd8eO'e9aO'|9oO'}9vO(OCfO'W$Qy~P4NcO!duO!euO!f9bO!g9iO&c,eO'P9SO'QVO'R:OO'^8mO'aWO'bWO'c8{O'd8fO'e9bO'|9pO'}9wO(OCgO(T,fO~O&z$Qy&{$Qy'W$Qy'X$Qy'f$Qy'{$Qy'Z$Qy&t$Qy']$Qy~P5!ZO!duO!euO&c,eO'QVO'aWO'bWO(T,fO'X$Qy'f$Qy'{$Qy&t$Qy']$Qy~O!f9cO!g9jO'P9TO'R:PO'^8nO'c8|O'd8gO'e9cO'|9qO'}9xO(OChO'W$Qy'Z$Qy~P5$UO!duO!euO&c,eO'QVO'aWO'bWO(T,fOV$Qyf$Qy&t$Qy&z$Qy&{$Qy'X$Qy'f$Qy'{$Qy~O!f9dO!g9kO'P9UO'R:QO'^8oO'c8}O'd8hO'e9dO'|9rO'}9yO(OCiOP$Qy]$Qy_$Qyu$Qyx$Qyz$Qy}$Qy!O$Qy!R$Qy!U$Qy!X$Qy!n$Qy#Y$Qy#Z$Qy#x$Qy$f$Qy$i$Qy$m$Qy$q$Qy$s$Qy$u$Qy$w$Qy$y$Qy${$Qy$}$Qy%O$Qy%W$Qy&w$Qy'S$Qy'_$Qy'n$Qy's$Qy'u$Qy'v$Qy~P5%yO!duO!euO!f9eO!g9lO&c,eO'P9VO'QVO'R:RO'^8pO'aWO'bWO'c9OO'd8iO'e9eO'|9sO'}9zO(OCjO(T,fO~O'f$Qy'{$Qy(P$Qy~P5){O']3PO~P;aO(Q3QO~O(Q3RO~O(Q3SO~O(Q3TO~OP5YOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$qwO$sxO$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_ZO'aWO'bXO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OP5[OVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$qwO$sxO$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_ZO'aWO'bXO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OP5ZOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$qwO$sxO$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_ZO'aWO'bXO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OP5`OVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$qwO$sxO$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_ZO'aWO'bXO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OP5bOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$qwO$sxO$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_ZO'aWO'bXO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OP5aOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$qwO$sxO$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_ZO'aWO'bXO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O&t!rO']5oO~O(Q3RO&_'OX&d#cX&e#cX&g'OX~PGzO(Q3SOV'OX~P!NYO'Z'OX']'OX'X'OX(P'OX~PA`O(Q3TOP'OXV'OXY'OX['OX]'OX_'OXf'OXu'OXx'OXz'OX}'OX!O'OX!R'OX!U'OX!X'OX!d'OX!e'OX!f'OX!g'OX!n'OX#Y'OX#Z'OX#x'OX$f'OX$i'OX$m'OX$q'OX$s'OX$u'OX$w'OX$y'OX${'OX$}'OX%O'OX%W'OX&c'OX&h'OX&t'OX&w'OX&z'OX&{'OX'P'OX'Q'OX'R'OX'S'OX'^'OX'_'OX'a'OX'b'OX'c'OX'd'OX'e'OX'f'OX'n'OX's'OX'u'OX'v'OX'{'OX'|'OX'}'OX(O'OX(T'OX~P$:YOPCrOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$mvO$q<qO$s<{O$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_ZO'aWO'bXO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O'W=XO&^$oa&z$oa&{$oaY$oa[$oa]$oaa$oad$oa~P-/uO&z#hO&{#hO~O&_7kO&g7kO&z!cX&{!cX~P1GZO&_!dO&g!dO~O&_=PO&g=PO~O!duO!euO!f=bO!g=cO&c#tO&z>[O&{>[O'P=`O'QVO'R=fO'^=]O'aWO'bWO'c=_O'd=[O'e=bO'{=^O'|=dO'}=eO(ODPO(T#uO~O'f=aO(P%bi&t%bi']%bi~P5JgO&z=ZO&{=ZO!d$ni!e$ni!f$ni!g$ni&c$ni'P$ni'Q$ni'R$ni'W$ni'^$ni'a$ni'b$ni'c$ni'd$ni'e$ni'f$ni'{$ni'|$ni'}$ni(O$ni(T$ni(P$ni'Z$ni']$ni'X$ni~P& mO'd=[O&t%`i&z%`i&{%`i']%`i'^%`i'c%`i~P05PO!duO!euO!f=bO!g=cO&c#tO'P=`O'QVO'R=fO'^=]O'aWO'bWO'c=_O'd=[O'e=bO'{=^O'|=dO'}=eO(ODPO(T#uO&t%`i&z%`i&{%`i']%`i(P%`i~O'f%`i~P5NnO'^=]O'd=[O&t%`i&z%`i&{%`i']%`i'c%`i~P05PO'^=]O'c=_O'd=[O&t%`i&z%`i&{%`i']%`i~P05PO'f=aO~P5NnO&c#tO'P=`O'QVO'R=fO'^=]O'aWO'bWO'c=_O'd=[O(T#uO!d%`i!e%`i&t%`i&z%`i&{%`i']%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i(P%`i~O!f=bO!g=cO~P6#nO!f%`i!g%`i~P6#nO!duO!euO!f=bO!g=cO&c#tO'P=`O'QVO'R=fO'^=]O'aWO'bWO'c=_O'd=[O'e=bO'}=eO(T#uO&t%`i&z%`i&{%`i']%`i'f%`i'{%`i(O%`i(P%`i~O'|=dO~P6%mO'|%`i~P6%mO(P8UO~P&3wO(P8VO~P&3wO(P8WO~P&3wO(P8XO~P&3wO(P8YO~P&3wO(P8ZO~P&3wO(P8[O~P&3wO'P=`O'^=]O'c=_O'd=[O&t%`i&z%`i&{%`i']%`i~P17kO'Q8]O~O!duO!euO!f=bO!g=cO&c#tO'P=`O'QVO'R=fO'^=]O'aWO'bWO'c=_O'd=[O'e=bO'{=^O'|=dO'}=eO(ODPO(T#uO~O&z=lO&{=lO'f=aO&t&yX']&yX~P6)_O(Q8_O&_'oX&d#cX&e#cX&g'oX~P'=fO(Q8`OV'oX~P'7`O!d'oX!e'oX!f'oX!g'oX&_'oX&a'oX&b'oX&c'oX&d#cX&e#cX&f'oX&g'oX&z'oX&{'oX&|'oX&}'oX'P'oX'Q'oX'R'oX'X'oX'^'oX'a'oX'b'oX'c'oX'd'oX'e'oX'f'oX'{'oX'|'oX'}'oX(O'oX(T'oX&t'oX']'oX~O(Q8aO'W'oX'Z'oX~P6+nOV'oXf'oX!d'oX!e'oX!f'oX!g'oX&_'oX&a'oX&b'oX&c'oX&d#cX&e#cX&f'oX&g'oX&t'oX&z'oX&{'oX&|'oX&}'oX'P'oX'Q'oX'R'oX'X'oX'^'oX'a'oX'b'oX'c'oX'd'oX'e'oX'f'oX'{'oX'|'oX'}'oX(O'oX(T'oX~O(Q8bOP'oX]'oX_'oXu'oXx'oXz'oX}'oX!O'oX!R'oX!U'oX!X'oX!n'oX#Y'oX#Z'oX#x'oX$f'oX$i'oX$m'oX$q'oX$s'oX$u'oX$w'oX$y'oX${'oX$}'oX%O'oX%W'oX&w'oX'S'oX'_'oX'n'oX's'oX'u'oX'v'oX~P6.XO(Q8_O~O(Q8`O~O(Q8aO~O(Q8bO~O'f%ci(P%ci&t%ci']%ci~P5JgO!f=bO!g=cO'P=`O'R=fO'^=]O'c=_O'd=[O'e=bO'|=dO'}=eO(ODPO&z%ay&{%ay~P24rOPCxOVtO])OO_!POf!YOu!QOx)POz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#Y)OO#Z)OO#x)OO$f!ZO$i![O$mvO$q<tO$s=OO$u!]O$wyO$yzO${2|O$}|O%O|O%W}O&w({O&zYO&{YO'PSO'QVO'RTO'S(}O'^YO'_7xO'aWO'b7tO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OPCwOVtO])OO_!POf!YOu!QOx)POz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#Y)OO#Z)OO#x)OO$f!ZO$i![O$m<jO$q<pO$s<zO$u!]O$wyO$yzO${2zO$}|O%O|O%W}O&w({O&zYO&{YO'PSO'QVO'RTO'S(}O'^YO'_7wO'aWO'b7rO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O(P<PO~P+'|O(P<QO~P+'|O(P<RO~P+'|O(P<SO~P+'|O(P<TO~P+'|O(P<UO~P+'|O(P<VO~P+'|O&z.VO&{.VO'W'rX&t'rX']'rX~P*A{OPCqOVtO_!POf!YOu!QOxgOz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#YfO#ZfO#x!^O$f!ZO$i![O$m<jO$q<nO$s<xO$u!]O$wyO$yzO${2yO$}|O%O|O%W}O&w[O&zYO&{YO'PSO'QVO'RTO'SeO'^YO'_2oO'aWO'b2kO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~O!duO!euO!f?[O!g?`O&c#tO&z@pO&{@pO'P?SO'QVO'R?lO'^>vO'aWO'bWO'c?OO'd>rO'e?[O'{>zO'|?dO'}?hO(ODQO(T#uO~O'f?WOP%biV%bi_%bif%biu%bix%biz%bi}%bi!O%bi!R%bi!U%bi!X%bi!n%bi#Y%bi#Z%bi#x%bi$f%bi$i%bi$m%bi$q%bi$s%bi$u%bi$w%bi$y%bi${%bi$}%bi%O%bi%W%bi&t%bi&w%bi'S%bi'X%bi'_%bi'n%bi's%bi'u%bi'v%bi~P6@_O!duO!euO!f?]O!g?aO&c#tO&z@qO&{@qO'P?TO'QVO'R?mO'^>wO'aWO'bWO'c?PO'd>sO'e?]O'{>{O'|?eO'}?iO(ODRO(T#uO~O'f?XOV%bif%bi&t%bi']%bi'X%bi~P6D^O&c#tO'd>rO(T#uOP%`iV%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!d%`i!e%`i!f%`i!g%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&t%`i&w%`i&z%`i&{%`i'P%`i'Q%`i'R%`i'S%`i'X%`i'_%`i'a%`i'b%`i'c%`i'e%`i'f%`i'n%`i's%`i'u%`i'v%`i'{%`i'|%`i'}%`i(O%`i~O'^%`i~P6FXO&c#tO'd>sO(T#uOV%`if%`i!d%`i!e%`i!f%`i!g%`i&t%`i&z%`i&{%`i'P%`i'Q%`i'R%`i']%`i'a%`i'b%`i'c%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O'^%`i~P6JWO&c#tO'd>tO(T#uOV%`if%`i!d%`i!e%`i!f%`i!g%`i&t%`i'P%`i'Q%`i'R%`i']%`i'a%`i'b%`i'c%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O'^%`i~P6LRO&c#tO'd>uO(T#uO!d%`i!e%`i!f%`i!g%`i'P%`i'Q%`i'R%`i']%`i'a%`i'b%`i'c%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i&t%`i~O'^%`i~P6MvO!duO!euO!f?[O!g?`O&c#tO'P?SO'QVO'R?lO'^>vO'aWO'bWO'c?OO'd>rO'e?[O'{>zO'|?dO'}?hO(ODQO(T#uOP%`iV%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&t%`i&w%`i&z%`i&{%`i'S%`i'X%`i'_%`i'n%`i's%`i'u%`i'v%`i~O'f%`i~P7 bO!duO!euO!f?]O!g?aO&c#tO'P?TO'QVO'R?mO'^>wO'aWO'bWO'c?PO'd>sO'e?]O'{>{O'|?eO'}?iO(ODRO(T#uOV%`if%`i&t%`i&z%`i&{%`i']%`i'X%`i~O'f%`i~P7%aO!duO!euO!f?^O!g?bO&c#tO'P?UO'QVO'R?nO'^>xO'aWO'bWO'c?QO'd>tO'e?^O'{>|O'|?fO'}?jO(ODSO(T#uOV%`if%`i&t%`i']%`i'X%`i~O'f%`i~P7'[O!duO!euO!f?_O!g?cO&c#tO'P?VO'QVO'R?oO'^>yO'aWO'bWO'c?RO'd>uO'e?_O'{>}O'|?gO'}?kO(ODTO(T#uO']%`i&t%`i~O'f%`i~P7)PO'^>vO~P6FXO'^>wO~P6JWO'^>xO~P6LRO'^>yO~P6MvO&c#tO'^>vO'c?OO'd>rO(T#uOP%`iV%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!d%`i!e%`i!f%`i!g%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&t%`i&w%`i&z%`i&{%`i'R%`i'S%`i'X%`i'_%`i'e%`i'f%`i'n%`i's%`i'u%`i'v%`i'{%`i'|%`i'}%`i(O%`i~O'P%`i'Q%`i'a%`i'b%`i~P7+XO&c#tO'^>wO'c?PO'd>sO(T#uOV%`if%`i!d%`i!e%`i!f%`i!g%`i&t%`i&z%`i&{%`i'R%`i']%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O'P%`i'Q%`i'a%`i'b%`i~P7/WO&c#tO'^>xO'c?QO'd>tO(T#uOV%`if%`i!d%`i!e%`i!f%`i!g%`i&t%`i'R%`i']%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O'P%`i'Q%`i'a%`i'b%`i~P71RO&c#tO'^>yO'c?RO'd>uO(T#uO!d%`i!e%`i!f%`i!g%`i'R%`i']%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i&t%`i~O'P%`i'Q%`i'a%`i'b%`i~P72vO'f?WO~P7 bO'f?XO~P7%aO'f?YO~P7'[O'f?ZO~P7)PO&c#tO'P?SO'QVO'R?lO'^>vO'aWO'bWO'c?OO'd>rO(T#uOP%`iV%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!d%`i!e%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&t%`i&w%`i&z%`i&{%`i'S%`i'X%`i'_%`i'e%`i'f%`i'n%`i's%`i'u%`i'v%`i'{%`i'|%`i'}%`i(O%`i~O!f?[O!g?`O~P75OO&c#tO'P?TO'QVO'R?mO'^>wO'aWO'bWO'c?PO'd>sO(T#uOV%`if%`i!d%`i!e%`i&t%`i&z%`i&{%`i']%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O!f?]O!g?aO~P78}O&c#tO'P?UO'QVO'R?nO'^>xO'aWO'bWO'c?QO'd>tO(T#uOV%`if%`i!d%`i!e%`i&t%`i']%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i'X%`i~O!f?^O!g?bO~P7:xO&c#tO'P?VO'QVO'R?oO'^>yO'aWO'bWO'c?RO'd>uO(T#uO!d%`i!e%`i']%`i'e%`i'f%`i'{%`i'|%`i'}%`i(O%`i&t%`i~O!f?_O!g?cO~P7<mO!f%`i!g%`i~P75OO!f%`i!g%`i~P78}O!f%`i!g%`i~P7:xO!f%`i!g%`i~P7<mO!duO!euO!f?[O!g?`O&c#tO'P?SO'QVO'R?lO'^>vO'aWO'bWO'c?OO'd>rO'e?[O'}?hO(T#uOP%`iV%`i_%`if%`iu%`ix%`iz%`i}%`i!O%`i!R%`i!U%`i!X%`i!n%`i#Y%`i#Z%`i#x%`i$f%`i$i%`i$m%`i$q%`i$s%`i$u%`i$w%`i$y%`i${%`i$}%`i%O%`i%W%`i&t%`i&w%`i&z%`i&{%`i'S%`i'X%`i'_%`i'f%`i'n%`i's%`i'u%`i'v%`i'{%`i(O%`i~O'|?dO~P7?RO!duO!euO!f?]O!g?aO&c#tO'P?TO'QVO'R?mO'^>wO'aWO'bWO'c?PO'd>sO'e?]O'}?iO(T#uOV%`if%`i&t%`i&z%`i&{%`i']%`i'f%`i'{%`i(O%`i'X%`i~O'|?eO~P7CQO!duO!euO!f?^O!g?bO&c#tO'P?UO'QVO'R?nO'^>xO'aWO'bWO'c?QO'd>tO'e?^O'}?jO(T#uOV%`if%`i&t%`i']%`i'f%`i'{%`i(O%`i'X%`i~O'|?fO~P7D{O!duO!euO!f?_O!g?cO&c#tO'P?VO'QVO'R?oO'^>yO'aWO'bWO'c?RO'd>uO'e?_O'}?kO(T#uO']%`i'f%`i'{%`i(O%`i&t%`i~O'|?gO~P7FpO'|%`i~P7?RO'|%`i~P7CQO'|%`i~P7D{O'|%`i~P7FpO'P?SO'QVO'aWO'bWO~P7+XO'P?TO'QVO'aWO'bWO~P7/WO'P?UO'QVO'aWO'bWO~P71RO'P?VO'QVO'aWO'bWO~P72vOPCwOVtO])OO_!POf!YOu!QOx)POz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#Y)OO#Z)OO#x)OO$f!ZO$i![O$m<jO$q<nO$s<xO$u!]O$wyO$yzO${2yO$}|O%O|O%W}O&w({O&zYO&{YO'PSO'QVO'RTO'S(}O'^YO'_7vO'aWO'b7qO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OPCxOVtO])OO_!POf!YOu!QOx)POz!RO}!TO!O!SO!R!UO!U!VO!X!WO!duO!euO!fYO!gYO!n!XO#Y)OO#Z)OO#x)OO$f!ZO$i![O$mvO$q<qO$s<{O$u!]O$wyO$yzO${{O$}|O%O|O%W}O&w({O&zYO&{YO'PSO'QVO'RTO'S(}O'^YO'_7uO'aWO'b7sO'cYO'dYO'eYO'fYO'n^O's_O'u`O'vaO~OP%ciV%ci_%cif%ciu%cix%ciz%ci}%ci!O%ci!R%ci!U%ci!X%ci!n%ci#Y%ci#Z%ci#x%ci$f%ci$i%ci$m%ci$q%ci$s%ci$u%ci$w%ci$y%ci${%ci$}%ci%O%ci%W%ci&t%ci&w%ci'S%ci'X%ci'_%ci'f%ci'n%ci's%ci'u%ci'v%ci~P6@_OV%cif%ci&t%ci']%ci'f%ci'X%ci~P6D^O!f?[O!g?`O'P?SO'R?lO'^>vO'c?OO'd>rO'e?[O'|?dO'}?hO(ODQO'X%ay~P20jO!f?]O!g?aO'P?TO'R?mO'^>wO'c?PO'd>sO'e?]O'|?eO'}?iO(ODRO&z%ay&{%ay~P2.rO!f?^O!g?bO'P?UO'R?nO'^>xO'c?QO'd>tO'e?^O'|?fO'}?jO(ODSO~P2.rO!duO!euO!f?_O!g?cO&c#tO'P?VO'QVO'R?oO'^>yO'aWO'bWO'c?RO'd>uO'e?_O'|?gO'}?kO(ODTO(T#uO~O']%ay'f%ay'{%ay&t%ay~P8(tO!duO!euO!fAbO!gAfO&c,eO&zBxO&{BxO'PAYO'QVO'RArO'^@|O'aWO'bWO'cAUO'd@xO'eAbO'{AQO'|AjO'}AnO(ODUO(T,fO~O'fA^OV$Rif$Ri&t$Ri']$Ri'X$Ri~P8*`O&zByO&{ByO(P$Ri&t$Ri']$Ri~P+:uO&c,eO'd@xO(T,fOV$Pif$Pi!d$Pi!e$Pi!f$Pi!g$Pi&t$Pi&z$Pi&{$Pi'P$Pi'Q$Pi'R$Pi']$Pi'a$Pi'b$Pi'c$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi'X$Pi~O'^$Pi~P8,nO&c,eO'd@yO(T,fOV$Pif$Pi!d$Pi!e$Pi!f$Pi!g$Pi&t$Pi'P$Pi'Q$Pi'R$Pi']$Pi'a$Pi'b$Pi'c$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi'X$Pi~O'^$Pi~P8.iO'd@zO&t$Pi&z$Pi&{$Pi']$Pi'^$Pi'c$Pi~P3?kO&c,eO'd@{O(T,fO!d$Pi!e$Pi!f$Pi!g$Pi&t$Pi'P$Pi'Q$Pi'R$Pi']$Pi'a$Pi'b$Pi'c$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi~O'^$Pi~P80wO!duO!euO!fAbO!gAfO&c,eO'PAYO'QVO'RArO'^@|O'aWO'bWO'cAUO'd@xO'eAbO'{AQO'|AjO'}AnO(ODUO(T,fOV$Pif$Pi&t$Pi&z$Pi&{$Pi']$Pi'X$Pi~O'f$Pi~P82cO!duO!euO!fAcO!gAgO&c,eO'PAZO'QVO'RAsO'^@}O'aWO'bWO'cAVO'd@yO'eAcO'{ARO'|AkO'}AoO(ODVO(T,fOV$Pif$Pi&t$Pi']$Pi'X$Pi~O'f$Pi~P84^O!duO!euO!fAdO!gAhO&c,eO'PA[O'QVO'RAtO'^AOO'aWO'bWO'cAWO'd@zO'eAdO'{ASO'|AlO'}ApO(ODWO(T,fO&t$Pi&z$Pi&{$Pi']$Pi(P$Pi~O'f$Pi~P86RO!duO!euO!fAeO!gAiO&c,eO'PA]O'QVO'RAuO'^APO'aWO'bWO'cAXO'd@{O'eAeO'{ATO'|AmO'}AqO(ODXO(T,fO&t$Pi']$Pi~O'f$Pi~P87vO'^@|O~P8,nO'^@}O~P8.iO'^AOO'd@zO&t$Pi&z$Pi&{$Pi']$Pi'c$Pi~P3?kO'^APO~P80wO&c,eO'^@|O'cAUO'd@xO(T,fOV$Pif$Pi!d$Pi!e$Pi!f$Pi!g$Pi&t$Pi&z$Pi&{$Pi'R$Pi']$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi'X$Pi~O'P$Pi'Q$Pi'a$Pi'b$Pi~P8:bO&c,eO'^@}O'cAVO'd@yO(T,fOV$Pif$Pi!d$Pi!e$Pi!f$Pi!g$Pi&t$Pi'R$Pi']$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi'X$Pi~O'P$Pi'Q$Pi'a$Pi'b$Pi~P8<]O'^AOO'cAWO'd@zO&t$Pi&z$Pi&{$Pi']$Pi~P3?kO&c,eO'^APO'cAXO'd@{O(T,fO!d$Pi!e$Pi!f$Pi!g$Pi&t$Pi'R$Pi']$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi~O'P$Pi'Q$Pi'a$Pi'b$Pi~P8>kO'fA^O~P82cO'fA_O~P84^O'fA`O~P86RO'fAaO~P87vO&c,eO'PAYO'QVO'RArO'^@|O'aWO'bWO'cAUO'd@xO(T,fOV$Pif$Pi!d$Pi!e$Pi&t$Pi&z$Pi&{$Pi']$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi'X$Pi~O!fAbO!gAfO~P8@sO&c,eO'PAZO'QVO'RAsO'^@}O'aWO'bWO'cAVO'd@yO(T,fOV$Pif$Pi!d$Pi!e$Pi&t$Pi']$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi'X$Pi~O!fAcO!gAgO~P8BnO&c,eO'PA[O'QVO'RAtO'^AOO'aWO'bWO'cAWO'd@zO(T,fO!d$Pi!e$Pi&t$Pi&z$Pi&{$Pi']$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi(P$Pi~O!fAdO!gAhO~P8DcO&c,eO'PA]O'QVO'RAuO'^APO'aWO'bWO'cAXO'd@{O(T,fO!d$Pi!e$Pi&t$Pi']$Pi'e$Pi'f$Pi'{$Pi'|$Pi'}$Pi(O$Pi~O!fAeO!gAiO~P8FWO!f$Pi!g$Pi~P8@sO!f$Pi!g$Pi~P8BnO!f$Pi!g$Pi~P8DcO!f$Pi!g$Pi~P8FWO!duO!euO!fAbO!gAfO&c,eO'PAYO'QVO'RArO'^@|O'aWO'bWO'cAUO'd@xO'eAbO'}AnO(T,fOV$Pif$Pi&t$Pi&z$Pi&{$Pi']$Pi'f$Pi'{$Pi(O$Pi'X$Pi~O'|AjO~P8HlO!duO!euO!fAcO!gAgO&c,eO'PAZO'QVO'RAsO'^@}O'aWO'bWO'cAVO'd@yO'eAcO'}AoO(T,fOV$Pif$Pi&t$Pi']$Pi'f$Pi'{$Pi(O$Pi'X$Pi~O'|AkO~P8JgO!duO!euO!fAdO!gAhO&c,eO'PA[O'QVO'RAtO'^AOO'aWO'bWO'cAWO'd@zO'eAdO'}ApO(T,fO&t$Pi&z$Pi&{$Pi']$Pi'f$Pi'{$Pi(O$Pi(P$Pi~O'|AlO~P8L[O!duO!euO!fAeO!gAiO&c,eO'PA]O'QVO'RAuO'^APO'aWO'bWO'cAXO'd@{O'eAeO'}AqO(T,fO&t$Pi']$Pi'f$Pi'{$Pi(O$Pi~O'|AmO~P8NPO'|$Pi~P8HlO'|$Pi~P8JgO'|$Pi~P8L[O'|$Pi~P8NPO'PAYO'QVO'aWO'bWO~P8:bO'PAZO'QVO'aWO'bWO~P8<]O'PA[O'^AOO'cAWO'd@zO&t$Pi&z$Pi&{$Pi']$Pi~P4@rO'PA]O'QVO'aWO'bWO~P8>kOV$Sif$Si&t$Si']$Si'f$Si'X$Si~P8*`O!duO!euO!fAdO!gAhO&c,eO'PA[O'QVO'RAtO'^AOO'aWO'bWO'cAWO'd@zO'eAdO'|AlO'}ApO(ODWO(T,fO~O&zByO&{ByO'{ASO'f$Si(P$Si&t$Si']$Si~P9$_O!fAbO!gAfO'PAYO'RArO'^@|O'cAUO'd@xO'eAbO'|AjO'}AnO(ODUO']$Qy~P5%yO!fAcO!gAgO'PAZO'RAsO'^@}O'cAVO'd@yO'eAcO'|AkO'}AoO(ODVO~P4NcO&t$Qy&z$Qy&{$Qy']$Qy'f$Qy'{$Qy(P$Qy~P9$_O!duO!euO!fAeO!gAiO&c,eO'PA]O'QVO'RAuO'^APO'aWO'bWO'cAXO'd@{O'eAeO'|AmO'}AqO(ODXO(T,fO~O&t$Qy']$Qy'f$Qy'{$Qy~P9(^O&_=PO&g=PO&a!cX&b!cX&f!cX~O&_=QO&g=QO&z!cX&{!cX~P1GZO(Q=WO~O(P>]O~P&3wO&tii']ii~P)=vOV>aOf,jO&t'xX']'xX'X'xX~OV>aOf,jO&t'xa']'xa'X'xa~O'fAaO'{ATO&t#Wi']#Wi~P9(^O!duO!euO&c,eO'QVO'aWO'bWO(T,fO~O!fAcO!gAgO'PAZO'RAsO'^@}O'cAVO'd@yO'eAcO'fA_O'{ARO'|AkO'}AoO(ODVOV#qaf#qa&t#qa']#qa'X#qa~P9,VO(Q>pO~O(Q>qO~O(Q>pOP'OXV'OX_'OXf'OXu'OXx'OXz'OX}'OX!O'OX!R'OX!U'OX!X'OX!d'OX!e'OX!f'OX!g'OX!n'OX#Y'OX#Z'OX#x'OX$f'OX$i'OX$m'OX$q'OX$s'OX$u'OX$w'OX$y'OX${'OX$}'OX%O'OX%W'OX&c'OX&t'OX&w'OX&z'OX&{'OX'P'OX'Q'OX'R'OX'S'OX'X'OX'^'OX'_'OX'a'OX'b'OX'c'OX'd'OX'e'OX'f'OX'n'OX's'OX'u'OX'v'OX'{'OX'|'OX'}'OX(O'OX(T'OX~P$:YO(Q>qOV'OXf'OX!d'OX!e'OX!f'OX!g'OX&c'OX&t'OX'P'OX'Q'OX'R'OX']'OX'^'OX'a'OX'b'OX'c'OX'd'OX'e'OX'f'OX'{'OX'|'OX'}'OX(O'OX(T'OX'X'OX&z'OX&{'OX~P$:YO(Q=WO!d'OX!e'OX!f'OX!g'OX&c'OX'P'OX'Q'OX'R'OX'^'OX'a'OX'b'OX'c'OX'd'OX'e'OX'f'OX'{'OX'|'OX'}'OX(O'OX(P'OX(T'OX&t'OX&z'OX&{'OX']'OX~P$:YO(P@rO~P&3wO(P@sO~P&3wO(P@tO~P&3wO(P@uO~P&3wO(Q@vO']'oX~P6.XO(Q@wO!d'oX!e'oX!f'oX!g'oX&_'oX&a'oX&b'oX&c'oX&d#cX&e#cX&f'oX&g'oX&|'oX&}'oX'P'oX'Q'oX'R'oX'^'oX'a'oX'b'oX'c'oX'd'oX'e'oX'f'oX'{'oX'|'oX'}'oX(O'oX(P'oX(T'oX&t'oX&z'oX&{'oX']'oX~O(Q@vO~O(Q@wO~O(PBzO~P+'|O(PB{O~P+'|O(PB|O~P+'|O(PB}O~P+'|O'e~",
@@ -11286,6 +11264,7 @@ class InputState {
     ensureHandlers(view, plugins) {
         var _a;
         let handlers;
+        this.customHandlers = [];
         for (let plugin of plugins)
             if (handlers = (_a = plugin.update(view).spec) === null || _a === void 0 ? void 0 : _a.domEventHandlers) {
                 this.customHandlers.push({ plugin: plugin.value, handlers });
@@ -16325,6 +16304,7 @@ class GutterElement {
         this.above = 0;
         this.markers = [];
         this.dom = document.createElement("div");
+        this.dom.className = "cm-gutterElement";
         this.update(view, height, above, markers);
     }
     update(view, height, above, markers) {
@@ -18542,7 +18522,7 @@ class HighlightStyle {
             tag: style.tag,
             class: style.class || def(Object.assign({}, style, { tag: null }))
         })), {
-            all: all,
+            all,
         }).style;
         this.module = modSpec ? new StyleModule(modSpec) : null;
         this.themeType = options.themeType;
@@ -19187,6 +19167,7 @@ const completionConfig = /*@__PURE__*/Facet.define({
         return combineConfig(configs, {
             activateOnTyping: true,
             override: null,
+            closeOnBlur: true,
             maxRenderedOptions: 100,
             defaultKeymap: true,
             optionClass: () => "",
@@ -19195,6 +19176,7 @@ const completionConfig = /*@__PURE__*/Facet.define({
             addToOptions: []
         }, {
             defaultKeymap: (a, b) => a && b,
+            closeOnBlur: (a, b) => a && b,
             icons: (a, b) => a && b,
             optionClass: (a, b) => c => joinClass(a(c), b(c)),
             addToOptions: (a, b) => a.concat(b)
@@ -19440,8 +19422,14 @@ function sortOptions(active, state) {
     for (let a of active)
         if (a.hasResult()) {
             if (a.result.filter === false) {
-                for (let option of a.result.options)
-                    options.push(new Option(option, a, [1e9 - i++]));
+                let getMatch = a.result.getMatch;
+                for (let option of a.result.options) {
+                    let match = [1e9 - i++];
+                    if (getMatch)
+                        for (let n of getMatch(option))
+                            match.push(n);
+                    options.push(new Option(option, a, match));
+                }
             }
             else {
                 let matcher = new FuzzyMatcher(state.sliceDoc(a.from, a.to)), match;
@@ -19849,6 +19837,11 @@ const completionPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
     }
 }, {
     eventHandlers: {
+        blur() {
+            let state = this.view.state.field(completionState, false);
+            if (state && state.tooltip && this.view.state.facet(completionConfig).closeOnBlur)
+                this.view.dispatch({ effects: closeCompletionEffect.of(null) });
+        },
         compositionstart() {
             this.composing = 1 /* Started */;
         },
@@ -23878,7 +23871,7 @@ class BlockContext {
         this.lineStart = this.absoluteLineStart = this.absoluteLineEnd = ranges[0].from;
         this.block = CompositeBlock.create(Type$1.Document, 0, this.lineStart, 0, 0);
         this.stack = [this.block];
-        this.fragments = fragments.length ? new FragmentCursor(fragments, input) : null;
+        this.fragments = fragments.length ? new FragmentCursor$5(fragments, input) : null;
         this.readLine();
     }
     get parsedPos() {
@@ -24807,7 +24800,7 @@ function injectMarks(elements, marks) {
 // These are blocks that can span blank lines, and should thus only be
 // reused if their next sibling is also being reused.
 const NotLast = [Type$1.CodeBlock, Type$1.ListItem, Type$1.OrderedList, Type$1.BulletList];
-class FragmentCursor {
+class FragmentCursor$5 {
     constructor(fragments, input) {
         this.fragments = fragments;
         this.input = input;
@@ -25175,6 +25168,1593 @@ const Emoji = {
         }]
 };
 
+/// A parse stack. These are used internally by the parser to track
+/// parsing progress. They also provide some properties and methods
+/// that external code such as a tokenizer can use to get information
+/// about the parse state.
+class Stack$4 {
+    /// @internal
+    constructor(
+    /// The parse that this stack is part of @internal
+    p, 
+    /// Holds state, input pos, buffer index triplets for all but the
+    /// top state @internal
+    stack, 
+    /// The current parse state @internal
+    state, 
+    // The position at which the next reduce should take place. This
+    // can be less than `this.pos` when skipped expressions have been
+    // added to the stack (which should be moved outside of the next
+    // reduction)
+    /// @internal
+    reducePos, 
+    /// The input position up to which this stack has parsed.
+    pos, 
+    /// The dynamic score of the stack, including dynamic precedence
+    /// and error-recovery penalties
+    /// @internal
+    score, 
+    // The output buffer. Holds (type, start, end, size) quads
+    // representing nodes created by the parser, where `size` is
+    // amount of buffer array entries covered by this node.
+    /// @internal
+    buffer, 
+    // The base offset of the buffer. When stacks are split, the split
+    // instance shared the buffer history with its parent up to
+    // `bufferBase`, which is the absolute offset (including the
+    // offset of previous splits) into the buffer at which this stack
+    // starts writing.
+    /// @internal
+    bufferBase, 
+    /// @internal
+    curContext, 
+    /// @internal
+    lookAhead = 0, 
+    // A parent stack from which this was split off, if any. This is
+    // set up so that it always points to a stack that has some
+    // additional buffer content, never to a stack with an equal
+    // `bufferBase`.
+    /// @internal
+    parent) {
+        this.p = p;
+        this.stack = stack;
+        this.state = state;
+        this.reducePos = reducePos;
+        this.pos = pos;
+        this.score = score;
+        this.buffer = buffer;
+        this.bufferBase = bufferBase;
+        this.curContext = curContext;
+        this.lookAhead = lookAhead;
+        this.parent = parent;
+    }
+    /// @internal
+    toString() {
+        return `[${this.stack.filter((_, i) => i % 3 == 0).concat(this.state)}]@${this.pos}${this.score ? "!" + this.score : ""}`;
+    }
+    // Start an empty stack
+    /// @internal
+    static start(p, state, pos = 0) {
+        let cx = p.parser.context;
+        return new Stack$4(p, [], state, pos, pos, 0, [], 0, cx ? new StackContext$4(cx, cx.start) : null, 0, null);
+    }
+    /// The stack's current [context](#lr.ContextTracker) value, if
+    /// any. Its type will depend on the context tracker's type
+    /// parameter, or it will be `null` if there is no context
+    /// tracker.
+    get context() { return this.curContext ? this.curContext.context : null; }
+    // Push a state onto the stack, tracking its start position as well
+    // as the buffer base at that point.
+    /// @internal
+    pushState(state, start) {
+        this.stack.push(this.state, start, this.bufferBase + this.buffer.length);
+        this.state = state;
+    }
+    // Apply a reduce action
+    /// @internal
+    reduce(action) {
+        let depth = action >> 19 /* ReduceDepthShift */, type = action & 65535 /* ValueMask */;
+        let { parser } = this.p;
+        let dPrec = parser.dynamicPrecedence(type);
+        if (dPrec)
+            this.score += dPrec;
+        if (depth == 0) {
+            this.pushState(parser.getGoto(this.state, type, true), this.reducePos);
+            // Zero-depth reductions are a special case—they add stuff to
+            // the stack without popping anything off.
+            if (type < parser.minRepeatTerm)
+                this.storeNode(type, this.reducePos, this.reducePos, 4, true);
+            this.reduceContext(type, this.reducePos);
+            return;
+        }
+        // Find the base index into `this.stack`, content after which will
+        // be dropped. Note that with `StayFlag` reductions we need to
+        // consume two extra frames (the dummy parent node for the skipped
+        // expression and the state that we'll be staying in, which should
+        // be moved to `this.state`).
+        let base = this.stack.length - ((depth - 1) * 3) - (action & 262144 /* StayFlag */ ? 6 : 0);
+        let start = this.stack[base - 2];
+        let bufferBase = this.stack[base - 1], count = this.bufferBase + this.buffer.length - bufferBase;
+        // Store normal terms or `R -> R R` repeat reductions
+        if (type < parser.minRepeatTerm || (action & 131072 /* RepeatFlag */)) {
+            let pos = parser.stateFlag(this.state, 1 /* Skipped */) ? this.pos : this.reducePos;
+            this.storeNode(type, start, pos, count + 4, true);
+        }
+        if (action & 262144 /* StayFlag */) {
+            this.state = this.stack[base];
+        }
+        else {
+            let baseStateID = this.stack[base - 3];
+            this.state = parser.getGoto(baseStateID, type, true);
+        }
+        while (this.stack.length > base)
+            this.stack.pop();
+        this.reduceContext(type, start);
+    }
+    // Shift a value into the buffer
+    /// @internal
+    storeNode(term, start, end, size = 4, isReduce = false) {
+        if (term == 0 /* Err */ &&
+            (!this.stack.length || this.stack[this.stack.length - 1] < this.buffer.length + this.bufferBase)) {
+            // Try to omit/merge adjacent error nodes
+            let cur = this, top = this.buffer.length;
+            if (top == 0 && cur.parent) {
+                top = cur.bufferBase - cur.parent.bufferBase;
+                cur = cur.parent;
+            }
+            if (top > 0 && cur.buffer[top - 4] == 0 /* Err */ && cur.buffer[top - 1] > -1) {
+                if (start == end)
+                    return;
+                if (cur.buffer[top - 2] >= start) {
+                    cur.buffer[top - 2] = end;
+                    return;
+                }
+            }
+        }
+        if (!isReduce || this.pos == end) { // Simple case, just append
+            this.buffer.push(term, start, end, size);
+        }
+        else { // There may be skipped nodes that have to be moved forward
+            let index = this.buffer.length;
+            if (index > 0 && this.buffer[index - 4] != 0 /* Err */)
+                while (index > 0 && this.buffer[index - 2] > end) {
+                    // Move this record forward
+                    this.buffer[index] = this.buffer[index - 4];
+                    this.buffer[index + 1] = this.buffer[index - 3];
+                    this.buffer[index + 2] = this.buffer[index - 2];
+                    this.buffer[index + 3] = this.buffer[index - 1];
+                    index -= 4;
+                    if (size > 4)
+                        size -= 4;
+                }
+            this.buffer[index] = term;
+            this.buffer[index + 1] = start;
+            this.buffer[index + 2] = end;
+            this.buffer[index + 3] = size;
+        }
+    }
+    // Apply a shift action
+    /// @internal
+    shift(action, next, nextEnd) {
+        let start = this.pos;
+        if (action & 131072 /* GotoFlag */) {
+            this.pushState(action & 65535 /* ValueMask */, this.pos);
+        }
+        else if ((action & 262144 /* StayFlag */) == 0) { // Regular shift
+            let nextState = action, { parser } = this.p;
+            if (nextEnd > this.pos || next <= parser.maxNode) {
+                this.pos = nextEnd;
+                if (!parser.stateFlag(nextState, 1 /* Skipped */))
+                    this.reducePos = nextEnd;
+            }
+            this.pushState(nextState, start);
+            this.shiftContext(next, start);
+            if (next <= parser.maxNode)
+                this.buffer.push(next, start, nextEnd, 4);
+        }
+        else { // Shift-and-stay, which means this is a skipped token
+            this.pos = nextEnd;
+            this.shiftContext(next, start);
+            if (next <= this.p.parser.maxNode)
+                this.buffer.push(next, start, nextEnd, 4);
+        }
+    }
+    // Apply an action
+    /// @internal
+    apply(action, next, nextEnd) {
+        if (action & 65536 /* ReduceFlag */)
+            this.reduce(action);
+        else
+            this.shift(action, next, nextEnd);
+    }
+    // Add a prebuilt (reused) node into the buffer.
+    /// @internal
+    useNode(value, next) {
+        let index = this.p.reused.length - 1;
+        if (index < 0 || this.p.reused[index] != value) {
+            this.p.reused.push(value);
+            index++;
+        }
+        let start = this.pos;
+        this.reducePos = this.pos = start + value.length;
+        this.pushState(next, start);
+        this.buffer.push(index, start, this.reducePos, -1 /* size == -1 means this is a reused value */);
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.reuse(this.curContext.context, value, this, this.p.stream.reset(this.pos - value.length)));
+    }
+    // Split the stack. Due to the buffer sharing and the fact
+    // that `this.stack` tends to stay quite shallow, this isn't very
+    // expensive.
+    /// @internal
+    split() {
+        let parent = this;
+        let off = parent.buffer.length;
+        // Because the top of the buffer (after this.pos) may be mutated
+        // to reorder reductions and skipped tokens, and shared buffers
+        // should be immutable, this copies any outstanding skipped tokens
+        // to the new buffer, and puts the base pointer before them.
+        while (off > 0 && parent.buffer[off - 2] > parent.reducePos)
+            off -= 4;
+        let buffer = parent.buffer.slice(off), base = parent.bufferBase + off;
+        // Make sure parent points to an actual parent with content, if there is such a parent.
+        while (parent && base == parent.bufferBase)
+            parent = parent.parent;
+        return new Stack$4(this.p, this.stack.slice(), this.state, this.reducePos, this.pos, this.score, buffer, base, this.curContext, this.lookAhead, parent);
+    }
+    // Try to recover from an error by 'deleting' (ignoring) one token.
+    /// @internal
+    recoverByDelete(next, nextEnd) {
+        let isNode = next <= this.p.parser.maxNode;
+        if (isNode)
+            this.storeNode(next, this.pos, nextEnd, 4);
+        this.storeNode(0 /* Err */, this.pos, nextEnd, isNode ? 8 : 4);
+        this.pos = this.reducePos = nextEnd;
+        this.score -= 190 /* Delete */;
+    }
+    /// Check if the given term would be able to be shifted (optionally
+    /// after some reductions) on this stack. This can be useful for
+    /// external tokenizers that want to make sure they only provide a
+    /// given token when it applies.
+    canShift(term) {
+        for (let sim = new SimulatedStack$4(this);;) {
+            let action = this.p.parser.stateSlot(sim.state, 4 /* DefaultReduce */) || this.p.parser.hasAction(sim.state, term);
+            if ((action & 65536 /* ReduceFlag */) == 0)
+                return true;
+            if (action == 0)
+                return false;
+            sim.reduce(action);
+        }
+    }
+    // Apply up to Recover.MaxNext recovery actions that conceptually
+    // inserts some missing token or rule.
+    /// @internal
+    recoverByInsert(next) {
+        if (this.stack.length >= 300 /* MaxInsertStackDepth */)
+            return [];
+        let nextStates = this.p.parser.nextStates(this.state);
+        if (nextStates.length > 4 /* MaxNext */ << 1 || this.stack.length >= 120 /* DampenInsertStackDepth */) {
+            let best = [];
+            for (let i = 0, s; i < nextStates.length; i += 2) {
+                if ((s = nextStates[i + 1]) != this.state && this.p.parser.hasAction(s, next))
+                    best.push(nextStates[i], s);
+            }
+            if (this.stack.length < 120 /* DampenInsertStackDepth */)
+                for (let i = 0; best.length < 4 /* MaxNext */ << 1 && i < nextStates.length; i += 2) {
+                    let s = nextStates[i + 1];
+                    if (!best.some((v, i) => (i & 1) && v == s))
+                        best.push(nextStates[i], s);
+                }
+            nextStates = best;
+        }
+        let result = [];
+        for (let i = 0; i < nextStates.length && result.length < 4 /* MaxNext */; i += 2) {
+            let s = nextStates[i + 1];
+            if (s == this.state)
+                continue;
+            let stack = this.split();
+            stack.pushState(s, this.pos);
+            stack.storeNode(0 /* Err */, stack.pos, stack.pos, 4, true);
+            stack.shiftContext(nextStates[i], this.pos);
+            stack.score -= 200 /* Insert */;
+            result.push(stack);
+        }
+        return result;
+    }
+    // Force a reduce, if possible. Return false if that can't
+    // be done.
+    /// @internal
+    forceReduce() {
+        let reduce = this.p.parser.stateSlot(this.state, 5 /* ForcedReduce */);
+        if ((reduce & 65536 /* ReduceFlag */) == 0)
+            return false;
+        let { parser } = this.p;
+        if (!parser.validAction(this.state, reduce)) {
+            let depth = reduce >> 19 /* ReduceDepthShift */, term = reduce & 65535 /* ValueMask */;
+            let target = this.stack.length - depth * 3;
+            if (target < 0 || parser.getGoto(this.stack[target], term, false) < 0)
+                return false;
+            this.storeNode(0 /* Err */, this.reducePos, this.reducePos, 4, true);
+            this.score -= 100 /* Reduce */;
+        }
+        this.reducePos = this.pos;
+        this.reduce(reduce);
+        return true;
+    }
+    /// @internal
+    forceAll() {
+        while (!this.p.parser.stateFlag(this.state, 2 /* Accepting */)) {
+            if (!this.forceReduce()) {
+                this.storeNode(0 /* Err */, this.pos, this.pos, 4, true);
+                break;
+            }
+        }
+        return this;
+    }
+    /// Check whether this state has no further actions (assumed to be a direct descendant of the
+    /// top state, since any other states must be able to continue
+    /// somehow). @internal
+    get deadEnd() {
+        if (this.stack.length != 3)
+            return false;
+        let { parser } = this.p;
+        return parser.data[parser.stateSlot(this.state, 1 /* Actions */)] == 65535 /* End */ &&
+            !parser.stateSlot(this.state, 4 /* DefaultReduce */);
+    }
+    /// Restart the stack (put it back in its start state). Only safe
+    /// when this.stack.length == 3 (state is directly below the top
+    /// state). @internal
+    restart() {
+        this.state = this.stack[0];
+        this.stack.length = 0;
+    }
+    /// @internal
+    sameState(other) {
+        if (this.state != other.state || this.stack.length != other.stack.length)
+            return false;
+        for (let i = 0; i < this.stack.length; i += 3)
+            if (this.stack[i] != other.stack[i])
+                return false;
+        return true;
+    }
+    /// Get the parser used by this stack.
+    get parser() { return this.p.parser; }
+    /// Test whether a given dialect (by numeric ID, as exported from
+    /// the terms file) is enabled.
+    dialectEnabled(dialectID) { return this.p.parser.dialect.flags[dialectID]; }
+    shiftContext(term, start) {
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.shift(this.curContext.context, term, this, this.p.stream.reset(start)));
+    }
+    reduceContext(term, start) {
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.reduce(this.curContext.context, term, this, this.p.stream.reset(start)));
+    }
+    /// @internal
+    emitContext() {
+        let last = this.buffer.length - 1;
+        if (last < 0 || this.buffer[last] != -3)
+            this.buffer.push(this.curContext.hash, this.reducePos, this.reducePos, -3);
+    }
+    /// @internal
+    emitLookAhead() {
+        let last = this.buffer.length - 1;
+        if (last < 0 || this.buffer[last] != -4)
+            this.buffer.push(this.lookAhead, this.reducePos, this.reducePos, -4);
+    }
+    updateContext(context) {
+        if (context != this.curContext.context) {
+            let newCx = new StackContext$4(this.curContext.tracker, context);
+            if (newCx.hash != this.curContext.hash)
+                this.emitContext();
+            this.curContext = newCx;
+        }
+    }
+    /// @internal
+    setLookAhead(lookAhead) {
+        if (lookAhead > this.lookAhead) {
+            this.emitLookAhead();
+            this.lookAhead = lookAhead;
+        }
+    }
+    /// @internal
+    close() {
+        if (this.curContext && this.curContext.tracker.strict)
+            this.emitContext();
+        if (this.lookAhead > 0)
+            this.emitLookAhead();
+    }
+}
+class StackContext$4 {
+    constructor(tracker, context) {
+        this.tracker = tracker;
+        this.context = context;
+        this.hash = tracker.strict ? tracker.hash(context) : 0;
+    }
+}
+var Recover$4;
+(function (Recover) {
+    Recover[Recover["Insert"] = 200] = "Insert";
+    Recover[Recover["Delete"] = 190] = "Delete";
+    Recover[Recover["Reduce"] = 100] = "Reduce";
+    Recover[Recover["MaxNext"] = 4] = "MaxNext";
+    Recover[Recover["MaxInsertStackDepth"] = 300] = "MaxInsertStackDepth";
+    Recover[Recover["DampenInsertStackDepth"] = 120] = "DampenInsertStackDepth";
+})(Recover$4 || (Recover$4 = {}));
+// Used to cheaply run some reductions to scan ahead without mutating
+// an entire stack
+class SimulatedStack$4 {
+    constructor(start) {
+        this.start = start;
+        this.state = start.state;
+        this.stack = start.stack;
+        this.base = this.stack.length;
+    }
+    reduce(action) {
+        let term = action & 65535 /* ValueMask */, depth = action >> 19 /* ReduceDepthShift */;
+        if (depth == 0) {
+            if (this.stack == this.start.stack)
+                this.stack = this.stack.slice();
+            this.stack.push(this.state, 0, 0);
+            this.base += 3;
+        }
+        else {
+            this.base -= (depth - 1) * 3;
+        }
+        let goto = this.start.p.parser.getGoto(this.stack[this.base - 3], term, true);
+        this.state = goto;
+    }
+}
+// This is given to `Tree.build` to build a buffer, and encapsulates
+// the parent-stack-walking necessary to read the nodes.
+class StackBufferCursor$4 {
+    constructor(stack, pos, index) {
+        this.stack = stack;
+        this.pos = pos;
+        this.index = index;
+        this.buffer = stack.buffer;
+        if (this.index == 0)
+            this.maybeNext();
+    }
+    static create(stack, pos = stack.bufferBase + stack.buffer.length) {
+        return new StackBufferCursor$4(stack, pos, pos - stack.bufferBase);
+    }
+    maybeNext() {
+        let next = this.stack.parent;
+        if (next != null) {
+            this.index = this.stack.bufferBase - next.bufferBase;
+            this.stack = next;
+            this.buffer = next.buffer;
+        }
+    }
+    get id() { return this.buffer[this.index - 4]; }
+    get start() { return this.buffer[this.index - 3]; }
+    get end() { return this.buffer[this.index - 2]; }
+    get size() { return this.buffer[this.index - 1]; }
+    next() {
+        this.index -= 4;
+        this.pos -= 4;
+        if (this.index == 0)
+            this.maybeNext();
+    }
+    fork() {
+        return new StackBufferCursor$4(this.stack, this.pos, this.index);
+    }
+}
+
+class CachedToken$4 {
+    constructor() {
+        this.start = -1;
+        this.value = -1;
+        this.end = -1;
+        this.extended = -1;
+        this.lookAhead = 0;
+        this.mask = 0;
+        this.context = 0;
+    }
+}
+const nullToken$4 = new CachedToken$4;
+/// [Tokenizers](#lr.ExternalTokenizer) interact with the input
+/// through this interface. It presents the input as a stream of
+/// characters, tracking lookahead and hiding the complexity of
+/// [ranges](#common.Parser.parse^ranges) from tokenizer code.
+class InputStream$4 {
+    /// @internal
+    constructor(
+    /// @internal
+    input, 
+    /// @internal
+    ranges) {
+        this.input = input;
+        this.ranges = ranges;
+        /// @internal
+        this.chunk = "";
+        /// @internal
+        this.chunkOff = 0;
+        /// Backup chunk
+        this.chunk2 = "";
+        this.chunk2Pos = 0;
+        /// The character code of the next code unit in the input, or -1
+        /// when the stream is at the end of the input.
+        this.next = -1;
+        /// @internal
+        this.token = nullToken$4;
+        this.rangeIndex = 0;
+        this.pos = this.chunkPos = ranges[0].from;
+        this.range = ranges[0];
+        this.end = ranges[ranges.length - 1].to;
+        this.readNext();
+    }
+    resolveOffset(offset, assoc) {
+        let range = this.range, index = this.rangeIndex;
+        let pos = this.pos + offset;
+        while (pos < range.from) {
+            if (!index)
+                return null;
+            let next = this.ranges[--index];
+            pos -= range.from - next.to;
+            range = next;
+        }
+        while (assoc < 0 ? pos > range.to : pos >= range.to) {
+            if (index == this.ranges.length - 1)
+                return null;
+            let next = this.ranges[++index];
+            pos += next.from - range.to;
+            range = next;
+        }
+        return pos;
+    }
+    /// Look at a code unit near the stream position. `.peek(0)` equals
+    /// `.next`, `.peek(-1)` gives you the previous character, and so
+    /// on.
+    ///
+    /// Note that looking around during tokenizing creates dependencies
+    /// on potentially far-away content, which may reduce the
+    /// effectiveness incremental parsing—when looking forward—or even
+    /// cause invalid reparses when looking backward more than 25 code
+    /// units, since the library does not track lookbehind.
+    peek(offset) {
+        let idx = this.chunkOff + offset, pos, result;
+        if (idx >= 0 && idx < this.chunk.length) {
+            pos = this.pos + offset;
+            result = this.chunk.charCodeAt(idx);
+        }
+        else {
+            let resolved = this.resolveOffset(offset, 1);
+            if (resolved == null)
+                return -1;
+            pos = resolved;
+            if (pos >= this.chunk2Pos && pos < this.chunk2Pos + this.chunk2.length) {
+                result = this.chunk2.charCodeAt(pos - this.chunk2Pos);
+            }
+            else {
+                let i = this.rangeIndex, range = this.range;
+                while (range.to <= pos)
+                    range = this.ranges[++i];
+                this.chunk2 = this.input.chunk(this.chunk2Pos = pos);
+                if (pos + this.chunk2.length > range.to)
+                    this.chunk2 = this.chunk2.slice(0, range.to - pos);
+                result = this.chunk2.charCodeAt(0);
+            }
+        }
+        if (pos >= this.token.lookAhead)
+            this.token.lookAhead = pos + 1;
+        return result;
+    }
+    /// Accept a token. By default, the end of the token is set to the
+    /// current stream position, but you can pass an offset (relative to
+    /// the stream position) to change that.
+    acceptToken(token, endOffset = 0) {
+        let end = endOffset ? this.resolveOffset(endOffset, -1) : this.pos;
+        if (end == null || end < this.token.start)
+            throw new RangeError("Token end out of bounds");
+        this.token.value = token;
+        this.token.end = end;
+    }
+    getChunk() {
+        if (this.pos >= this.chunk2Pos && this.pos < this.chunk2Pos + this.chunk2.length) {
+            let { chunk, chunkPos } = this;
+            this.chunk = this.chunk2;
+            this.chunkPos = this.chunk2Pos;
+            this.chunk2 = chunk;
+            this.chunk2Pos = chunkPos;
+            this.chunkOff = this.pos - this.chunkPos;
+        }
+        else {
+            this.chunk2 = this.chunk;
+            this.chunk2Pos = this.chunkPos;
+            let nextChunk = this.input.chunk(this.pos);
+            let end = this.pos + nextChunk.length;
+            this.chunk = end > this.range.to ? nextChunk.slice(0, this.range.to - this.pos) : nextChunk;
+            this.chunkPos = this.pos;
+            this.chunkOff = 0;
+        }
+    }
+    readNext() {
+        if (this.chunkOff >= this.chunk.length) {
+            this.getChunk();
+            if (this.chunkOff == this.chunk.length)
+                return this.next = -1;
+        }
+        return this.next = this.chunk.charCodeAt(this.chunkOff);
+    }
+    /// Move the stream forward N (defaults to 1) code units. Returns
+    /// the new value of [`next`](#lr.InputStream.next).
+    advance(n = 1) {
+        this.chunkOff += n;
+        while (this.pos + n >= this.range.to) {
+            if (this.rangeIndex == this.ranges.length - 1)
+                return this.setDone();
+            n -= this.range.to - this.pos;
+            this.range = this.ranges[++this.rangeIndex];
+            this.pos = this.range.from;
+        }
+        this.pos += n;
+        if (this.pos >= this.token.lookAhead)
+            this.token.lookAhead = this.pos + 1;
+        return this.readNext();
+    }
+    setDone() {
+        this.pos = this.chunkPos = this.end;
+        this.range = this.ranges[this.rangeIndex = this.ranges.length - 1];
+        this.chunk = "";
+        return this.next = -1;
+    }
+    /// @internal
+    reset(pos, token) {
+        if (token) {
+            this.token = token;
+            token.start = pos;
+            token.lookAhead = pos + 1;
+            token.value = token.extended = -1;
+        }
+        else {
+            this.token = nullToken$4;
+        }
+        if (this.pos != pos) {
+            this.pos = pos;
+            if (pos == this.end) {
+                this.setDone();
+                return this;
+            }
+            while (pos < this.range.from)
+                this.range = this.ranges[--this.rangeIndex];
+            while (pos >= this.range.to)
+                this.range = this.ranges[++this.rangeIndex];
+            if (pos >= this.chunkPos && pos < this.chunkPos + this.chunk.length) {
+                this.chunkOff = pos - this.chunkPos;
+            }
+            else {
+                this.chunk = "";
+                this.chunkOff = 0;
+            }
+            this.readNext();
+        }
+        return this;
+    }
+    /// @internal
+    read(from, to) {
+        if (from >= this.chunkPos && to <= this.chunkPos + this.chunk.length)
+            return this.chunk.slice(from - this.chunkPos, to - this.chunkPos);
+        if (from >= this.chunk2Pos && to <= this.chunk2Pos + this.chunk2.length)
+            return this.chunk2.slice(from - this.chunk2Pos, to - this.chunk2Pos);
+        if (from >= this.range.from && to <= this.range.to)
+            return this.input.read(from, to);
+        let result = "";
+        for (let r of this.ranges) {
+            if (r.from >= to)
+                break;
+            if (r.to > from)
+                result += this.input.read(Math.max(r.from, from), Math.min(r.to, to));
+        }
+        return result;
+    }
+}
+/// @internal
+class TokenGroup$4 {
+    constructor(data, id) {
+        this.data = data;
+        this.id = id;
+    }
+    token(input, stack) { readToken$4(this.data, input, stack, this.id); }
+}
+TokenGroup$4.prototype.contextual = TokenGroup$4.prototype.fallback = TokenGroup$4.prototype.extend = false;
+/// `@external tokens` declarations in the grammar should resolve to
+/// an instance of this class.
+class ExternalTokenizer$4 {
+    /// Create a tokenizer. The first argument is the function that,
+    /// given an input stream, scans for the types of tokens it
+    /// recognizes at the stream's position, and calls
+    /// [`acceptToken`](#lr.InputStream.acceptToken) when it finds
+    /// one.
+    constructor(
+    /// @internal
+    token, options = {}) {
+        this.token = token;
+        this.contextual = !!options.contextual;
+        this.fallback = !!options.fallback;
+        this.extend = !!options.extend;
+    }
+}
+// Tokenizer data is stored a big uint16 array containing, for each
+// state:
+//
+//  - A group bitmask, indicating what token groups are reachable from
+//    this state, so that paths that can only lead to tokens not in
+//    any of the current groups can be cut off early.
+//
+//  - The position of the end of the state's sequence of accepting
+//    tokens
+//
+//  - The number of outgoing edges for the state
+//
+//  - The accepting tokens, as (token id, group mask) pairs
+//
+//  - The outgoing edges, as (start character, end character, state
+//    index) triples, with end character being exclusive
+//
+// This function interprets that data, running through a stream as
+// long as new states with the a matching group mask can be reached,
+// and updating `token` when it matches a token.
+function readToken$4(data, input, stack, group) {
+    let state = 0, groupMask = 1 << group, { parser } = stack.p, { dialect } = parser;
+    scan: for (;;) {
+        if ((groupMask & data[state]) == 0)
+            break;
+        let accEnd = data[state + 1];
+        // Check whether this state can lead to a token in the current group
+        // Accept tokens in this state, possibly overwriting
+        // lower-precedence / shorter tokens
+        for (let i = state + 3; i < accEnd; i += 2)
+            if ((data[i + 1] & groupMask) > 0) {
+                let term = data[i];
+                if (dialect.allows(term) &&
+                    (input.token.value == -1 || input.token.value == term || parser.overrides(term, input.token.value))) {
+                    input.acceptToken(term);
+                    break;
+                }
+            }
+        // Do a binary search on the state's edges
+        for (let next = input.next, low = 0, high = data[state + 2]; low < high;) {
+            let mid = (low + high) >> 1;
+            let index = accEnd + mid + (mid << 1);
+            let from = data[index], to = data[index + 1];
+            if (next < from)
+                high = mid;
+            else if (next >= to)
+                low = mid + 1;
+            else {
+                state = data[index + 2];
+                input.advance();
+                continue scan;
+            }
+        }
+        break;
+    }
+}
+
+// See lezer-generator/src/encode.ts for comments about the encoding
+// used here
+function decodeArray$4(input, Type = Uint16Array) {
+    if (typeof input != "string")
+        return input;
+    let array = null;
+    for (let pos = 0, out = 0; pos < input.length;) {
+        let value = 0;
+        for (;;) {
+            let next = input.charCodeAt(pos++), stop = false;
+            if (next == 126 /* BigValCode */) {
+                value = 65535 /* BigVal */;
+                break;
+            }
+            if (next >= 92 /* Gap2 */)
+                next--;
+            if (next >= 34 /* Gap1 */)
+                next--;
+            let digit = next - 32 /* Start */;
+            if (digit >= 46 /* Base */) {
+                digit -= 46 /* Base */;
+                stop = true;
+            }
+            value += digit;
+            if (stop)
+                break;
+            value *= 46 /* Base */;
+        }
+        if (array)
+            array[out++] = value;
+        else
+            array = new Type(value);
+    }
+    return array;
+}
+
+// Environment variable used to control console output
+const verbose$4 = typeof process != "undefined" && process.env && /\bparse\b/.test(process.env.LOG);
+let stackIDs$4 = null;
+var Safety$4;
+(function (Safety) {
+    Safety[Safety["Margin"] = 25] = "Margin";
+})(Safety$4 || (Safety$4 = {}));
+function cutAt$4(tree, pos, side) {
+    let cursor = tree.cursor(IterMode.IncludeAnonymous);
+    cursor.moveTo(pos);
+    for (;;) {
+        if (!(side < 0 ? cursor.childBefore(pos) : cursor.childAfter(pos)))
+            for (;;) {
+                if ((side < 0 ? cursor.to < pos : cursor.from > pos) && !cursor.type.isError)
+                    return side < 0 ? Math.max(0, Math.min(cursor.to - 1, pos - 25 /* Margin */))
+                        : Math.min(tree.length, Math.max(cursor.from + 1, pos + 25 /* Margin */));
+                if (side < 0 ? cursor.prevSibling() : cursor.nextSibling())
+                    break;
+                if (!cursor.parent())
+                    return side < 0 ? 0 : tree.length;
+            }
+    }
+}
+class FragmentCursor$4 {
+    constructor(fragments, nodeSet) {
+        this.fragments = fragments;
+        this.nodeSet = nodeSet;
+        this.i = 0;
+        this.fragment = null;
+        this.safeFrom = -1;
+        this.safeTo = -1;
+        this.trees = [];
+        this.start = [];
+        this.index = [];
+        this.nextFragment();
+    }
+    nextFragment() {
+        let fr = this.fragment = this.i == this.fragments.length ? null : this.fragments[this.i++];
+        if (fr) {
+            this.safeFrom = fr.openStart ? cutAt$4(fr.tree, fr.from + fr.offset, 1) - fr.offset : fr.from;
+            this.safeTo = fr.openEnd ? cutAt$4(fr.tree, fr.to + fr.offset, -1) - fr.offset : fr.to;
+            while (this.trees.length) {
+                this.trees.pop();
+                this.start.pop();
+                this.index.pop();
+            }
+            this.trees.push(fr.tree);
+            this.start.push(-fr.offset);
+            this.index.push(0);
+            this.nextStart = this.safeFrom;
+        }
+        else {
+            this.nextStart = 1e9;
+        }
+    }
+    // `pos` must be >= any previously given `pos` for this cursor
+    nodeAt(pos) {
+        if (pos < this.nextStart)
+            return null;
+        while (this.fragment && this.safeTo <= pos)
+            this.nextFragment();
+        if (!this.fragment)
+            return null;
+        for (;;) {
+            let last = this.trees.length - 1;
+            if (last < 0) { // End of tree
+                this.nextFragment();
+                return null;
+            }
+            let top = this.trees[last], index = this.index[last];
+            if (index == top.children.length) {
+                this.trees.pop();
+                this.start.pop();
+                this.index.pop();
+                continue;
+            }
+            let next = top.children[index];
+            let start = this.start[last] + top.positions[index];
+            if (start > pos) {
+                this.nextStart = start;
+                return null;
+            }
+            if (next instanceof Tree) {
+                if (start == pos) {
+                    if (start < this.safeFrom)
+                        return null;
+                    let end = start + next.length;
+                    if (end <= this.safeTo) {
+                        let lookAhead = next.prop(NodeProp.lookAhead);
+                        if (!lookAhead || end + lookAhead < this.fragment.to)
+                            return next;
+                    }
+                }
+                this.index[last]++;
+                if (start + next.length >= Math.max(this.safeFrom, pos)) { // Enter this node
+                    this.trees.push(next);
+                    this.start.push(start);
+                    this.index.push(0);
+                }
+            }
+            else {
+                this.index[last]++;
+                this.nextStart = start + next.length;
+            }
+        }
+    }
+}
+class TokenCache$4 {
+    constructor(parser, stream) {
+        this.stream = stream;
+        this.tokens = [];
+        this.mainToken = null;
+        this.actions = [];
+        this.tokens = parser.tokenizers.map(_ => new CachedToken$4);
+    }
+    getActions(stack) {
+        let actionIndex = 0;
+        let main = null;
+        let { parser } = stack.p, { tokenizers } = parser;
+        let mask = parser.stateSlot(stack.state, 3 /* TokenizerMask */);
+        let context = stack.curContext ? stack.curContext.hash : 0;
+        let lookAhead = 0;
+        for (let i = 0; i < tokenizers.length; i++) {
+            if (((1 << i) & mask) == 0)
+                continue;
+            let tokenizer = tokenizers[i], token = this.tokens[i];
+            if (main && !tokenizer.fallback)
+                continue;
+            if (tokenizer.contextual || token.start != stack.pos || token.mask != mask || token.context != context) {
+                this.updateCachedToken(token, tokenizer, stack);
+                token.mask = mask;
+                token.context = context;
+            }
+            if (token.lookAhead > token.end + 25 /* Margin */)
+                lookAhead = Math.max(token.lookAhead, lookAhead);
+            if (token.value != 0 /* Err */) {
+                let startIndex = actionIndex;
+                if (token.extended > -1)
+                    actionIndex = this.addActions(stack, token.extended, token.end, actionIndex);
+                actionIndex = this.addActions(stack, token.value, token.end, actionIndex);
+                if (!tokenizer.extend) {
+                    main = token;
+                    if (actionIndex > startIndex)
+                        break;
+                }
+            }
+        }
+        while (this.actions.length > actionIndex)
+            this.actions.pop();
+        if (lookAhead)
+            stack.setLookAhead(lookAhead);
+        if (!main && stack.pos == this.stream.end) {
+            main = new CachedToken$4;
+            main.value = stack.p.parser.eofTerm;
+            main.start = main.end = stack.pos;
+            actionIndex = this.addActions(stack, main.value, main.end, actionIndex);
+        }
+        this.mainToken = main;
+        return this.actions;
+    }
+    getMainToken(stack) {
+        if (this.mainToken)
+            return this.mainToken;
+        let main = new CachedToken$4, { pos, p } = stack;
+        main.start = pos;
+        main.end = Math.min(pos + 1, p.stream.end);
+        main.value = pos == p.stream.end ? p.parser.eofTerm : 0 /* Err */;
+        return main;
+    }
+    updateCachedToken(token, tokenizer, stack) {
+        tokenizer.token(this.stream.reset(stack.pos, token), stack);
+        if (token.value > -1) {
+            let { parser } = stack.p;
+            for (let i = 0; i < parser.specialized.length; i++)
+                if (parser.specialized[i] == token.value) {
+                    let result = parser.specializers[i](this.stream.read(token.start, token.end), stack);
+                    if (result >= 0 && stack.p.parser.dialect.allows(result >> 1)) {
+                        if ((result & 1) == 0 /* Specialize */)
+                            token.value = result >> 1;
+                        else
+                            token.extended = result >> 1;
+                        break;
+                    }
+                }
+        }
+        else {
+            token.value = 0 /* Err */;
+            token.end = Math.min(stack.p.stream.end, stack.pos + 1);
+        }
+    }
+    putAction(action, token, end, index) {
+        // Don't add duplicate actions
+        for (let i = 0; i < index; i += 3)
+            if (this.actions[i] == action)
+                return index;
+        this.actions[index++] = action;
+        this.actions[index++] = token;
+        this.actions[index++] = end;
+        return index;
+    }
+    addActions(stack, token, end, index) {
+        let { state } = stack, { parser } = stack.p, { data } = parser;
+        for (let set = 0; set < 2; set++) {
+            for (let i = parser.stateSlot(state, set ? 2 /* Skip */ : 1 /* Actions */);; i += 3) {
+                if (data[i] == 65535 /* End */) {
+                    if (data[i + 1] == 1 /* Next */) {
+                        i = pair$4(data, i + 2);
+                    }
+                    else {
+                        if (index == 0 && data[i + 1] == 2 /* Other */)
+                            index = this.putAction(pair$4(data, i + 2), token, end, index);
+                        break;
+                    }
+                }
+                if (data[i] == token)
+                    index = this.putAction(pair$4(data, i + 1), token, end, index);
+            }
+        }
+        return index;
+    }
+}
+var Rec$4;
+(function (Rec) {
+    Rec[Rec["Distance"] = 5] = "Distance";
+    Rec[Rec["MaxRemainingPerStep"] = 3] = "MaxRemainingPerStep";
+    // When two stacks have been running independently long enough to
+    // add this many elements to their buffers, prune one.
+    Rec[Rec["MinBufferLengthPrune"] = 500] = "MinBufferLengthPrune";
+    Rec[Rec["ForceReduceLimit"] = 10] = "ForceReduceLimit";
+    // Once a stack reaches this depth (in .stack.length) force-reduce
+    // it back to CutTo to avoid creating trees that overflow the stack
+    // on recursive traversal.
+    Rec[Rec["CutDepth"] = 15000] = "CutDepth";
+    Rec[Rec["CutTo"] = 9000] = "CutTo";
+})(Rec$4 || (Rec$4 = {}));
+class Parse$4 {
+    constructor(parser, input, fragments, ranges) {
+        this.parser = parser;
+        this.input = input;
+        this.ranges = ranges;
+        this.recovering = 0;
+        this.nextStackID = 0x2654; // ♔, ♕, ♖, ♗, ♘, ♙, ♠, ♡, ♢, ♣, ♤, ♥, ♦, ♧
+        this.minStackPos = 0;
+        this.reused = [];
+        this.stoppedAt = null;
+        this.stream = new InputStream$4(input, ranges);
+        this.tokens = new TokenCache$4(parser, this.stream);
+        this.topTerm = parser.top[1];
+        let { from } = ranges[0];
+        this.stacks = [Stack$4.start(this, parser.top[0], from)];
+        this.fragments = fragments.length && this.stream.end - from > parser.bufferLength * 4
+            ? new FragmentCursor$4(fragments, parser.nodeSet) : null;
+    }
+    get parsedPos() {
+        return this.minStackPos;
+    }
+    // Move the parser forward. This will process all parse stacks at
+    // `this.pos` and try to advance them to a further position. If no
+    // stack for such a position is found, it'll start error-recovery.
+    //
+    // When the parse is finished, this will return a syntax tree. When
+    // not, it returns `null`.
+    advance() {
+        let stacks = this.stacks, pos = this.minStackPos;
+        // This will hold stacks beyond `pos`.
+        let newStacks = this.stacks = [];
+        let stopped, stoppedTokens;
+        // Keep advancing any stacks at `pos` until they either move
+        // forward or can't be advanced. Gather stacks that can't be
+        // advanced further in `stopped`.
+        for (let i = 0; i < stacks.length; i++) {
+            let stack = stacks[i];
+            for (;;) {
+                this.tokens.mainToken = null;
+                if (stack.pos > pos) {
+                    newStacks.push(stack);
+                }
+                else if (this.advanceStack(stack, newStacks, stacks)) {
+                    continue;
+                }
+                else {
+                    if (!stopped) {
+                        stopped = [];
+                        stoppedTokens = [];
+                    }
+                    stopped.push(stack);
+                    let tok = this.tokens.getMainToken(stack);
+                    stoppedTokens.push(tok.value, tok.end);
+                }
+                break;
+            }
+        }
+        if (!newStacks.length) {
+            let finished = stopped && findFinished$4(stopped);
+            if (finished)
+                return this.stackToTree(finished);
+            if (this.parser.strict) {
+                if (verbose$4 && stopped)
+                    console.log("Stuck with token " + (this.tokens.mainToken ? this.parser.getName(this.tokens.mainToken.value) : "none"));
+                throw new SyntaxError("No parse at " + pos);
+            }
+            if (!this.recovering)
+                this.recovering = 5 /* Distance */;
+        }
+        if (this.recovering && stopped) {
+            let finished = this.stoppedAt != null && stopped[0].pos > this.stoppedAt ? stopped[0]
+                : this.runRecovery(stopped, stoppedTokens, newStacks);
+            if (finished)
+                return this.stackToTree(finished.forceAll());
+        }
+        if (this.recovering) {
+            let maxRemaining = this.recovering == 1 ? 1 : this.recovering * 3 /* MaxRemainingPerStep */;
+            if (newStacks.length > maxRemaining) {
+                newStacks.sort((a, b) => b.score - a.score);
+                while (newStacks.length > maxRemaining)
+                    newStacks.pop();
+            }
+            if (newStacks.some(s => s.reducePos > pos))
+                this.recovering--;
+        }
+        else if (newStacks.length > 1) {
+            // Prune stacks that are in the same state, or that have been
+            // running without splitting for a while, to avoid getting stuck
+            // with multiple successful stacks running endlessly on.
+            outer: for (let i = 0; i < newStacks.length - 1; i++) {
+                let stack = newStacks[i];
+                for (let j = i + 1; j < newStacks.length; j++) {
+                    let other = newStacks[j];
+                    if (stack.sameState(other) ||
+                        stack.buffer.length > 500 /* MinBufferLengthPrune */ && other.buffer.length > 500 /* MinBufferLengthPrune */) {
+                        if (((stack.score - other.score) || (stack.buffer.length - other.buffer.length)) > 0) {
+                            newStacks.splice(j--, 1);
+                        }
+                        else {
+                            newStacks.splice(i--, 1);
+                            continue outer;
+                        }
+                    }
+                }
+            }
+        }
+        this.minStackPos = newStacks[0].pos;
+        for (let i = 1; i < newStacks.length; i++)
+            if (newStacks[i].pos < this.minStackPos)
+                this.minStackPos = newStacks[i].pos;
+        return null;
+    }
+    stopAt(pos) {
+        if (this.stoppedAt != null && this.stoppedAt < pos)
+            throw new RangeError("Can't move stoppedAt forward");
+        this.stoppedAt = pos;
+    }
+    // Returns an updated version of the given stack, or null if the
+    // stack can't advance normally. When `split` and `stacks` are
+    // given, stacks split off by ambiguous operations will be pushed to
+    // `split`, or added to `stacks` if they move `pos` forward.
+    advanceStack(stack, stacks, split) {
+        let start = stack.pos, { parser } = this;
+        let base = verbose$4 ? this.stackID(stack) + " -> " : "";
+        if (this.stoppedAt != null && start > this.stoppedAt)
+            return stack.forceReduce() ? stack : null;
+        if (this.fragments) {
+            let strictCx = stack.curContext && stack.curContext.tracker.strict, cxHash = strictCx ? stack.curContext.hash : 0;
+            for (let cached = this.fragments.nodeAt(start); cached;) {
+                let match = this.parser.nodeSet.types[cached.type.id] == cached.type ? parser.getGoto(stack.state, cached.type.id) : -1;
+                if (match > -1 && cached.length && (!strictCx || (cached.prop(NodeProp.contextHash) || 0) == cxHash)) {
+                    stack.useNode(cached, match);
+                    if (verbose$4)
+                        console.log(base + this.stackID(stack) + ` (via reuse of ${parser.getName(cached.type.id)})`);
+                    return true;
+                }
+                if (!(cached instanceof Tree) || cached.children.length == 0 || cached.positions[0] > 0)
+                    break;
+                let inner = cached.children[0];
+                if (inner instanceof Tree && cached.positions[0] == 0)
+                    cached = inner;
+                else
+                    break;
+            }
+        }
+        let defaultReduce = parser.stateSlot(stack.state, 4 /* DefaultReduce */);
+        if (defaultReduce > 0) {
+            stack.reduce(defaultReduce);
+            if (verbose$4)
+                console.log(base + this.stackID(stack) + ` (via always-reduce ${parser.getName(defaultReduce & 65535 /* ValueMask */)})`);
+            return true;
+        }
+        if (stack.stack.length >= 15000 /* CutDepth */) {
+            while (stack.stack.length > 9000 /* CutTo */ && stack.forceReduce()) { }
+        }
+        let actions = this.tokens.getActions(stack);
+        for (let i = 0; i < actions.length;) {
+            let action = actions[i++], term = actions[i++], end = actions[i++];
+            let last = i == actions.length || !split;
+            let localStack = last ? stack : stack.split();
+            localStack.apply(action, term, end);
+            if (verbose$4)
+                console.log(base + this.stackID(localStack) + ` (via ${(action & 65536 /* ReduceFlag */) == 0 ? "shift"
+                    : `reduce of ${parser.getName(action & 65535 /* ValueMask */)}`} for ${parser.getName(term)} @ ${start}${localStack == stack ? "" : ", split"})`);
+            if (last)
+                return true;
+            else if (localStack.pos > start)
+                stacks.push(localStack);
+            else
+                split.push(localStack);
+        }
+        return false;
+    }
+    // Advance a given stack forward as far as it will go. Returns the
+    // (possibly updated) stack if it got stuck, or null if it moved
+    // forward and was given to `pushStackDedup`.
+    advanceFully(stack, newStacks) {
+        let pos = stack.pos;
+        for (;;) {
+            if (!this.advanceStack(stack, null, null))
+                return false;
+            if (stack.pos > pos) {
+                pushStackDedup$4(stack, newStacks);
+                return true;
+            }
+        }
+    }
+    runRecovery(stacks, tokens, newStacks) {
+        let finished = null, restarted = false;
+        for (let i = 0; i < stacks.length; i++) {
+            let stack = stacks[i], token = tokens[i << 1], tokenEnd = tokens[(i << 1) + 1];
+            let base = verbose$4 ? this.stackID(stack) + " -> " : "";
+            if (stack.deadEnd) {
+                if (restarted)
+                    continue;
+                restarted = true;
+                stack.restart();
+                if (verbose$4)
+                    console.log(base + this.stackID(stack) + " (restarted)");
+                let done = this.advanceFully(stack, newStacks);
+                if (done)
+                    continue;
+            }
+            let force = stack.split(), forceBase = base;
+            for (let j = 0; force.forceReduce() && j < 10 /* ForceReduceLimit */; j++) {
+                if (verbose$4)
+                    console.log(forceBase + this.stackID(force) + " (via force-reduce)");
+                let done = this.advanceFully(force, newStacks);
+                if (done)
+                    break;
+                if (verbose$4)
+                    forceBase = this.stackID(force) + " -> ";
+            }
+            for (let insert of stack.recoverByInsert(token)) {
+                if (verbose$4)
+                    console.log(base + this.stackID(insert) + " (via recover-insert)");
+                this.advanceFully(insert, newStacks);
+            }
+            if (this.stream.end > stack.pos) {
+                if (tokenEnd == stack.pos) {
+                    tokenEnd++;
+                    token = 0 /* Err */;
+                }
+                stack.recoverByDelete(token, tokenEnd);
+                if (verbose$4)
+                    console.log(base + this.stackID(stack) + ` (via recover-delete ${this.parser.getName(token)})`);
+                pushStackDedup$4(stack, newStacks);
+            }
+            else if (!finished || finished.score < stack.score) {
+                finished = stack;
+            }
+        }
+        return finished;
+    }
+    // Convert the stack's buffer to a syntax tree.
+    stackToTree(stack) {
+        stack.close();
+        return Tree.build({ buffer: StackBufferCursor$4.create(stack),
+            nodeSet: this.parser.nodeSet,
+            topID: this.topTerm,
+            maxBufferLength: this.parser.bufferLength,
+            reused: this.reused,
+            start: this.ranges[0].from,
+            length: stack.pos - this.ranges[0].from,
+            minRepeatType: this.parser.minRepeatTerm });
+    }
+    stackID(stack) {
+        let id = (stackIDs$4 || (stackIDs$4 = new WeakMap)).get(stack);
+        if (!id)
+            stackIDs$4.set(stack, id = String.fromCodePoint(this.nextStackID++));
+        return id + stack;
+    }
+}
+function pushStackDedup$4(stack, newStacks) {
+    for (let i = 0; i < newStacks.length; i++) {
+        let other = newStacks[i];
+        if (other.pos == stack.pos && other.sameState(stack)) {
+            if (newStacks[i].score < stack.score)
+                newStacks[i] = stack;
+            return;
+        }
+    }
+    newStacks.push(stack);
+}
+class Dialect$4 {
+    constructor(source, flags, disabled) {
+        this.source = source;
+        this.flags = flags;
+        this.disabled = disabled;
+    }
+    allows(term) { return !this.disabled || this.disabled[term] == 0; }
+}
+const id$2 = x => x;
+/// Context trackers are used to track stateful context (such as
+/// indentation in the Python grammar, or parent elements in the XML
+/// grammar) needed by external tokenizers. You declare them in a
+/// grammar file as `@context exportName from "module"`.
+///
+/// Context values should be immutable, and can be updated (replaced)
+/// on shift or reduce actions.
+///
+/// The export used in a `@context` declaration should be of this
+/// type.
+class ContextTracker$2 {
+    /// Define a context tracker.
+    constructor(spec) {
+        this.start = spec.start;
+        this.shift = spec.shift || id$2;
+        this.reduce = spec.reduce || id$2;
+        this.reuse = spec.reuse || id$2;
+        this.hash = spec.hash || (() => 0);
+        this.strict = spec.strict !== false;
+    }
+}
+/// A parser holds the parse tables for a given grammar, as generated
+/// by `lezer-generator`.
+class LRParser$4 extends Parser {
+    /// @internal
+    constructor(spec) {
+        super();
+        /// @internal
+        this.wrappers = [];
+        if (spec.version != 14 /* Version */)
+            throw new RangeError(`Parser version (${spec.version}) doesn't match runtime version (${14 /* Version */})`);
+        let nodeNames = spec.nodeNames.split(" ");
+        this.minRepeatTerm = nodeNames.length;
+        for (let i = 0; i < spec.repeatNodeCount; i++)
+            nodeNames.push("");
+        let topTerms = Object.keys(spec.topRules).map(r => spec.topRules[r][1]);
+        let nodeProps = [];
+        for (let i = 0; i < nodeNames.length; i++)
+            nodeProps.push([]);
+        function setProp(nodeID, prop, value) {
+            nodeProps[nodeID].push([prop, prop.deserialize(String(value))]);
+        }
+        if (spec.nodeProps)
+            for (let propSpec of spec.nodeProps) {
+                let prop = propSpec[0];
+                if (typeof prop == "string")
+                    prop = NodeProp[prop];
+                for (let i = 1; i < propSpec.length;) {
+                    let next = propSpec[i++];
+                    if (next >= 0) {
+                        setProp(next, prop, propSpec[i++]);
+                    }
+                    else {
+                        let value = propSpec[i + -next];
+                        for (let j = -next; j > 0; j--)
+                            setProp(propSpec[i++], prop, value);
+                        i++;
+                    }
+                }
+            }
+        this.nodeSet = new NodeSet(nodeNames.map((name, i) => NodeType.define({
+            name: i >= this.minRepeatTerm ? undefined : name,
+            id: i,
+            props: nodeProps[i],
+            top: topTerms.indexOf(i) > -1,
+            error: i == 0,
+            skipped: spec.skippedNodes && spec.skippedNodes.indexOf(i) > -1
+        })));
+        if (spec.propSources)
+            this.nodeSet = this.nodeSet.extend(...spec.propSources);
+        this.strict = false;
+        this.bufferLength = DefaultBufferLength;
+        let tokenArray = decodeArray$4(spec.tokenData);
+        this.context = spec.context;
+        this.specialized = new Uint16Array(spec.specialized ? spec.specialized.length : 0);
+        this.specializers = [];
+        if (spec.specialized)
+            for (let i = 0; i < spec.specialized.length; i++) {
+                this.specialized[i] = spec.specialized[i].term;
+                this.specializers[i] = spec.specialized[i].get;
+            }
+        this.states = decodeArray$4(spec.states, Uint32Array);
+        this.data = decodeArray$4(spec.stateData);
+        this.goto = decodeArray$4(spec.goto);
+        this.maxTerm = spec.maxTerm;
+        this.tokenizers = spec.tokenizers.map(value => typeof value == "number" ? new TokenGroup$4(tokenArray, value) : value);
+        this.topRules = spec.topRules;
+        this.dialects = spec.dialects || {};
+        this.dynamicPrecedences = spec.dynamicPrecedences || null;
+        this.tokenPrecTable = spec.tokenPrec;
+        this.termNames = spec.termNames || null;
+        this.maxNode = this.nodeSet.types.length - 1;
+        this.dialect = this.parseDialect();
+        this.top = this.topRules[Object.keys(this.topRules)[0]];
+    }
+    createParse(input, fragments, ranges) {
+        let parse = new Parse$4(this, input, fragments, ranges);
+        for (let w of this.wrappers)
+            parse = w(parse, input, fragments, ranges);
+        return parse;
+    }
+    /// Get a goto table entry @internal
+    getGoto(state, term, loose = false) {
+        let table = this.goto;
+        if (term >= table[0])
+            return -1;
+        for (let pos = table[term + 1];;) {
+            let groupTag = table[pos++], last = groupTag & 1;
+            let target = table[pos++];
+            if (last && loose)
+                return target;
+            for (let end = pos + (groupTag >> 1); pos < end; pos++)
+                if (table[pos] == state)
+                    return target;
+            if (last)
+                return -1;
+        }
+    }
+    /// Check if this state has an action for a given terminal @internal
+    hasAction(state, terminal) {
+        let data = this.data;
+        for (let set = 0; set < 2; set++) {
+            for (let i = this.stateSlot(state, set ? 2 /* Skip */ : 1 /* Actions */), next;; i += 3) {
+                if ((next = data[i]) == 65535 /* End */) {
+                    if (data[i + 1] == 1 /* Next */)
+                        next = data[i = pair$4(data, i + 2)];
+                    else if (data[i + 1] == 2 /* Other */)
+                        return pair$4(data, i + 2);
+                    else
+                        break;
+                }
+                if (next == terminal || next == 0 /* Err */)
+                    return pair$4(data, i + 1);
+            }
+        }
+        return 0;
+    }
+    /// @internal
+    stateSlot(state, slot) {
+        return this.states[(state * 6 /* Size */) + slot];
+    }
+    /// @internal
+    stateFlag(state, flag) {
+        return (this.stateSlot(state, 0 /* Flags */) & flag) > 0;
+    }
+    /// @internal
+    validAction(state, action) {
+        if (action == this.stateSlot(state, 4 /* DefaultReduce */))
+            return true;
+        for (let i = this.stateSlot(state, 1 /* Actions */);; i += 3) {
+            if (this.data[i] == 65535 /* End */) {
+                if (this.data[i + 1] == 1 /* Next */)
+                    i = pair$4(this.data, i + 2);
+                else
+                    return false;
+            }
+            if (action == pair$4(this.data, i + 1))
+                return true;
+        }
+    }
+    /// Get the states that can follow this one through shift actions or
+    /// goto jumps. @internal
+    nextStates(state) {
+        let result = [];
+        for (let i = this.stateSlot(state, 1 /* Actions */);; i += 3) {
+            if (this.data[i] == 65535 /* End */) {
+                if (this.data[i + 1] == 1 /* Next */)
+                    i = pair$4(this.data, i + 2);
+                else
+                    break;
+            }
+            if ((this.data[i + 2] & (65536 /* ReduceFlag */ >> 16)) == 0) {
+                let value = this.data[i + 1];
+                if (!result.some((v, i) => (i & 1) && v == value))
+                    result.push(this.data[i], value);
+            }
+        }
+        return result;
+    }
+    /// @internal
+    overrides(token, prev) {
+        let iPrev = findOffset$4(this.data, this.tokenPrecTable, prev);
+        return iPrev < 0 || findOffset$4(this.data, this.tokenPrecTable, token) < iPrev;
+    }
+    /// Configure the parser. Returns a new parser instance that has the
+    /// given settings modified. Settings not provided in `config` are
+    /// kept from the original parser.
+    configure(config) {
+        // Hideous reflection-based kludge to make it easy to create a
+        // slightly modified copy of a parser.
+        let copy = Object.assign(Object.create(LRParser$4.prototype), this);
+        if (config.props)
+            copy.nodeSet = this.nodeSet.extend(...config.props);
+        if (config.top) {
+            let info = this.topRules[config.top];
+            if (!info)
+                throw new RangeError(`Invalid top rule name ${config.top}`);
+            copy.top = info;
+        }
+        if (config.tokenizers)
+            copy.tokenizers = this.tokenizers.map(t => {
+                let found = config.tokenizers.find(r => r.from == t);
+                return found ? found.to : t;
+            });
+        if (config.contextTracker)
+            copy.context = config.contextTracker;
+        if (config.dialect)
+            copy.dialect = this.parseDialect(config.dialect);
+        if (config.strict != null)
+            copy.strict = config.strict;
+        if (config.wrap)
+            copy.wrappers = copy.wrappers.concat(config.wrap);
+        if (config.bufferLength != null)
+            copy.bufferLength = config.bufferLength;
+        return copy;
+    }
+    /// Tells you whether any [parse wrappers](#lr.ParserConfig.wrap)
+    /// are registered for this parser.
+    hasWrappers() {
+        return this.wrappers.length > 0;
+    }
+    /// Returns the name associated with a given term. This will only
+    /// work for all terms when the parser was generated with the
+    /// `--names` option. By default, only the names of tagged terms are
+    /// stored.
+    getName(term) {
+        return this.termNames ? this.termNames[term] : String(term <= this.maxNode && this.nodeSet.types[term].name || term);
+    }
+    /// The eof term id is always allocated directly after the node
+    /// types. @internal
+    get eofTerm() { return this.maxNode + 1; }
+    /// The type of top node produced by the parser.
+    get topNode() { return this.nodeSet.types[this.top[1]]; }
+    /// @internal
+    dynamicPrecedence(term) {
+        let prec = this.dynamicPrecedences;
+        return prec == null ? 0 : prec[term] || 0;
+    }
+    /// @internal
+    parseDialect(dialect) {
+        let values = Object.keys(this.dialects), flags = values.map(() => false);
+        if (dialect)
+            for (let part of dialect.split(" ")) {
+                let id = values.indexOf(part);
+                if (id >= 0)
+                    flags[id] = true;
+            }
+        let disabled = null;
+        for (let i = 0; i < values.length; i++)
+            if (!flags[i]) {
+                for (let j = this.dialects[values[i]], id; (id = this.data[j++]) != 65535 /* End */;)
+                    (disabled || (disabled = new Uint8Array(this.maxTerm + 1)))[id] = 1;
+            }
+        return new Dialect$4(dialect, flags, disabled);
+    }
+    /// (used by the output of the parser generator) @internal
+    static deserialize(spec) {
+        return new LRParser$4(spec);
+    }
+}
+function pair$4(data, off) { return data[off] | (data[off + 1] << 16); }
+function findOffset$4(data, start, term) {
+    for (let i = start, next; (next = data[i]) != 65535 /* End */; i++)
+        if (next == term)
+            return i - start;
+    return -1;
+}
+function findFinished$4(stacks) {
+    let best = null;
+    for (let stack of stacks) {
+        let stopped = stack.p.stoppedAt;
+        if ((stack.pos == stack.p.stream.end || stopped != null && stack.pos > stopped) &&
+            stack.p.parser.stateFlag(stack.state, 2 /* Accepting */) &&
+            (!best || best.score < stack.score))
+            best = stack;
+    }
+    return best;
+}
+
 // This file was generated by lezer-generator. You probably shouldn't edit it.
 const scriptText = 53,
   StartCloseScriptTag = 1,
@@ -25263,7 +26843,7 @@ function tagNameAfter(input, offset) {
   return cachedName = name ? name.toLowerCase() : next == question || next == bang ? undefined : null
 }
 
-const lessThan = 60, greaterThan = 62, slash$1 = 47, question = 63, bang = 33;
+const lessThan = 60, greaterThan = 62, slash$1 = 47, question = 63, bang = 33, dash$1 = 45;
 
 function ElementContext(name, parent) {
   this.name = name;
@@ -25274,7 +26854,7 @@ function ElementContext(name, parent) {
 
 const startTagTerms = [StartTag, StartSelfClosingTag, StartScriptTag, StartStyleTag, StartTextareaTag];
 
-const elementContext = new ContextTracker({
+const elementContext = new ContextTracker$2({
   start: null,
   shift(context, term, stack, input) {
     return startTagTerms.indexOf(term) > -1 ? new ElementContext(tagNameAfter(input, 1) || "", context) : context
@@ -25291,7 +26871,7 @@ const elementContext = new ContextTracker({
   strict: false
 });
 
-const tagStart = new ExternalTokenizer((input, stack) => {
+const tagStart = new ExternalTokenizer$4((input, stack) => {
   if (input.next != lessThan) {
     // End of file, close any open tags
     if (input.next < 0 && stack.context) input.acceptToken(missingCloseTag);
@@ -25321,20 +26901,19 @@ const tagStart = new ExternalTokenizer((input, stack) => {
   }
 }, {contextual: true});
 
-const commentContent = new ExternalTokenizer(input => {
-  for (let endPos = 0, i = 0;; i++) {
+const commentContent = new ExternalTokenizer$4(input => {
+  for (let dashes = 0, i = 0;; i++) {
     if (input.next < 0) {
       if (i) input.acceptToken(commentContent$1);
       break
     }
-    if (input.next == "-->".charCodeAt(endPos)) {
-      endPos++;
-      if (endPos == 3) {
-        if (i > 3) input.acceptToken(commentContent$1, -2);
-        break
-      }
+    if (input.next == dash$1) {
+      dashes++;
+    } else if (input.next == greaterThan && dashes >= 2) {
+      if (i > 3) input.acceptToken(commentContent$1, -2);
+      break
     } else {
-      endPos = 0;
+      dashes = 0;
     }
     input.advance();
   }
@@ -25342,7 +26921,7 @@ const commentContent = new ExternalTokenizer(input => {
 
 function contentTokenizer(tag, textToken, endToken) {
   let lastState = 2 + tag.length;
-  return new ExternalTokenizer(input => {
+  return new ExternalTokenizer$4(input => {
     // state means:
     // - 0 nothing matched
     // - 1 '<' matched
@@ -25399,7 +26978,7 @@ const htmlHighlighting = styleTags({
 });
 
 // This file was generated by lezer-generator. You probably shouldn't edit it.
-const parser$5 = LRParser.deserialize({
+const parser$5 = LRParser$4.deserialize({
   version: 14,
   states: ",xOVOxOOO!WQ!bO'#CoO!]Q!bO'#CyO!bQ!bO'#C|O!gQ!bO'#DPO!lQ!bO'#DRO!qOXO'#CnO!|OYO'#CnO#XO[O'#CnO$eOxO'#CnOOOW'#Cn'#CnO$lO!rO'#DSO$tQ!bO'#DUO$yQ!bO'#DVOOOW'#Dj'#DjOOOW'#DX'#DXQVOxOOO%OQ#tO,59ZO%WQ#tO,59eO%`Q#tO,59hO%hQ#tO,59kO%pQ#tO,59mOOOX'#D]'#D]O%xOXO'#CwO&TOXO,59YOOOY'#D^'#D^O&]OYO'#CzO&hOYO,59YOOO['#D_'#D_O&pO[O'#C}O&{O[O,59YOOOW'#D`'#D`O'TOxO,59YO'[Q!bO'#DQOOOW,59Y,59YOOO`'#Da'#DaO'aO!rO,59nOOOW,59n,59nO'iQ!bO,59pO'nQ!bO,59qOOOW-E7V-E7VO'sQ#tO'#CqOOQO'#DY'#DYO(OQ#tO1G.uOOOX1G.u1G.uO(WQ#tO1G/POOOY1G/P1G/PO(`Q#tO1G/SOOO[1G/S1G/SO(hQ#tO1G/VOOOW1G/V1G/VO(pQ#tO1G/XOOOW1G/X1G/XOOOX-E7Z-E7ZO(xQ!bO'#CxOOOW1G.t1G.tOOOY-E7[-E7[O(}Q!bO'#C{OOO[-E7]-E7]O)SQ!bO'#DOOOOW-E7^-E7^O)XQ!bO,59lOOO`-E7_-E7_OOOW1G/Y1G/YOOOW1G/[1G/[OOOW1G/]1G/]O)^Q&jO,59]OOQO-E7W-E7WOOOX7+$a7+$aOOOY7+$k7+$kOOO[7+$n7+$nOOOW7+$q7+$qOOOW7+$s7+$sO)iQ!bO,59dO)nQ!bO,59gO)sQ!bO,59jOOOW1G/W1G/WO)xO,UO'#CtO*WO7[O'#CtOOQO1G.w1G.wOOOW1G/O1G/OOOOW1G/R1G/ROOOW1G/U1G/UOOOO'#DZ'#DZO*fO,UO,59`OOQO,59`,59`OOOO'#D['#D[O*tO7[O,59`OOOO-E7X-E7XOOQO1G.z1G.zOOOO-E7Y-E7Y",
   stateData: "+[~O!]OS~OSSOTPOUQOVROWTOY]OZ[O[^O^^O_^O`^Oa^Ow^Oz_O!cZO~OdaO~OdbO~OdcO~OddO~OdeO~O!VfOPkP!YkP~O!WiOQnP!YnP~O!XlORqP!YqP~OSSOTPOUQOVROWTOXqOY]OZ[O[^O^^O_^O`^Oa^Ow^O!cZO~O!YrO~P#dO!ZsO!duO~OdvO~OdwO~OfyOj|O~OfyOj!OO~OfyOj!QO~OfyOj!SO~OfyOj!UO~O!VfOPkX!YkX~OP!WO!Y!XO~O!WiOQnX!YnX~OQ!ZO!Y!XO~O!XlORqX!YqX~OR!]O!Y!XO~O!Y!XO~P#dOd!_O~O!ZsO!d!aO~Oj!bO~Oj!cO~Og!dOfeXjeX~OfyOj!fO~OfyOj!gO~OfyOj!hO~OfyOj!iO~OfyOj!jO~Od!kO~Od!lO~Od!mO~Oj!nO~Oi!qO!_!oO!a!pO~Oj!rO~Oj!sO~Oj!tO~O_!uO`!uO!_!wO!`!uO~O_!xO`!xO!a!wO!b!xO~O_!uO`!uO!_!{O!`!uO~O_!xO`!xO!a!{O!b!xO~O`_a!cwz!c~",
@@ -25463,6 +27042,1571 @@ function configureNesting(tags) {
   })
 }
 
+/// A parse stack. These are used internally by the parser to track
+/// parsing progress. They also provide some properties and methods
+/// that external code such as a tokenizer can use to get information
+/// about the parse state.
+class Stack$3 {
+    /// @internal
+    constructor(
+    /// The parse that this stack is part of @internal
+    p, 
+    /// Holds state, input pos, buffer index triplets for all but the
+    /// top state @internal
+    stack, 
+    /// The current parse state @internal
+    state, 
+    // The position at which the next reduce should take place. This
+    // can be less than `this.pos` when skipped expressions have been
+    // added to the stack (which should be moved outside of the next
+    // reduction)
+    /// @internal
+    reducePos, 
+    /// The input position up to which this stack has parsed.
+    pos, 
+    /// The dynamic score of the stack, including dynamic precedence
+    /// and error-recovery penalties
+    /// @internal
+    score, 
+    // The output buffer. Holds (type, start, end, size) quads
+    // representing nodes created by the parser, where `size` is
+    // amount of buffer array entries covered by this node.
+    /// @internal
+    buffer, 
+    // The base offset of the buffer. When stacks are split, the split
+    // instance shared the buffer history with its parent up to
+    // `bufferBase`, which is the absolute offset (including the
+    // offset of previous splits) into the buffer at which this stack
+    // starts writing.
+    /// @internal
+    bufferBase, 
+    /// @internal
+    curContext, 
+    /// @internal
+    lookAhead = 0, 
+    // A parent stack from which this was split off, if any. This is
+    // set up so that it always points to a stack that has some
+    // additional buffer content, never to a stack with an equal
+    // `bufferBase`.
+    /// @internal
+    parent) {
+        this.p = p;
+        this.stack = stack;
+        this.state = state;
+        this.reducePos = reducePos;
+        this.pos = pos;
+        this.score = score;
+        this.buffer = buffer;
+        this.bufferBase = bufferBase;
+        this.curContext = curContext;
+        this.lookAhead = lookAhead;
+        this.parent = parent;
+    }
+    /// @internal
+    toString() {
+        return `[${this.stack.filter((_, i) => i % 3 == 0).concat(this.state)}]@${this.pos}${this.score ? "!" + this.score : ""}`;
+    }
+    // Start an empty stack
+    /// @internal
+    static start(p, state, pos = 0) {
+        let cx = p.parser.context;
+        return new Stack$3(p, [], state, pos, pos, 0, [], 0, cx ? new StackContext$3(cx, cx.start) : null, 0, null);
+    }
+    /// The stack's current [context](#lr.ContextTracker) value, if
+    /// any. Its type will depend on the context tracker's type
+    /// parameter, or it will be `null` if there is no context
+    /// tracker.
+    get context() { return this.curContext ? this.curContext.context : null; }
+    // Push a state onto the stack, tracking its start position as well
+    // as the buffer base at that point.
+    /// @internal
+    pushState(state, start) {
+        this.stack.push(this.state, start, this.bufferBase + this.buffer.length);
+        this.state = state;
+    }
+    // Apply a reduce action
+    /// @internal
+    reduce(action) {
+        let depth = action >> 19 /* ReduceDepthShift */, type = action & 65535 /* ValueMask */;
+        let { parser } = this.p;
+        let dPrec = parser.dynamicPrecedence(type);
+        if (dPrec)
+            this.score += dPrec;
+        if (depth == 0) {
+            this.pushState(parser.getGoto(this.state, type, true), this.reducePos);
+            // Zero-depth reductions are a special case—they add stuff to
+            // the stack without popping anything off.
+            if (type < parser.minRepeatTerm)
+                this.storeNode(type, this.reducePos, this.reducePos, 4, true);
+            this.reduceContext(type, this.reducePos);
+            return;
+        }
+        // Find the base index into `this.stack`, content after which will
+        // be dropped. Note that with `StayFlag` reductions we need to
+        // consume two extra frames (the dummy parent node for the skipped
+        // expression and the state that we'll be staying in, which should
+        // be moved to `this.state`).
+        let base = this.stack.length - ((depth - 1) * 3) - (action & 262144 /* StayFlag */ ? 6 : 0);
+        let start = this.stack[base - 2];
+        let bufferBase = this.stack[base - 1], count = this.bufferBase + this.buffer.length - bufferBase;
+        // Store normal terms or `R -> R R` repeat reductions
+        if (type < parser.minRepeatTerm || (action & 131072 /* RepeatFlag */)) {
+            let pos = parser.stateFlag(this.state, 1 /* Skipped */) ? this.pos : this.reducePos;
+            this.storeNode(type, start, pos, count + 4, true);
+        }
+        if (action & 262144 /* StayFlag */) {
+            this.state = this.stack[base];
+        }
+        else {
+            let baseStateID = this.stack[base - 3];
+            this.state = parser.getGoto(baseStateID, type, true);
+        }
+        while (this.stack.length > base)
+            this.stack.pop();
+        this.reduceContext(type, start);
+    }
+    // Shift a value into the buffer
+    /// @internal
+    storeNode(term, start, end, size = 4, isReduce = false) {
+        if (term == 0 /* Err */ &&
+            (!this.stack.length || this.stack[this.stack.length - 1] < this.buffer.length + this.bufferBase)) {
+            // Try to omit/merge adjacent error nodes
+            let cur = this, top = this.buffer.length;
+            if (top == 0 && cur.parent) {
+                top = cur.bufferBase - cur.parent.bufferBase;
+                cur = cur.parent;
+            }
+            if (top > 0 && cur.buffer[top - 4] == 0 /* Err */ && cur.buffer[top - 1] > -1) {
+                if (start == end)
+                    return;
+                if (cur.buffer[top - 2] >= start) {
+                    cur.buffer[top - 2] = end;
+                    return;
+                }
+            }
+        }
+        if (!isReduce || this.pos == end) { // Simple case, just append
+            this.buffer.push(term, start, end, size);
+        }
+        else { // There may be skipped nodes that have to be moved forward
+            let index = this.buffer.length;
+            if (index > 0 && this.buffer[index - 4] != 0 /* Err */)
+                while (index > 0 && this.buffer[index - 2] > end) {
+                    // Move this record forward
+                    this.buffer[index] = this.buffer[index - 4];
+                    this.buffer[index + 1] = this.buffer[index - 3];
+                    this.buffer[index + 2] = this.buffer[index - 2];
+                    this.buffer[index + 3] = this.buffer[index - 1];
+                    index -= 4;
+                    if (size > 4)
+                        size -= 4;
+                }
+            this.buffer[index] = term;
+            this.buffer[index + 1] = start;
+            this.buffer[index + 2] = end;
+            this.buffer[index + 3] = size;
+        }
+    }
+    // Apply a shift action
+    /// @internal
+    shift(action, next, nextEnd) {
+        let start = this.pos;
+        if (action & 131072 /* GotoFlag */) {
+            this.pushState(action & 65535 /* ValueMask */, this.pos);
+        }
+        else if ((action & 262144 /* StayFlag */) == 0) { // Regular shift
+            let nextState = action, { parser } = this.p;
+            if (nextEnd > this.pos || next <= parser.maxNode) {
+                this.pos = nextEnd;
+                if (!parser.stateFlag(nextState, 1 /* Skipped */))
+                    this.reducePos = nextEnd;
+            }
+            this.pushState(nextState, start);
+            this.shiftContext(next, start);
+            if (next <= parser.maxNode)
+                this.buffer.push(next, start, nextEnd, 4);
+        }
+        else { // Shift-and-stay, which means this is a skipped token
+            this.pos = nextEnd;
+            this.shiftContext(next, start);
+            if (next <= this.p.parser.maxNode)
+                this.buffer.push(next, start, nextEnd, 4);
+        }
+    }
+    // Apply an action
+    /// @internal
+    apply(action, next, nextEnd) {
+        if (action & 65536 /* ReduceFlag */)
+            this.reduce(action);
+        else
+            this.shift(action, next, nextEnd);
+    }
+    // Add a prebuilt (reused) node into the buffer.
+    /// @internal
+    useNode(value, next) {
+        let index = this.p.reused.length - 1;
+        if (index < 0 || this.p.reused[index] != value) {
+            this.p.reused.push(value);
+            index++;
+        }
+        let start = this.pos;
+        this.reducePos = this.pos = start + value.length;
+        this.pushState(next, start);
+        this.buffer.push(index, start, this.reducePos, -1 /* size == -1 means this is a reused value */);
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.reuse(this.curContext.context, value, this, this.p.stream.reset(this.pos - value.length)));
+    }
+    // Split the stack. Due to the buffer sharing and the fact
+    // that `this.stack` tends to stay quite shallow, this isn't very
+    // expensive.
+    /// @internal
+    split() {
+        let parent = this;
+        let off = parent.buffer.length;
+        // Because the top of the buffer (after this.pos) may be mutated
+        // to reorder reductions and skipped tokens, and shared buffers
+        // should be immutable, this copies any outstanding skipped tokens
+        // to the new buffer, and puts the base pointer before them.
+        while (off > 0 && parent.buffer[off - 2] > parent.reducePos)
+            off -= 4;
+        let buffer = parent.buffer.slice(off), base = parent.bufferBase + off;
+        // Make sure parent points to an actual parent with content, if there is such a parent.
+        while (parent && base == parent.bufferBase)
+            parent = parent.parent;
+        return new Stack$3(this.p, this.stack.slice(), this.state, this.reducePos, this.pos, this.score, buffer, base, this.curContext, this.lookAhead, parent);
+    }
+    // Try to recover from an error by 'deleting' (ignoring) one token.
+    /// @internal
+    recoverByDelete(next, nextEnd) {
+        let isNode = next <= this.p.parser.maxNode;
+        if (isNode)
+            this.storeNode(next, this.pos, nextEnd, 4);
+        this.storeNode(0 /* Err */, this.pos, nextEnd, isNode ? 8 : 4);
+        this.pos = this.reducePos = nextEnd;
+        this.score -= 190 /* Delete */;
+    }
+    /// Check if the given term would be able to be shifted (optionally
+    /// after some reductions) on this stack. This can be useful for
+    /// external tokenizers that want to make sure they only provide a
+    /// given token when it applies.
+    canShift(term) {
+        for (let sim = new SimulatedStack$3(this);;) {
+            let action = this.p.parser.stateSlot(sim.state, 4 /* DefaultReduce */) || this.p.parser.hasAction(sim.state, term);
+            if ((action & 65536 /* ReduceFlag */) == 0)
+                return true;
+            if (action == 0)
+                return false;
+            sim.reduce(action);
+        }
+    }
+    // Apply up to Recover.MaxNext recovery actions that conceptually
+    // inserts some missing token or rule.
+    /// @internal
+    recoverByInsert(next) {
+        if (this.stack.length >= 300 /* MaxInsertStackDepth */)
+            return [];
+        let nextStates = this.p.parser.nextStates(this.state);
+        if (nextStates.length > 4 /* MaxNext */ << 1 || this.stack.length >= 120 /* DampenInsertStackDepth */) {
+            let best = [];
+            for (let i = 0, s; i < nextStates.length; i += 2) {
+                if ((s = nextStates[i + 1]) != this.state && this.p.parser.hasAction(s, next))
+                    best.push(nextStates[i], s);
+            }
+            if (this.stack.length < 120 /* DampenInsertStackDepth */)
+                for (let i = 0; best.length < 4 /* MaxNext */ << 1 && i < nextStates.length; i += 2) {
+                    let s = nextStates[i + 1];
+                    if (!best.some((v, i) => (i & 1) && v == s))
+                        best.push(nextStates[i], s);
+                }
+            nextStates = best;
+        }
+        let result = [];
+        for (let i = 0; i < nextStates.length && result.length < 4 /* MaxNext */; i += 2) {
+            let s = nextStates[i + 1];
+            if (s == this.state)
+                continue;
+            let stack = this.split();
+            stack.pushState(s, this.pos);
+            stack.storeNode(0 /* Err */, stack.pos, stack.pos, 4, true);
+            stack.shiftContext(nextStates[i], this.pos);
+            stack.score -= 200 /* Insert */;
+            result.push(stack);
+        }
+        return result;
+    }
+    // Force a reduce, if possible. Return false if that can't
+    // be done.
+    /// @internal
+    forceReduce() {
+        let reduce = this.p.parser.stateSlot(this.state, 5 /* ForcedReduce */);
+        if ((reduce & 65536 /* ReduceFlag */) == 0)
+            return false;
+        let { parser } = this.p;
+        if (!parser.validAction(this.state, reduce)) {
+            let depth = reduce >> 19 /* ReduceDepthShift */, term = reduce & 65535 /* ValueMask */;
+            let target = this.stack.length - depth * 3;
+            if (target < 0 || parser.getGoto(this.stack[target], term, false) < 0)
+                return false;
+            this.storeNode(0 /* Err */, this.reducePos, this.reducePos, 4, true);
+            this.score -= 100 /* Reduce */;
+        }
+        this.reducePos = this.pos;
+        this.reduce(reduce);
+        return true;
+    }
+    /// @internal
+    forceAll() {
+        while (!this.p.parser.stateFlag(this.state, 2 /* Accepting */)) {
+            if (!this.forceReduce()) {
+                this.storeNode(0 /* Err */, this.pos, this.pos, 4, true);
+                break;
+            }
+        }
+        return this;
+    }
+    /// Check whether this state has no further actions (assumed to be a direct descendant of the
+    /// top state, since any other states must be able to continue
+    /// somehow). @internal
+    get deadEnd() {
+        if (this.stack.length != 3)
+            return false;
+        let { parser } = this.p;
+        return parser.data[parser.stateSlot(this.state, 1 /* Actions */)] == 65535 /* End */ &&
+            !parser.stateSlot(this.state, 4 /* DefaultReduce */);
+    }
+    /// Restart the stack (put it back in its start state). Only safe
+    /// when this.stack.length == 3 (state is directly below the top
+    /// state). @internal
+    restart() {
+        this.state = this.stack[0];
+        this.stack.length = 0;
+    }
+    /// @internal
+    sameState(other) {
+        if (this.state != other.state || this.stack.length != other.stack.length)
+            return false;
+        for (let i = 0; i < this.stack.length; i += 3)
+            if (this.stack[i] != other.stack[i])
+                return false;
+        return true;
+    }
+    /// Get the parser used by this stack.
+    get parser() { return this.p.parser; }
+    /// Test whether a given dialect (by numeric ID, as exported from
+    /// the terms file) is enabled.
+    dialectEnabled(dialectID) { return this.p.parser.dialect.flags[dialectID]; }
+    shiftContext(term, start) {
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.shift(this.curContext.context, term, this, this.p.stream.reset(start)));
+    }
+    reduceContext(term, start) {
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.reduce(this.curContext.context, term, this, this.p.stream.reset(start)));
+    }
+    /// @internal
+    emitContext() {
+        let last = this.buffer.length - 1;
+        if (last < 0 || this.buffer[last] != -3)
+            this.buffer.push(this.curContext.hash, this.reducePos, this.reducePos, -3);
+    }
+    /// @internal
+    emitLookAhead() {
+        let last = this.buffer.length - 1;
+        if (last < 0 || this.buffer[last] != -4)
+            this.buffer.push(this.lookAhead, this.reducePos, this.reducePos, -4);
+    }
+    updateContext(context) {
+        if (context != this.curContext.context) {
+            let newCx = new StackContext$3(this.curContext.tracker, context);
+            if (newCx.hash != this.curContext.hash)
+                this.emitContext();
+            this.curContext = newCx;
+        }
+    }
+    /// @internal
+    setLookAhead(lookAhead) {
+        if (lookAhead > this.lookAhead) {
+            this.emitLookAhead();
+            this.lookAhead = lookAhead;
+        }
+    }
+    /// @internal
+    close() {
+        if (this.curContext && this.curContext.tracker.strict)
+            this.emitContext();
+        if (this.lookAhead > 0)
+            this.emitLookAhead();
+    }
+}
+class StackContext$3 {
+    constructor(tracker, context) {
+        this.tracker = tracker;
+        this.context = context;
+        this.hash = tracker.strict ? tracker.hash(context) : 0;
+    }
+}
+var Recover$3;
+(function (Recover) {
+    Recover[Recover["Insert"] = 200] = "Insert";
+    Recover[Recover["Delete"] = 190] = "Delete";
+    Recover[Recover["Reduce"] = 100] = "Reduce";
+    Recover[Recover["MaxNext"] = 4] = "MaxNext";
+    Recover[Recover["MaxInsertStackDepth"] = 300] = "MaxInsertStackDepth";
+    Recover[Recover["DampenInsertStackDepth"] = 120] = "DampenInsertStackDepth";
+})(Recover$3 || (Recover$3 = {}));
+// Used to cheaply run some reductions to scan ahead without mutating
+// an entire stack
+class SimulatedStack$3 {
+    constructor(start) {
+        this.start = start;
+        this.state = start.state;
+        this.stack = start.stack;
+        this.base = this.stack.length;
+    }
+    reduce(action) {
+        let term = action & 65535 /* ValueMask */, depth = action >> 19 /* ReduceDepthShift */;
+        if (depth == 0) {
+            if (this.stack == this.start.stack)
+                this.stack = this.stack.slice();
+            this.stack.push(this.state, 0, 0);
+            this.base += 3;
+        }
+        else {
+            this.base -= (depth - 1) * 3;
+        }
+        let goto = this.start.p.parser.getGoto(this.stack[this.base - 3], term, true);
+        this.state = goto;
+    }
+}
+// This is given to `Tree.build` to build a buffer, and encapsulates
+// the parent-stack-walking necessary to read the nodes.
+class StackBufferCursor$3 {
+    constructor(stack, pos, index) {
+        this.stack = stack;
+        this.pos = pos;
+        this.index = index;
+        this.buffer = stack.buffer;
+        if (this.index == 0)
+            this.maybeNext();
+    }
+    static create(stack, pos = stack.bufferBase + stack.buffer.length) {
+        return new StackBufferCursor$3(stack, pos, pos - stack.bufferBase);
+    }
+    maybeNext() {
+        let next = this.stack.parent;
+        if (next != null) {
+            this.index = this.stack.bufferBase - next.bufferBase;
+            this.stack = next;
+            this.buffer = next.buffer;
+        }
+    }
+    get id() { return this.buffer[this.index - 4]; }
+    get start() { return this.buffer[this.index - 3]; }
+    get end() { return this.buffer[this.index - 2]; }
+    get size() { return this.buffer[this.index - 1]; }
+    next() {
+        this.index -= 4;
+        this.pos -= 4;
+        if (this.index == 0)
+            this.maybeNext();
+    }
+    fork() {
+        return new StackBufferCursor$3(this.stack, this.pos, this.index);
+    }
+}
+
+class CachedToken$3 {
+    constructor() {
+        this.start = -1;
+        this.value = -1;
+        this.end = -1;
+        this.extended = -1;
+        this.lookAhead = 0;
+        this.mask = 0;
+        this.context = 0;
+    }
+}
+const nullToken$3 = new CachedToken$3;
+/// [Tokenizers](#lr.ExternalTokenizer) interact with the input
+/// through this interface. It presents the input as a stream of
+/// characters, tracking lookahead and hiding the complexity of
+/// [ranges](#common.Parser.parse^ranges) from tokenizer code.
+class InputStream$3 {
+    /// @internal
+    constructor(
+    /// @internal
+    input, 
+    /// @internal
+    ranges) {
+        this.input = input;
+        this.ranges = ranges;
+        /// @internal
+        this.chunk = "";
+        /// @internal
+        this.chunkOff = 0;
+        /// Backup chunk
+        this.chunk2 = "";
+        this.chunk2Pos = 0;
+        /// The character code of the next code unit in the input, or -1
+        /// when the stream is at the end of the input.
+        this.next = -1;
+        /// @internal
+        this.token = nullToken$3;
+        this.rangeIndex = 0;
+        this.pos = this.chunkPos = ranges[0].from;
+        this.range = ranges[0];
+        this.end = ranges[ranges.length - 1].to;
+        this.readNext();
+    }
+    resolveOffset(offset, assoc) {
+        let range = this.range, index = this.rangeIndex;
+        let pos = this.pos + offset;
+        while (pos < range.from) {
+            if (!index)
+                return null;
+            let next = this.ranges[--index];
+            pos -= range.from - next.to;
+            range = next;
+        }
+        while (assoc < 0 ? pos > range.to : pos >= range.to) {
+            if (index == this.ranges.length - 1)
+                return null;
+            let next = this.ranges[++index];
+            pos += next.from - range.to;
+            range = next;
+        }
+        return pos;
+    }
+    /// Look at a code unit near the stream position. `.peek(0)` equals
+    /// `.next`, `.peek(-1)` gives you the previous character, and so
+    /// on.
+    ///
+    /// Note that looking around during tokenizing creates dependencies
+    /// on potentially far-away content, which may reduce the
+    /// effectiveness incremental parsing—when looking forward—or even
+    /// cause invalid reparses when looking backward more than 25 code
+    /// units, since the library does not track lookbehind.
+    peek(offset) {
+        let idx = this.chunkOff + offset, pos, result;
+        if (idx >= 0 && idx < this.chunk.length) {
+            pos = this.pos + offset;
+            result = this.chunk.charCodeAt(idx);
+        }
+        else {
+            let resolved = this.resolveOffset(offset, 1);
+            if (resolved == null)
+                return -1;
+            pos = resolved;
+            if (pos >= this.chunk2Pos && pos < this.chunk2Pos + this.chunk2.length) {
+                result = this.chunk2.charCodeAt(pos - this.chunk2Pos);
+            }
+            else {
+                let i = this.rangeIndex, range = this.range;
+                while (range.to <= pos)
+                    range = this.ranges[++i];
+                this.chunk2 = this.input.chunk(this.chunk2Pos = pos);
+                if (pos + this.chunk2.length > range.to)
+                    this.chunk2 = this.chunk2.slice(0, range.to - pos);
+                result = this.chunk2.charCodeAt(0);
+            }
+        }
+        if (pos >= this.token.lookAhead)
+            this.token.lookAhead = pos + 1;
+        return result;
+    }
+    /// Accept a token. By default, the end of the token is set to the
+    /// current stream position, but you can pass an offset (relative to
+    /// the stream position) to change that.
+    acceptToken(token, endOffset = 0) {
+        let end = endOffset ? this.resolveOffset(endOffset, -1) : this.pos;
+        if (end == null || end < this.token.start)
+            throw new RangeError("Token end out of bounds");
+        this.token.value = token;
+        this.token.end = end;
+    }
+    getChunk() {
+        if (this.pos >= this.chunk2Pos && this.pos < this.chunk2Pos + this.chunk2.length) {
+            let { chunk, chunkPos } = this;
+            this.chunk = this.chunk2;
+            this.chunkPos = this.chunk2Pos;
+            this.chunk2 = chunk;
+            this.chunk2Pos = chunkPos;
+            this.chunkOff = this.pos - this.chunkPos;
+        }
+        else {
+            this.chunk2 = this.chunk;
+            this.chunk2Pos = this.chunkPos;
+            let nextChunk = this.input.chunk(this.pos);
+            let end = this.pos + nextChunk.length;
+            this.chunk = end > this.range.to ? nextChunk.slice(0, this.range.to - this.pos) : nextChunk;
+            this.chunkPos = this.pos;
+            this.chunkOff = 0;
+        }
+    }
+    readNext() {
+        if (this.chunkOff >= this.chunk.length) {
+            this.getChunk();
+            if (this.chunkOff == this.chunk.length)
+                return this.next = -1;
+        }
+        return this.next = this.chunk.charCodeAt(this.chunkOff);
+    }
+    /// Move the stream forward N (defaults to 1) code units. Returns
+    /// the new value of [`next`](#lr.InputStream.next).
+    advance(n = 1) {
+        this.chunkOff += n;
+        while (this.pos + n >= this.range.to) {
+            if (this.rangeIndex == this.ranges.length - 1)
+                return this.setDone();
+            n -= this.range.to - this.pos;
+            this.range = this.ranges[++this.rangeIndex];
+            this.pos = this.range.from;
+        }
+        this.pos += n;
+        if (this.pos >= this.token.lookAhead)
+            this.token.lookAhead = this.pos + 1;
+        return this.readNext();
+    }
+    setDone() {
+        this.pos = this.chunkPos = this.end;
+        this.range = this.ranges[this.rangeIndex = this.ranges.length - 1];
+        this.chunk = "";
+        return this.next = -1;
+    }
+    /// @internal
+    reset(pos, token) {
+        if (token) {
+            this.token = token;
+            token.start = pos;
+            token.lookAhead = pos + 1;
+            token.value = token.extended = -1;
+        }
+        else {
+            this.token = nullToken$3;
+        }
+        if (this.pos != pos) {
+            this.pos = pos;
+            if (pos == this.end) {
+                this.setDone();
+                return this;
+            }
+            while (pos < this.range.from)
+                this.range = this.ranges[--this.rangeIndex];
+            while (pos >= this.range.to)
+                this.range = this.ranges[++this.rangeIndex];
+            if (pos >= this.chunkPos && pos < this.chunkPos + this.chunk.length) {
+                this.chunkOff = pos - this.chunkPos;
+            }
+            else {
+                this.chunk = "";
+                this.chunkOff = 0;
+            }
+            this.readNext();
+        }
+        return this;
+    }
+    /// @internal
+    read(from, to) {
+        if (from >= this.chunkPos && to <= this.chunkPos + this.chunk.length)
+            return this.chunk.slice(from - this.chunkPos, to - this.chunkPos);
+        if (from >= this.chunk2Pos && to <= this.chunk2Pos + this.chunk2.length)
+            return this.chunk2.slice(from - this.chunk2Pos, to - this.chunk2Pos);
+        if (from >= this.range.from && to <= this.range.to)
+            return this.input.read(from, to);
+        let result = "";
+        for (let r of this.ranges) {
+            if (r.from >= to)
+                break;
+            if (r.to > from)
+                result += this.input.read(Math.max(r.from, from), Math.min(r.to, to));
+        }
+        return result;
+    }
+}
+/// @internal
+class TokenGroup$3 {
+    constructor(data, id) {
+        this.data = data;
+        this.id = id;
+    }
+    token(input, stack) { readToken$3(this.data, input, stack, this.id); }
+}
+TokenGroup$3.prototype.contextual = TokenGroup$3.prototype.fallback = TokenGroup$3.prototype.extend = false;
+/// `@external tokens` declarations in the grammar should resolve to
+/// an instance of this class.
+class ExternalTokenizer$3 {
+    /// Create a tokenizer. The first argument is the function that,
+    /// given an input stream, scans for the types of tokens it
+    /// recognizes at the stream's position, and calls
+    /// [`acceptToken`](#lr.InputStream.acceptToken) when it finds
+    /// one.
+    constructor(
+    /// @internal
+    token, options = {}) {
+        this.token = token;
+        this.contextual = !!options.contextual;
+        this.fallback = !!options.fallback;
+        this.extend = !!options.extend;
+    }
+}
+// Tokenizer data is stored a big uint16 array containing, for each
+// state:
+//
+//  - A group bitmask, indicating what token groups are reachable from
+//    this state, so that paths that can only lead to tokens not in
+//    any of the current groups can be cut off early.
+//
+//  - The position of the end of the state's sequence of accepting
+//    tokens
+//
+//  - The number of outgoing edges for the state
+//
+//  - The accepting tokens, as (token id, group mask) pairs
+//
+//  - The outgoing edges, as (start character, end character, state
+//    index) triples, with end character being exclusive
+//
+// This function interprets that data, running through a stream as
+// long as new states with the a matching group mask can be reached,
+// and updating `token` when it matches a token.
+function readToken$3(data, input, stack, group) {
+    let state = 0, groupMask = 1 << group, { parser } = stack.p, { dialect } = parser;
+    scan: for (;;) {
+        if ((groupMask & data[state]) == 0)
+            break;
+        let accEnd = data[state + 1];
+        // Check whether this state can lead to a token in the current group
+        // Accept tokens in this state, possibly overwriting
+        // lower-precedence / shorter tokens
+        for (let i = state + 3; i < accEnd; i += 2)
+            if ((data[i + 1] & groupMask) > 0) {
+                let term = data[i];
+                if (dialect.allows(term) &&
+                    (input.token.value == -1 || input.token.value == term || parser.overrides(term, input.token.value))) {
+                    input.acceptToken(term);
+                    break;
+                }
+            }
+        // Do a binary search on the state's edges
+        for (let next = input.next, low = 0, high = data[state + 2]; low < high;) {
+            let mid = (low + high) >> 1;
+            let index = accEnd + mid + (mid << 1);
+            let from = data[index], to = data[index + 1];
+            if (next < from)
+                high = mid;
+            else if (next >= to)
+                low = mid + 1;
+            else {
+                state = data[index + 2];
+                input.advance();
+                continue scan;
+            }
+        }
+        break;
+    }
+}
+
+// See lezer-generator/src/encode.ts for comments about the encoding
+// used here
+function decodeArray$3(input, Type = Uint16Array) {
+    if (typeof input != "string")
+        return input;
+    let array = null;
+    for (let pos = 0, out = 0; pos < input.length;) {
+        let value = 0;
+        for (;;) {
+            let next = input.charCodeAt(pos++), stop = false;
+            if (next == 126 /* BigValCode */) {
+                value = 65535 /* BigVal */;
+                break;
+            }
+            if (next >= 92 /* Gap2 */)
+                next--;
+            if (next >= 34 /* Gap1 */)
+                next--;
+            let digit = next - 32 /* Start */;
+            if (digit >= 46 /* Base */) {
+                digit -= 46 /* Base */;
+                stop = true;
+            }
+            value += digit;
+            if (stop)
+                break;
+            value *= 46 /* Base */;
+        }
+        if (array)
+            array[out++] = value;
+        else
+            array = new Type(value);
+    }
+    return array;
+}
+
+// Environment variable used to control console output
+const verbose$3 = typeof process != "undefined" && process.env && /\bparse\b/.test(process.env.LOG);
+let stackIDs$3 = null;
+var Safety$3;
+(function (Safety) {
+    Safety[Safety["Margin"] = 25] = "Margin";
+})(Safety$3 || (Safety$3 = {}));
+function cutAt$3(tree, pos, side) {
+    let cursor = tree.cursor(IterMode.IncludeAnonymous);
+    cursor.moveTo(pos);
+    for (;;) {
+        if (!(side < 0 ? cursor.childBefore(pos) : cursor.childAfter(pos)))
+            for (;;) {
+                if ((side < 0 ? cursor.to < pos : cursor.from > pos) && !cursor.type.isError)
+                    return side < 0 ? Math.max(0, Math.min(cursor.to - 1, pos - 25 /* Margin */))
+                        : Math.min(tree.length, Math.max(cursor.from + 1, pos + 25 /* Margin */));
+                if (side < 0 ? cursor.prevSibling() : cursor.nextSibling())
+                    break;
+                if (!cursor.parent())
+                    return side < 0 ? 0 : tree.length;
+            }
+    }
+}
+class FragmentCursor$3 {
+    constructor(fragments, nodeSet) {
+        this.fragments = fragments;
+        this.nodeSet = nodeSet;
+        this.i = 0;
+        this.fragment = null;
+        this.safeFrom = -1;
+        this.safeTo = -1;
+        this.trees = [];
+        this.start = [];
+        this.index = [];
+        this.nextFragment();
+    }
+    nextFragment() {
+        let fr = this.fragment = this.i == this.fragments.length ? null : this.fragments[this.i++];
+        if (fr) {
+            this.safeFrom = fr.openStart ? cutAt$3(fr.tree, fr.from + fr.offset, 1) - fr.offset : fr.from;
+            this.safeTo = fr.openEnd ? cutAt$3(fr.tree, fr.to + fr.offset, -1) - fr.offset : fr.to;
+            while (this.trees.length) {
+                this.trees.pop();
+                this.start.pop();
+                this.index.pop();
+            }
+            this.trees.push(fr.tree);
+            this.start.push(-fr.offset);
+            this.index.push(0);
+            this.nextStart = this.safeFrom;
+        }
+        else {
+            this.nextStart = 1e9;
+        }
+    }
+    // `pos` must be >= any previously given `pos` for this cursor
+    nodeAt(pos) {
+        if (pos < this.nextStart)
+            return null;
+        while (this.fragment && this.safeTo <= pos)
+            this.nextFragment();
+        if (!this.fragment)
+            return null;
+        for (;;) {
+            let last = this.trees.length - 1;
+            if (last < 0) { // End of tree
+                this.nextFragment();
+                return null;
+            }
+            let top = this.trees[last], index = this.index[last];
+            if (index == top.children.length) {
+                this.trees.pop();
+                this.start.pop();
+                this.index.pop();
+                continue;
+            }
+            let next = top.children[index];
+            let start = this.start[last] + top.positions[index];
+            if (start > pos) {
+                this.nextStart = start;
+                return null;
+            }
+            if (next instanceof Tree) {
+                if (start == pos) {
+                    if (start < this.safeFrom)
+                        return null;
+                    let end = start + next.length;
+                    if (end <= this.safeTo) {
+                        let lookAhead = next.prop(NodeProp.lookAhead);
+                        if (!lookAhead || end + lookAhead < this.fragment.to)
+                            return next;
+                    }
+                }
+                this.index[last]++;
+                if (start + next.length >= Math.max(this.safeFrom, pos)) { // Enter this node
+                    this.trees.push(next);
+                    this.start.push(start);
+                    this.index.push(0);
+                }
+            }
+            else {
+                this.index[last]++;
+                this.nextStart = start + next.length;
+            }
+        }
+    }
+}
+class TokenCache$3 {
+    constructor(parser, stream) {
+        this.stream = stream;
+        this.tokens = [];
+        this.mainToken = null;
+        this.actions = [];
+        this.tokens = parser.tokenizers.map(_ => new CachedToken$3);
+    }
+    getActions(stack) {
+        let actionIndex = 0;
+        let main = null;
+        let { parser } = stack.p, { tokenizers } = parser;
+        let mask = parser.stateSlot(stack.state, 3 /* TokenizerMask */);
+        let context = stack.curContext ? stack.curContext.hash : 0;
+        let lookAhead = 0;
+        for (let i = 0; i < tokenizers.length; i++) {
+            if (((1 << i) & mask) == 0)
+                continue;
+            let tokenizer = tokenizers[i], token = this.tokens[i];
+            if (main && !tokenizer.fallback)
+                continue;
+            if (tokenizer.contextual || token.start != stack.pos || token.mask != mask || token.context != context) {
+                this.updateCachedToken(token, tokenizer, stack);
+                token.mask = mask;
+                token.context = context;
+            }
+            if (token.lookAhead > token.end + 25 /* Margin */)
+                lookAhead = Math.max(token.lookAhead, lookAhead);
+            if (token.value != 0 /* Err */) {
+                let startIndex = actionIndex;
+                if (token.extended > -1)
+                    actionIndex = this.addActions(stack, token.extended, token.end, actionIndex);
+                actionIndex = this.addActions(stack, token.value, token.end, actionIndex);
+                if (!tokenizer.extend) {
+                    main = token;
+                    if (actionIndex > startIndex)
+                        break;
+                }
+            }
+        }
+        while (this.actions.length > actionIndex)
+            this.actions.pop();
+        if (lookAhead)
+            stack.setLookAhead(lookAhead);
+        if (!main && stack.pos == this.stream.end) {
+            main = new CachedToken$3;
+            main.value = stack.p.parser.eofTerm;
+            main.start = main.end = stack.pos;
+            actionIndex = this.addActions(stack, main.value, main.end, actionIndex);
+        }
+        this.mainToken = main;
+        return this.actions;
+    }
+    getMainToken(stack) {
+        if (this.mainToken)
+            return this.mainToken;
+        let main = new CachedToken$3, { pos, p } = stack;
+        main.start = pos;
+        main.end = Math.min(pos + 1, p.stream.end);
+        main.value = pos == p.stream.end ? p.parser.eofTerm : 0 /* Err */;
+        return main;
+    }
+    updateCachedToken(token, tokenizer, stack) {
+        tokenizer.token(this.stream.reset(stack.pos, token), stack);
+        if (token.value > -1) {
+            let { parser } = stack.p;
+            for (let i = 0; i < parser.specialized.length; i++)
+                if (parser.specialized[i] == token.value) {
+                    let result = parser.specializers[i](this.stream.read(token.start, token.end), stack);
+                    if (result >= 0 && stack.p.parser.dialect.allows(result >> 1)) {
+                        if ((result & 1) == 0 /* Specialize */)
+                            token.value = result >> 1;
+                        else
+                            token.extended = result >> 1;
+                        break;
+                    }
+                }
+        }
+        else {
+            token.value = 0 /* Err */;
+            token.end = Math.min(stack.p.stream.end, stack.pos + 1);
+        }
+    }
+    putAction(action, token, end, index) {
+        // Don't add duplicate actions
+        for (let i = 0; i < index; i += 3)
+            if (this.actions[i] == action)
+                return index;
+        this.actions[index++] = action;
+        this.actions[index++] = token;
+        this.actions[index++] = end;
+        return index;
+    }
+    addActions(stack, token, end, index) {
+        let { state } = stack, { parser } = stack.p, { data } = parser;
+        for (let set = 0; set < 2; set++) {
+            for (let i = parser.stateSlot(state, set ? 2 /* Skip */ : 1 /* Actions */);; i += 3) {
+                if (data[i] == 65535 /* End */) {
+                    if (data[i + 1] == 1 /* Next */) {
+                        i = pair$3(data, i + 2);
+                    }
+                    else {
+                        if (index == 0 && data[i + 1] == 2 /* Other */)
+                            index = this.putAction(pair$3(data, i + 2), token, end, index);
+                        break;
+                    }
+                }
+                if (data[i] == token)
+                    index = this.putAction(pair$3(data, i + 1), token, end, index);
+            }
+        }
+        return index;
+    }
+}
+var Rec$3;
+(function (Rec) {
+    Rec[Rec["Distance"] = 5] = "Distance";
+    Rec[Rec["MaxRemainingPerStep"] = 3] = "MaxRemainingPerStep";
+    // When two stacks have been running independently long enough to
+    // add this many elements to their buffers, prune one.
+    Rec[Rec["MinBufferLengthPrune"] = 500] = "MinBufferLengthPrune";
+    Rec[Rec["ForceReduceLimit"] = 10] = "ForceReduceLimit";
+    // Once a stack reaches this depth (in .stack.length) force-reduce
+    // it back to CutTo to avoid creating trees that overflow the stack
+    // on recursive traversal.
+    Rec[Rec["CutDepth"] = 15000] = "CutDepth";
+    Rec[Rec["CutTo"] = 9000] = "CutTo";
+})(Rec$3 || (Rec$3 = {}));
+class Parse$3 {
+    constructor(parser, input, fragments, ranges) {
+        this.parser = parser;
+        this.input = input;
+        this.ranges = ranges;
+        this.recovering = 0;
+        this.nextStackID = 0x2654; // ♔, ♕, ♖, ♗, ♘, ♙, ♠, ♡, ♢, ♣, ♤, ♥, ♦, ♧
+        this.minStackPos = 0;
+        this.reused = [];
+        this.stoppedAt = null;
+        this.stream = new InputStream$3(input, ranges);
+        this.tokens = new TokenCache$3(parser, this.stream);
+        this.topTerm = parser.top[1];
+        let { from } = ranges[0];
+        this.stacks = [Stack$3.start(this, parser.top[0], from)];
+        this.fragments = fragments.length && this.stream.end - from > parser.bufferLength * 4
+            ? new FragmentCursor$3(fragments, parser.nodeSet) : null;
+    }
+    get parsedPos() {
+        return this.minStackPos;
+    }
+    // Move the parser forward. This will process all parse stacks at
+    // `this.pos` and try to advance them to a further position. If no
+    // stack for such a position is found, it'll start error-recovery.
+    //
+    // When the parse is finished, this will return a syntax tree. When
+    // not, it returns `null`.
+    advance() {
+        let stacks = this.stacks, pos = this.minStackPos;
+        // This will hold stacks beyond `pos`.
+        let newStacks = this.stacks = [];
+        let stopped, stoppedTokens;
+        // Keep advancing any stacks at `pos` until they either move
+        // forward or can't be advanced. Gather stacks that can't be
+        // advanced further in `stopped`.
+        for (let i = 0; i < stacks.length; i++) {
+            let stack = stacks[i];
+            for (;;) {
+                this.tokens.mainToken = null;
+                if (stack.pos > pos) {
+                    newStacks.push(stack);
+                }
+                else if (this.advanceStack(stack, newStacks, stacks)) {
+                    continue;
+                }
+                else {
+                    if (!stopped) {
+                        stopped = [];
+                        stoppedTokens = [];
+                    }
+                    stopped.push(stack);
+                    let tok = this.tokens.getMainToken(stack);
+                    stoppedTokens.push(tok.value, tok.end);
+                }
+                break;
+            }
+        }
+        if (!newStacks.length) {
+            let finished = stopped && findFinished$3(stopped);
+            if (finished)
+                return this.stackToTree(finished);
+            if (this.parser.strict) {
+                if (verbose$3 && stopped)
+                    console.log("Stuck with token " + (this.tokens.mainToken ? this.parser.getName(this.tokens.mainToken.value) : "none"));
+                throw new SyntaxError("No parse at " + pos);
+            }
+            if (!this.recovering)
+                this.recovering = 5 /* Distance */;
+        }
+        if (this.recovering && stopped) {
+            let finished = this.stoppedAt != null && stopped[0].pos > this.stoppedAt ? stopped[0]
+                : this.runRecovery(stopped, stoppedTokens, newStacks);
+            if (finished)
+                return this.stackToTree(finished.forceAll());
+        }
+        if (this.recovering) {
+            let maxRemaining = this.recovering == 1 ? 1 : this.recovering * 3 /* MaxRemainingPerStep */;
+            if (newStacks.length > maxRemaining) {
+                newStacks.sort((a, b) => b.score - a.score);
+                while (newStacks.length > maxRemaining)
+                    newStacks.pop();
+            }
+            if (newStacks.some(s => s.reducePos > pos))
+                this.recovering--;
+        }
+        else if (newStacks.length > 1) {
+            // Prune stacks that are in the same state, or that have been
+            // running without splitting for a while, to avoid getting stuck
+            // with multiple successful stacks running endlessly on.
+            outer: for (let i = 0; i < newStacks.length - 1; i++) {
+                let stack = newStacks[i];
+                for (let j = i + 1; j < newStacks.length; j++) {
+                    let other = newStacks[j];
+                    if (stack.sameState(other) ||
+                        stack.buffer.length > 500 /* MinBufferLengthPrune */ && other.buffer.length > 500 /* MinBufferLengthPrune */) {
+                        if (((stack.score - other.score) || (stack.buffer.length - other.buffer.length)) > 0) {
+                            newStacks.splice(j--, 1);
+                        }
+                        else {
+                            newStacks.splice(i--, 1);
+                            continue outer;
+                        }
+                    }
+                }
+            }
+        }
+        this.minStackPos = newStacks[0].pos;
+        for (let i = 1; i < newStacks.length; i++)
+            if (newStacks[i].pos < this.minStackPos)
+                this.minStackPos = newStacks[i].pos;
+        return null;
+    }
+    stopAt(pos) {
+        if (this.stoppedAt != null && this.stoppedAt < pos)
+            throw new RangeError("Can't move stoppedAt forward");
+        this.stoppedAt = pos;
+    }
+    // Returns an updated version of the given stack, or null if the
+    // stack can't advance normally. When `split` and `stacks` are
+    // given, stacks split off by ambiguous operations will be pushed to
+    // `split`, or added to `stacks` if they move `pos` forward.
+    advanceStack(stack, stacks, split) {
+        let start = stack.pos, { parser } = this;
+        let base = verbose$3 ? this.stackID(stack) + " -> " : "";
+        if (this.stoppedAt != null && start > this.stoppedAt)
+            return stack.forceReduce() ? stack : null;
+        if (this.fragments) {
+            let strictCx = stack.curContext && stack.curContext.tracker.strict, cxHash = strictCx ? stack.curContext.hash : 0;
+            for (let cached = this.fragments.nodeAt(start); cached;) {
+                let match = this.parser.nodeSet.types[cached.type.id] == cached.type ? parser.getGoto(stack.state, cached.type.id) : -1;
+                if (match > -1 && cached.length && (!strictCx || (cached.prop(NodeProp.contextHash) || 0) == cxHash)) {
+                    stack.useNode(cached, match);
+                    if (verbose$3)
+                        console.log(base + this.stackID(stack) + ` (via reuse of ${parser.getName(cached.type.id)})`);
+                    return true;
+                }
+                if (!(cached instanceof Tree) || cached.children.length == 0 || cached.positions[0] > 0)
+                    break;
+                let inner = cached.children[0];
+                if (inner instanceof Tree && cached.positions[0] == 0)
+                    cached = inner;
+                else
+                    break;
+            }
+        }
+        let defaultReduce = parser.stateSlot(stack.state, 4 /* DefaultReduce */);
+        if (defaultReduce > 0) {
+            stack.reduce(defaultReduce);
+            if (verbose$3)
+                console.log(base + this.stackID(stack) + ` (via always-reduce ${parser.getName(defaultReduce & 65535 /* ValueMask */)})`);
+            return true;
+        }
+        if (stack.stack.length >= 15000 /* CutDepth */) {
+            while (stack.stack.length > 9000 /* CutTo */ && stack.forceReduce()) { }
+        }
+        let actions = this.tokens.getActions(stack);
+        for (let i = 0; i < actions.length;) {
+            let action = actions[i++], term = actions[i++], end = actions[i++];
+            let last = i == actions.length || !split;
+            let localStack = last ? stack : stack.split();
+            localStack.apply(action, term, end);
+            if (verbose$3)
+                console.log(base + this.stackID(localStack) + ` (via ${(action & 65536 /* ReduceFlag */) == 0 ? "shift"
+                    : `reduce of ${parser.getName(action & 65535 /* ValueMask */)}`} for ${parser.getName(term)} @ ${start}${localStack == stack ? "" : ", split"})`);
+            if (last)
+                return true;
+            else if (localStack.pos > start)
+                stacks.push(localStack);
+            else
+                split.push(localStack);
+        }
+        return false;
+    }
+    // Advance a given stack forward as far as it will go. Returns the
+    // (possibly updated) stack if it got stuck, or null if it moved
+    // forward and was given to `pushStackDedup`.
+    advanceFully(stack, newStacks) {
+        let pos = stack.pos;
+        for (;;) {
+            if (!this.advanceStack(stack, null, null))
+                return false;
+            if (stack.pos > pos) {
+                pushStackDedup$3(stack, newStacks);
+                return true;
+            }
+        }
+    }
+    runRecovery(stacks, tokens, newStacks) {
+        let finished = null, restarted = false;
+        for (let i = 0; i < stacks.length; i++) {
+            let stack = stacks[i], token = tokens[i << 1], tokenEnd = tokens[(i << 1) + 1];
+            let base = verbose$3 ? this.stackID(stack) + " -> " : "";
+            if (stack.deadEnd) {
+                if (restarted)
+                    continue;
+                restarted = true;
+                stack.restart();
+                if (verbose$3)
+                    console.log(base + this.stackID(stack) + " (restarted)");
+                let done = this.advanceFully(stack, newStacks);
+                if (done)
+                    continue;
+            }
+            let force = stack.split(), forceBase = base;
+            for (let j = 0; force.forceReduce() && j < 10 /* ForceReduceLimit */; j++) {
+                if (verbose$3)
+                    console.log(forceBase + this.stackID(force) + " (via force-reduce)");
+                let done = this.advanceFully(force, newStacks);
+                if (done)
+                    break;
+                if (verbose$3)
+                    forceBase = this.stackID(force) + " -> ";
+            }
+            for (let insert of stack.recoverByInsert(token)) {
+                if (verbose$3)
+                    console.log(base + this.stackID(insert) + " (via recover-insert)");
+                this.advanceFully(insert, newStacks);
+            }
+            if (this.stream.end > stack.pos) {
+                if (tokenEnd == stack.pos) {
+                    tokenEnd++;
+                    token = 0 /* Err */;
+                }
+                stack.recoverByDelete(token, tokenEnd);
+                if (verbose$3)
+                    console.log(base + this.stackID(stack) + ` (via recover-delete ${this.parser.getName(token)})`);
+                pushStackDedup$3(stack, newStacks);
+            }
+            else if (!finished || finished.score < stack.score) {
+                finished = stack;
+            }
+        }
+        return finished;
+    }
+    // Convert the stack's buffer to a syntax tree.
+    stackToTree(stack) {
+        stack.close();
+        return Tree.build({ buffer: StackBufferCursor$3.create(stack),
+            nodeSet: this.parser.nodeSet,
+            topID: this.topTerm,
+            maxBufferLength: this.parser.bufferLength,
+            reused: this.reused,
+            start: this.ranges[0].from,
+            length: stack.pos - this.ranges[0].from,
+            minRepeatType: this.parser.minRepeatTerm });
+    }
+    stackID(stack) {
+        let id = (stackIDs$3 || (stackIDs$3 = new WeakMap)).get(stack);
+        if (!id)
+            stackIDs$3.set(stack, id = String.fromCodePoint(this.nextStackID++));
+        return id + stack;
+    }
+}
+function pushStackDedup$3(stack, newStacks) {
+    for (let i = 0; i < newStacks.length; i++) {
+        let other = newStacks[i];
+        if (other.pos == stack.pos && other.sameState(stack)) {
+            if (newStacks[i].score < stack.score)
+                newStacks[i] = stack;
+            return;
+        }
+    }
+    newStacks.push(stack);
+}
+class Dialect$3 {
+    constructor(source, flags, disabled) {
+        this.source = source;
+        this.flags = flags;
+        this.disabled = disabled;
+    }
+    allows(term) { return !this.disabled || this.disabled[term] == 0; }
+}
+/// A parser holds the parse tables for a given grammar, as generated
+/// by `lezer-generator`.
+class LRParser$3 extends Parser {
+    /// @internal
+    constructor(spec) {
+        super();
+        /// @internal
+        this.wrappers = [];
+        if (spec.version != 14 /* Version */)
+            throw new RangeError(`Parser version (${spec.version}) doesn't match runtime version (${14 /* Version */})`);
+        let nodeNames = spec.nodeNames.split(" ");
+        this.minRepeatTerm = nodeNames.length;
+        for (let i = 0; i < spec.repeatNodeCount; i++)
+            nodeNames.push("");
+        let topTerms = Object.keys(spec.topRules).map(r => spec.topRules[r][1]);
+        let nodeProps = [];
+        for (let i = 0; i < nodeNames.length; i++)
+            nodeProps.push([]);
+        function setProp(nodeID, prop, value) {
+            nodeProps[nodeID].push([prop, prop.deserialize(String(value))]);
+        }
+        if (spec.nodeProps)
+            for (let propSpec of spec.nodeProps) {
+                let prop = propSpec[0];
+                if (typeof prop == "string")
+                    prop = NodeProp[prop];
+                for (let i = 1; i < propSpec.length;) {
+                    let next = propSpec[i++];
+                    if (next >= 0) {
+                        setProp(next, prop, propSpec[i++]);
+                    }
+                    else {
+                        let value = propSpec[i + -next];
+                        for (let j = -next; j > 0; j--)
+                            setProp(propSpec[i++], prop, value);
+                        i++;
+                    }
+                }
+            }
+        this.nodeSet = new NodeSet(nodeNames.map((name, i) => NodeType.define({
+            name: i >= this.minRepeatTerm ? undefined : name,
+            id: i,
+            props: nodeProps[i],
+            top: topTerms.indexOf(i) > -1,
+            error: i == 0,
+            skipped: spec.skippedNodes && spec.skippedNodes.indexOf(i) > -1
+        })));
+        if (spec.propSources)
+            this.nodeSet = this.nodeSet.extend(...spec.propSources);
+        this.strict = false;
+        this.bufferLength = DefaultBufferLength;
+        let tokenArray = decodeArray$3(spec.tokenData);
+        this.context = spec.context;
+        this.specialized = new Uint16Array(spec.specialized ? spec.specialized.length : 0);
+        this.specializers = [];
+        if (spec.specialized)
+            for (let i = 0; i < spec.specialized.length; i++) {
+                this.specialized[i] = spec.specialized[i].term;
+                this.specializers[i] = spec.specialized[i].get;
+            }
+        this.states = decodeArray$3(spec.states, Uint32Array);
+        this.data = decodeArray$3(spec.stateData);
+        this.goto = decodeArray$3(spec.goto);
+        this.maxTerm = spec.maxTerm;
+        this.tokenizers = spec.tokenizers.map(value => typeof value == "number" ? new TokenGroup$3(tokenArray, value) : value);
+        this.topRules = spec.topRules;
+        this.dialects = spec.dialects || {};
+        this.dynamicPrecedences = spec.dynamicPrecedences || null;
+        this.tokenPrecTable = spec.tokenPrec;
+        this.termNames = spec.termNames || null;
+        this.maxNode = this.nodeSet.types.length - 1;
+        this.dialect = this.parseDialect();
+        this.top = this.topRules[Object.keys(this.topRules)[0]];
+    }
+    createParse(input, fragments, ranges) {
+        let parse = new Parse$3(this, input, fragments, ranges);
+        for (let w of this.wrappers)
+            parse = w(parse, input, fragments, ranges);
+        return parse;
+    }
+    /// Get a goto table entry @internal
+    getGoto(state, term, loose = false) {
+        let table = this.goto;
+        if (term >= table[0])
+            return -1;
+        for (let pos = table[term + 1];;) {
+            let groupTag = table[pos++], last = groupTag & 1;
+            let target = table[pos++];
+            if (last && loose)
+                return target;
+            for (let end = pos + (groupTag >> 1); pos < end; pos++)
+                if (table[pos] == state)
+                    return target;
+            if (last)
+                return -1;
+        }
+    }
+    /// Check if this state has an action for a given terminal @internal
+    hasAction(state, terminal) {
+        let data = this.data;
+        for (let set = 0; set < 2; set++) {
+            for (let i = this.stateSlot(state, set ? 2 /* Skip */ : 1 /* Actions */), next;; i += 3) {
+                if ((next = data[i]) == 65535 /* End */) {
+                    if (data[i + 1] == 1 /* Next */)
+                        next = data[i = pair$3(data, i + 2)];
+                    else if (data[i + 1] == 2 /* Other */)
+                        return pair$3(data, i + 2);
+                    else
+                        break;
+                }
+                if (next == terminal || next == 0 /* Err */)
+                    return pair$3(data, i + 1);
+            }
+        }
+        return 0;
+    }
+    /// @internal
+    stateSlot(state, slot) {
+        return this.states[(state * 6 /* Size */) + slot];
+    }
+    /// @internal
+    stateFlag(state, flag) {
+        return (this.stateSlot(state, 0 /* Flags */) & flag) > 0;
+    }
+    /// @internal
+    validAction(state, action) {
+        if (action == this.stateSlot(state, 4 /* DefaultReduce */))
+            return true;
+        for (let i = this.stateSlot(state, 1 /* Actions */);; i += 3) {
+            if (this.data[i] == 65535 /* End */) {
+                if (this.data[i + 1] == 1 /* Next */)
+                    i = pair$3(this.data, i + 2);
+                else
+                    return false;
+            }
+            if (action == pair$3(this.data, i + 1))
+                return true;
+        }
+    }
+    /// Get the states that can follow this one through shift actions or
+    /// goto jumps. @internal
+    nextStates(state) {
+        let result = [];
+        for (let i = this.stateSlot(state, 1 /* Actions */);; i += 3) {
+            if (this.data[i] == 65535 /* End */) {
+                if (this.data[i + 1] == 1 /* Next */)
+                    i = pair$3(this.data, i + 2);
+                else
+                    break;
+            }
+            if ((this.data[i + 2] & (65536 /* ReduceFlag */ >> 16)) == 0) {
+                let value = this.data[i + 1];
+                if (!result.some((v, i) => (i & 1) && v == value))
+                    result.push(this.data[i], value);
+            }
+        }
+        return result;
+    }
+    /// @internal
+    overrides(token, prev) {
+        let iPrev = findOffset$3(this.data, this.tokenPrecTable, prev);
+        return iPrev < 0 || findOffset$3(this.data, this.tokenPrecTable, token) < iPrev;
+    }
+    /// Configure the parser. Returns a new parser instance that has the
+    /// given settings modified. Settings not provided in `config` are
+    /// kept from the original parser.
+    configure(config) {
+        // Hideous reflection-based kludge to make it easy to create a
+        // slightly modified copy of a parser.
+        let copy = Object.assign(Object.create(LRParser$3.prototype), this);
+        if (config.props)
+            copy.nodeSet = this.nodeSet.extend(...config.props);
+        if (config.top) {
+            let info = this.topRules[config.top];
+            if (!info)
+                throw new RangeError(`Invalid top rule name ${config.top}`);
+            copy.top = info;
+        }
+        if (config.tokenizers)
+            copy.tokenizers = this.tokenizers.map(t => {
+                let found = config.tokenizers.find(r => r.from == t);
+                return found ? found.to : t;
+            });
+        if (config.contextTracker)
+            copy.context = config.contextTracker;
+        if (config.dialect)
+            copy.dialect = this.parseDialect(config.dialect);
+        if (config.strict != null)
+            copy.strict = config.strict;
+        if (config.wrap)
+            copy.wrappers = copy.wrappers.concat(config.wrap);
+        if (config.bufferLength != null)
+            copy.bufferLength = config.bufferLength;
+        return copy;
+    }
+    /// Tells you whether any [parse wrappers](#lr.ParserConfig.wrap)
+    /// are registered for this parser.
+    hasWrappers() {
+        return this.wrappers.length > 0;
+    }
+    /// Returns the name associated with a given term. This will only
+    /// work for all terms when the parser was generated with the
+    /// `--names` option. By default, only the names of tagged terms are
+    /// stored.
+    getName(term) {
+        return this.termNames ? this.termNames[term] : String(term <= this.maxNode && this.nodeSet.types[term].name || term);
+    }
+    /// The eof term id is always allocated directly after the node
+    /// types. @internal
+    get eofTerm() { return this.maxNode + 1; }
+    /// The type of top node produced by the parser.
+    get topNode() { return this.nodeSet.types[this.top[1]]; }
+    /// @internal
+    dynamicPrecedence(term) {
+        let prec = this.dynamicPrecedences;
+        return prec == null ? 0 : prec[term] || 0;
+    }
+    /// @internal
+    parseDialect(dialect) {
+        let values = Object.keys(this.dialects), flags = values.map(() => false);
+        if (dialect)
+            for (let part of dialect.split(" ")) {
+                let id = values.indexOf(part);
+                if (id >= 0)
+                    flags[id] = true;
+            }
+        let disabled = null;
+        for (let i = 0; i < values.length; i++)
+            if (!flags[i]) {
+                for (let j = this.dialects[values[i]], id; (id = this.data[j++]) != 65535 /* End */;)
+                    (disabled || (disabled = new Uint8Array(this.maxTerm + 1)))[id] = 1;
+            }
+        return new Dialect$3(dialect, flags, disabled);
+    }
+    /// (used by the output of the parser generator) @internal
+    static deserialize(spec) {
+        return new LRParser$3(spec);
+    }
+}
+function pair$3(data, off) { return data[off] | (data[off + 1] << 16); }
+function findOffset$3(data, start, term) {
+    for (let i = start, next; (next = data[i]) != 65535 /* End */; i++)
+        if (next == term)
+            return i - start;
+    return -1;
+}
+function findFinished$3(stacks) {
+    let best = null;
+    for (let stack of stacks) {
+        let stopped = stack.p.stoppedAt;
+        if ((stack.pos == stack.p.stream.end || stopped != null && stack.pos > stopped) &&
+            stack.p.parser.stateFlag(stack.state, 2 /* Accepting */) &&
+            (!best || best.score < stack.score))
+            best = stack;
+    }
+    return best;
+}
+
 // This file was generated by lezer-generator. You probably shouldn't edit it.
 const descendantOp = 93,
   Unit = 1,
@@ -25482,7 +28626,7 @@ function isAlpha$1(ch) { return ch >= 65 && ch <= 90 || ch >= 97 && ch <= 122 ||
 
 function isDigit(ch) { return ch >= 48 && ch <= 57 }
 
-const identifiers = new ExternalTokenizer((input, stack) => {
+const identifiers = new ExternalTokenizer$3((input, stack) => {
   for (let inside = false, dashes = 0, i = 0;; i++) {
     let {next} = input;
     if (isAlpha$1(next) || next == dash || next == underscore || (inside && isDigit(next))) {
@@ -25497,7 +28641,7 @@ const identifiers = new ExternalTokenizer((input, stack) => {
   }
 });
 
-const descendant = new ExternalTokenizer(input => {
+const descendant = new ExternalTokenizer$3(input => {
   if (space$2.includes(input.peek(-1))) {
     let {next} = input;
     if (isAlpha$1(next) || next == underscore || next == hash$1 || next == period ||
@@ -25506,7 +28650,7 @@ const descendant = new ExternalTokenizer(input => {
   }
 });
 
-const unitToken = new ExternalTokenizer(input => {
+const unitToken = new ExternalTokenizer$3(input => {
   if (!space$2.includes(input.peek(-1))) {
     let {next} = input;
     if (next == percent) { input.advance(); input.acceptToken(Unit); }
@@ -25558,7 +28702,7 @@ const cssHighlighting = styleTags({
 const spec_callee = {__proto__:null,lang:32, "nth-child":32, "nth-last-child":32, "nth-of-type":32, dir:32, url:60, "url-prefix":60, domain:60, regexp:60, selector:134};
 const spec_AtKeyword = {__proto__:null,"@import":114, "@media":138, "@charset":142, "@namespace":146, "@keyframes":152, "@supports":164};
 const spec_identifier$2 = {__proto__:null,not:128, only:128, from:158, to:160};
-const parser$4 = LRParser.deserialize({
+const parser$4 = LRParser$3.deserialize({
   version: 14,
   states: "7WOYQ[OOOOQP'#Cd'#CdOOQP'#Cc'#CcO!ZQ[O'#CfO!}QXO'#CaO#UQ[O'#ChO#aQ[O'#DPO#fQ[O'#DTOOQP'#Ec'#EcO#kQdO'#DeO$VQ[O'#DrO#kQdO'#DtO$hQ[O'#DvO$sQ[O'#DyO$xQ[O'#EPO%WQ[O'#EROOQS'#Eb'#EbOOQS'#ES'#ESQYQ[OOOOQP'#Cg'#CgOOQP,59Q,59QO!ZQ[O,59QO%_Q[O'#EVO%yQWO,58{O&RQ[O,59SO#aQ[O,59kO#fQ[O,59oO%_Q[O,59sO%_Q[O,59uO%_Q[O,59vO'bQ[O'#D`OOQS,58{,58{OOQP'#Ck'#CkOOQO'#C}'#C}OOQP,59S,59SO'iQWO,59SO'nQWO,59SOOQP'#DR'#DROOQP,59k,59kOOQO'#DV'#DVO'sQ`O,59oOOQS'#Cp'#CpO#kQdO'#CqO'{QvO'#CsO)VQtO,5:POOQO'#Cx'#CxO'iQWO'#CwO)kQWO'#CyOOQS'#Ef'#EfOOQO'#Dh'#DhO)pQ[O'#DoO*OQWO'#EiO$xQ[O'#DmO*^QWO'#DpOOQO'#Ej'#EjO%|QWO,5:^O*cQpO,5:`OOQS'#Dx'#DxO*kQWO,5:bO*pQ[O,5:bOOQO'#D{'#D{O*xQWO,5:eO*}QWO,5:kO+VQWO,5:mOOQS-E8Q-E8QOOQP1G.l1G.lO+yQXO,5:qOOQO-E8T-E8TOOQS1G.g1G.gOOQP1G.n1G.nO'iQWO1G.nO'nQWO1G.nOOQP1G/V1G/VO,WQ`O1G/ZO,qQXO1G/_O-XQXO1G/aO-oQXO1G/bO.VQXO'#CdO.zQWO'#DaOOQS,59z,59zO/PQWO,59zO/XQ[O,59zO/`QdO'#CoO/gQ[O'#DOOOQP1G/Z1G/ZO#kQdO1G/ZO/nQpO,59]OOQS,59_,59_O#kQdO,59aO/vQWO1G/kOOQS,59c,59cO/{Q!bO,59eO0TQWO'#DhO0`QWO,5:TO0eQWO,5:ZO$xQ[O,5:VO$xQ[O'#EYO0mQWO,5;TO0xQWO,5:XO%_Q[O,5:[OOQS1G/x1G/xOOQS1G/z1G/zOOQS1G/|1G/|O1ZQWO1G/|O1`QdO'#D|OOQS1G0P1G0POOQS1G0V1G0VOOQS1G0X1G0XOOQP7+$Y7+$YOOQP7+$u7+$uO#kQdO7+$uO#kQdO,59{O1nQ[O'#EXO1xQWO1G/fOOQS1G/f1G/fO1xQWO1G/fO2QQtO'#ETO2uQdO'#EeO3PQWO,59ZO3UQXO'#EhO3]QWO,59jO3bQpO7+$uOOQS1G.w1G.wOOQS1G.{1G.{OOQS7+%V7+%VO3jQWO1G/PO#kQdO1G/oOOQO1G/u1G/uOOQO1G/q1G/qO3oQWO,5:tOOQO-E8W-E8WO3}QXO1G/vOOQS7+%h7+%hO4UQYO'#CsO%|QWO'#EZO4^QdO,5:hOOQS,5:h,5:hO4lQpO<<HaO4tQtO1G/gOOQO,5:s,5:sO5XQ[O,5:sOOQO-E8V-E8VOOQS7+%Q7+%QO5cQWO7+%QOOQS-E8R-E8RO#kQdO'#EUO5kQWO,5;POOQT1G.u1G.uO5sQWO,5;SOOQP1G/U1G/UOOQP<<Ha<<HaOOQS7+$k7+$kO5{QdO7+%ZOOQO7+%b7+%bOOQS,5:u,5:uOOQS-E8X-E8XOOQS1G0S1G0SOOQPAN={AN={O6SQtO'#EWO#kQdO'#EWO6}QdO7+%ROOQO7+%R7+%ROOQO1G0_1G0_OOQS<<Hl<<HlO7_QdO,5:pOOQO-E8S-E8SOOQO<<Hu<<HuO7iQtO,5:rOOQS-E8U-E8UOOQO<<Hm<<Hm",
   stateData: "8j~O#TOSROS~OUWOXWO]TO^TOtUOxVO!Y_O!ZXO!gYO!iZO!k[O!n]O!t^O#RPO#WRO~O#RcO~O]hO^hOpfOtiOxjO|kO!PmO#PlO#WeO~O!RnO~P!`O`sO#QqO#RpO~O#RuO~O#RwO~OQ!QObzOf!QOh!QOn!PO#Q}O#RyO#Z{O~Ob!SO!b!UO!e!VO#R!RO!R#]P~Oh![On!PO#R!ZO~O#R!^O~Ob!SO!b!UO!e!VO#R!RO~O!W#]P~P$VOUWOXWO]TO^TOtUOxVO#RPO#WRO~OpfO!RnO~O`!hO#QqO#RpO~OQ!pOUWOXWO]TO^TOtUOxVO!Y_O!ZXO!gYO!iZO!k[O!n]O!t^O#R!oO#WRO~O!Q!qO~P&^Ob!tO~Ob!uO~Ov!vOz!wO~OP!yObgXjgX!WgX!bgX!egX#RgXagXQgXfgXhgXngXpgX#QgX#ZgXvgX!QgX!VgX~Ob!SOj!zO!b!UO!e!VO#R!RO!W#]P~Ob!}O~Ob!SO!b!UO!e!VO#R#OO~Op#SO!`#RO!R#]X!W#]X~Ob#VO~Oj!zO!W#XO~O!W#YO~Oh#ZOn!PO~O!R#[O~O!RnO!`#RO~O!RnO!W#_O~O]hO^hOtiOxjO|kO!PmO#PlO#WeO~Op!ya!R!yaa!ya~P+_Ov#aOz#bO~O]hO^hOtiOxjO#WeO~Op{i|{i!P{i!R{i#P{ia{i~P,`Op}i|}i!P}i!R}i#P}ia}i~P,`Op!Oi|!Oi!P!Oi!R!Oi#P!Oia!Oi~P,`O]WX]!UX^WXpWXtWXxWX|WX!PWX!RWX#PWX#WWX~O]#cO~O!Q#fO!W#dO~O!Q#fO~P&^Oa#XP~P#kOa#[P~P%_Oa#nOj!zO~O!W#pO~Oh#qOo#qO~O]!^Xa![X!`![X~O]#rO~Oa#sO!`#RO~Op#SO!R#]a!W#]a~O!`#ROp!aa!R!aa!W!aaa!aa~O!W#xO~O!Q#|O!q#zO!r#zO#Z#yO~O!Q!{X!W!{X~P&^O!Q$SO!W#dO~Oj!zOQ!wXa!wXb!wXf!wXh!wXn!wXp!wX#Q!wX#R!wX#Z!wX~Op$VOa#XX~P#kOa$XO~Oa#[X~P!`Oa$ZO~Oj!zOv$[O~Oa$]O~O!`#ROp!|a!R!|a!W!|a~Oa$_O~P+_OP!yO!RgX~O!Q$bO!q#zO!r#zO#Z#yO~Oj!zOv$cO~Oj!zOp$eO!V$gO!Q!Ti!W!Ti~P#kO!Q!{a!W!{a~P&^O!Q$iO!W#dO~Op$VOa#Xa~OpfOa#[a~Oa$lO~P#kOj!zOQ!zXb!zXf!zXh!zXn!zXp!zX!Q!zX!V!zX!W!zX#Q!zX#R!zX#Z!zX~Op$eO!V$oO!Q!Tq!W!Tq~P#kOa!xap!xa~P#kOj!zOQ!zab!zaf!zah!zan!zap!za!Q!za!V!za!W!za#Q!za#R!za#Z!za~Oo#Zj!Pj~",
@@ -25753,6 +28897,1593 @@ function css() {
     return new LanguageSupport(cssLanguage, cssLanguage.data.of({ autocomplete: cssCompletionSource }));
 }
 
+/// A parse stack. These are used internally by the parser to track
+/// parsing progress. They also provide some properties and methods
+/// that external code such as a tokenizer can use to get information
+/// about the parse state.
+class Stack$2 {
+    /// @internal
+    constructor(
+    /// The parse that this stack is part of @internal
+    p, 
+    /// Holds state, input pos, buffer index triplets for all but the
+    /// top state @internal
+    stack, 
+    /// The current parse state @internal
+    state, 
+    // The position at which the next reduce should take place. This
+    // can be less than `this.pos` when skipped expressions have been
+    // added to the stack (which should be moved outside of the next
+    // reduction)
+    /// @internal
+    reducePos, 
+    /// The input position up to which this stack has parsed.
+    pos, 
+    /// The dynamic score of the stack, including dynamic precedence
+    /// and error-recovery penalties
+    /// @internal
+    score, 
+    // The output buffer. Holds (type, start, end, size) quads
+    // representing nodes created by the parser, where `size` is
+    // amount of buffer array entries covered by this node.
+    /// @internal
+    buffer, 
+    // The base offset of the buffer. When stacks are split, the split
+    // instance shared the buffer history with its parent up to
+    // `bufferBase`, which is the absolute offset (including the
+    // offset of previous splits) into the buffer at which this stack
+    // starts writing.
+    /// @internal
+    bufferBase, 
+    /// @internal
+    curContext, 
+    /// @internal
+    lookAhead = 0, 
+    // A parent stack from which this was split off, if any. This is
+    // set up so that it always points to a stack that has some
+    // additional buffer content, never to a stack with an equal
+    // `bufferBase`.
+    /// @internal
+    parent) {
+        this.p = p;
+        this.stack = stack;
+        this.state = state;
+        this.reducePos = reducePos;
+        this.pos = pos;
+        this.score = score;
+        this.buffer = buffer;
+        this.bufferBase = bufferBase;
+        this.curContext = curContext;
+        this.lookAhead = lookAhead;
+        this.parent = parent;
+    }
+    /// @internal
+    toString() {
+        return `[${this.stack.filter((_, i) => i % 3 == 0).concat(this.state)}]@${this.pos}${this.score ? "!" + this.score : ""}`;
+    }
+    // Start an empty stack
+    /// @internal
+    static start(p, state, pos = 0) {
+        let cx = p.parser.context;
+        return new Stack$2(p, [], state, pos, pos, 0, [], 0, cx ? new StackContext$2(cx, cx.start) : null, 0, null);
+    }
+    /// The stack's current [context](#lr.ContextTracker) value, if
+    /// any. Its type will depend on the context tracker's type
+    /// parameter, or it will be `null` if there is no context
+    /// tracker.
+    get context() { return this.curContext ? this.curContext.context : null; }
+    // Push a state onto the stack, tracking its start position as well
+    // as the buffer base at that point.
+    /// @internal
+    pushState(state, start) {
+        this.stack.push(this.state, start, this.bufferBase + this.buffer.length);
+        this.state = state;
+    }
+    // Apply a reduce action
+    /// @internal
+    reduce(action) {
+        let depth = action >> 19 /* ReduceDepthShift */, type = action & 65535 /* ValueMask */;
+        let { parser } = this.p;
+        let dPrec = parser.dynamicPrecedence(type);
+        if (dPrec)
+            this.score += dPrec;
+        if (depth == 0) {
+            this.pushState(parser.getGoto(this.state, type, true), this.reducePos);
+            // Zero-depth reductions are a special case—they add stuff to
+            // the stack without popping anything off.
+            if (type < parser.minRepeatTerm)
+                this.storeNode(type, this.reducePos, this.reducePos, 4, true);
+            this.reduceContext(type, this.reducePos);
+            return;
+        }
+        // Find the base index into `this.stack`, content after which will
+        // be dropped. Note that with `StayFlag` reductions we need to
+        // consume two extra frames (the dummy parent node for the skipped
+        // expression and the state that we'll be staying in, which should
+        // be moved to `this.state`).
+        let base = this.stack.length - ((depth - 1) * 3) - (action & 262144 /* StayFlag */ ? 6 : 0);
+        let start = this.stack[base - 2];
+        let bufferBase = this.stack[base - 1], count = this.bufferBase + this.buffer.length - bufferBase;
+        // Store normal terms or `R -> R R` repeat reductions
+        if (type < parser.minRepeatTerm || (action & 131072 /* RepeatFlag */)) {
+            let pos = parser.stateFlag(this.state, 1 /* Skipped */) ? this.pos : this.reducePos;
+            this.storeNode(type, start, pos, count + 4, true);
+        }
+        if (action & 262144 /* StayFlag */) {
+            this.state = this.stack[base];
+        }
+        else {
+            let baseStateID = this.stack[base - 3];
+            this.state = parser.getGoto(baseStateID, type, true);
+        }
+        while (this.stack.length > base)
+            this.stack.pop();
+        this.reduceContext(type, start);
+    }
+    // Shift a value into the buffer
+    /// @internal
+    storeNode(term, start, end, size = 4, isReduce = false) {
+        if (term == 0 /* Err */ &&
+            (!this.stack.length || this.stack[this.stack.length - 1] < this.buffer.length + this.bufferBase)) {
+            // Try to omit/merge adjacent error nodes
+            let cur = this, top = this.buffer.length;
+            if (top == 0 && cur.parent) {
+                top = cur.bufferBase - cur.parent.bufferBase;
+                cur = cur.parent;
+            }
+            if (top > 0 && cur.buffer[top - 4] == 0 /* Err */ && cur.buffer[top - 1] > -1) {
+                if (start == end)
+                    return;
+                if (cur.buffer[top - 2] >= start) {
+                    cur.buffer[top - 2] = end;
+                    return;
+                }
+            }
+        }
+        if (!isReduce || this.pos == end) { // Simple case, just append
+            this.buffer.push(term, start, end, size);
+        }
+        else { // There may be skipped nodes that have to be moved forward
+            let index = this.buffer.length;
+            if (index > 0 && this.buffer[index - 4] != 0 /* Err */)
+                while (index > 0 && this.buffer[index - 2] > end) {
+                    // Move this record forward
+                    this.buffer[index] = this.buffer[index - 4];
+                    this.buffer[index + 1] = this.buffer[index - 3];
+                    this.buffer[index + 2] = this.buffer[index - 2];
+                    this.buffer[index + 3] = this.buffer[index - 1];
+                    index -= 4;
+                    if (size > 4)
+                        size -= 4;
+                }
+            this.buffer[index] = term;
+            this.buffer[index + 1] = start;
+            this.buffer[index + 2] = end;
+            this.buffer[index + 3] = size;
+        }
+    }
+    // Apply a shift action
+    /// @internal
+    shift(action, next, nextEnd) {
+        let start = this.pos;
+        if (action & 131072 /* GotoFlag */) {
+            this.pushState(action & 65535 /* ValueMask */, this.pos);
+        }
+        else if ((action & 262144 /* StayFlag */) == 0) { // Regular shift
+            let nextState = action, { parser } = this.p;
+            if (nextEnd > this.pos || next <= parser.maxNode) {
+                this.pos = nextEnd;
+                if (!parser.stateFlag(nextState, 1 /* Skipped */))
+                    this.reducePos = nextEnd;
+            }
+            this.pushState(nextState, start);
+            this.shiftContext(next, start);
+            if (next <= parser.maxNode)
+                this.buffer.push(next, start, nextEnd, 4);
+        }
+        else { // Shift-and-stay, which means this is a skipped token
+            this.pos = nextEnd;
+            this.shiftContext(next, start);
+            if (next <= this.p.parser.maxNode)
+                this.buffer.push(next, start, nextEnd, 4);
+        }
+    }
+    // Apply an action
+    /// @internal
+    apply(action, next, nextEnd) {
+        if (action & 65536 /* ReduceFlag */)
+            this.reduce(action);
+        else
+            this.shift(action, next, nextEnd);
+    }
+    // Add a prebuilt (reused) node into the buffer.
+    /// @internal
+    useNode(value, next) {
+        let index = this.p.reused.length - 1;
+        if (index < 0 || this.p.reused[index] != value) {
+            this.p.reused.push(value);
+            index++;
+        }
+        let start = this.pos;
+        this.reducePos = this.pos = start + value.length;
+        this.pushState(next, start);
+        this.buffer.push(index, start, this.reducePos, -1 /* size == -1 means this is a reused value */);
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.reuse(this.curContext.context, value, this, this.p.stream.reset(this.pos - value.length)));
+    }
+    // Split the stack. Due to the buffer sharing and the fact
+    // that `this.stack` tends to stay quite shallow, this isn't very
+    // expensive.
+    /// @internal
+    split() {
+        let parent = this;
+        let off = parent.buffer.length;
+        // Because the top of the buffer (after this.pos) may be mutated
+        // to reorder reductions and skipped tokens, and shared buffers
+        // should be immutable, this copies any outstanding skipped tokens
+        // to the new buffer, and puts the base pointer before them.
+        while (off > 0 && parent.buffer[off - 2] > parent.reducePos)
+            off -= 4;
+        let buffer = parent.buffer.slice(off), base = parent.bufferBase + off;
+        // Make sure parent points to an actual parent with content, if there is such a parent.
+        while (parent && base == parent.bufferBase)
+            parent = parent.parent;
+        return new Stack$2(this.p, this.stack.slice(), this.state, this.reducePos, this.pos, this.score, buffer, base, this.curContext, this.lookAhead, parent);
+    }
+    // Try to recover from an error by 'deleting' (ignoring) one token.
+    /// @internal
+    recoverByDelete(next, nextEnd) {
+        let isNode = next <= this.p.parser.maxNode;
+        if (isNode)
+            this.storeNode(next, this.pos, nextEnd, 4);
+        this.storeNode(0 /* Err */, this.pos, nextEnd, isNode ? 8 : 4);
+        this.pos = this.reducePos = nextEnd;
+        this.score -= 190 /* Delete */;
+    }
+    /// Check if the given term would be able to be shifted (optionally
+    /// after some reductions) on this stack. This can be useful for
+    /// external tokenizers that want to make sure they only provide a
+    /// given token when it applies.
+    canShift(term) {
+        for (let sim = new SimulatedStack$2(this);;) {
+            let action = this.p.parser.stateSlot(sim.state, 4 /* DefaultReduce */) || this.p.parser.hasAction(sim.state, term);
+            if ((action & 65536 /* ReduceFlag */) == 0)
+                return true;
+            if (action == 0)
+                return false;
+            sim.reduce(action);
+        }
+    }
+    // Apply up to Recover.MaxNext recovery actions that conceptually
+    // inserts some missing token or rule.
+    /// @internal
+    recoverByInsert(next) {
+        if (this.stack.length >= 300 /* MaxInsertStackDepth */)
+            return [];
+        let nextStates = this.p.parser.nextStates(this.state);
+        if (nextStates.length > 4 /* MaxNext */ << 1 || this.stack.length >= 120 /* DampenInsertStackDepth */) {
+            let best = [];
+            for (let i = 0, s; i < nextStates.length; i += 2) {
+                if ((s = nextStates[i + 1]) != this.state && this.p.parser.hasAction(s, next))
+                    best.push(nextStates[i], s);
+            }
+            if (this.stack.length < 120 /* DampenInsertStackDepth */)
+                for (let i = 0; best.length < 4 /* MaxNext */ << 1 && i < nextStates.length; i += 2) {
+                    let s = nextStates[i + 1];
+                    if (!best.some((v, i) => (i & 1) && v == s))
+                        best.push(nextStates[i], s);
+                }
+            nextStates = best;
+        }
+        let result = [];
+        for (let i = 0; i < nextStates.length && result.length < 4 /* MaxNext */; i += 2) {
+            let s = nextStates[i + 1];
+            if (s == this.state)
+                continue;
+            let stack = this.split();
+            stack.pushState(s, this.pos);
+            stack.storeNode(0 /* Err */, stack.pos, stack.pos, 4, true);
+            stack.shiftContext(nextStates[i], this.pos);
+            stack.score -= 200 /* Insert */;
+            result.push(stack);
+        }
+        return result;
+    }
+    // Force a reduce, if possible. Return false if that can't
+    // be done.
+    /// @internal
+    forceReduce() {
+        let reduce = this.p.parser.stateSlot(this.state, 5 /* ForcedReduce */);
+        if ((reduce & 65536 /* ReduceFlag */) == 0)
+            return false;
+        let { parser } = this.p;
+        if (!parser.validAction(this.state, reduce)) {
+            let depth = reduce >> 19 /* ReduceDepthShift */, term = reduce & 65535 /* ValueMask */;
+            let target = this.stack.length - depth * 3;
+            if (target < 0 || parser.getGoto(this.stack[target], term, false) < 0)
+                return false;
+            this.storeNode(0 /* Err */, this.reducePos, this.reducePos, 4, true);
+            this.score -= 100 /* Reduce */;
+        }
+        this.reducePos = this.pos;
+        this.reduce(reduce);
+        return true;
+    }
+    /// @internal
+    forceAll() {
+        while (!this.p.parser.stateFlag(this.state, 2 /* Accepting */)) {
+            if (!this.forceReduce()) {
+                this.storeNode(0 /* Err */, this.pos, this.pos, 4, true);
+                break;
+            }
+        }
+        return this;
+    }
+    /// Check whether this state has no further actions (assumed to be a direct descendant of the
+    /// top state, since any other states must be able to continue
+    /// somehow). @internal
+    get deadEnd() {
+        if (this.stack.length != 3)
+            return false;
+        let { parser } = this.p;
+        return parser.data[parser.stateSlot(this.state, 1 /* Actions */)] == 65535 /* End */ &&
+            !parser.stateSlot(this.state, 4 /* DefaultReduce */);
+    }
+    /// Restart the stack (put it back in its start state). Only safe
+    /// when this.stack.length == 3 (state is directly below the top
+    /// state). @internal
+    restart() {
+        this.state = this.stack[0];
+        this.stack.length = 0;
+    }
+    /// @internal
+    sameState(other) {
+        if (this.state != other.state || this.stack.length != other.stack.length)
+            return false;
+        for (let i = 0; i < this.stack.length; i += 3)
+            if (this.stack[i] != other.stack[i])
+                return false;
+        return true;
+    }
+    /// Get the parser used by this stack.
+    get parser() { return this.p.parser; }
+    /// Test whether a given dialect (by numeric ID, as exported from
+    /// the terms file) is enabled.
+    dialectEnabled(dialectID) { return this.p.parser.dialect.flags[dialectID]; }
+    shiftContext(term, start) {
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.shift(this.curContext.context, term, this, this.p.stream.reset(start)));
+    }
+    reduceContext(term, start) {
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.reduce(this.curContext.context, term, this, this.p.stream.reset(start)));
+    }
+    /// @internal
+    emitContext() {
+        let last = this.buffer.length - 1;
+        if (last < 0 || this.buffer[last] != -3)
+            this.buffer.push(this.curContext.hash, this.reducePos, this.reducePos, -3);
+    }
+    /// @internal
+    emitLookAhead() {
+        let last = this.buffer.length - 1;
+        if (last < 0 || this.buffer[last] != -4)
+            this.buffer.push(this.lookAhead, this.reducePos, this.reducePos, -4);
+    }
+    updateContext(context) {
+        if (context != this.curContext.context) {
+            let newCx = new StackContext$2(this.curContext.tracker, context);
+            if (newCx.hash != this.curContext.hash)
+                this.emitContext();
+            this.curContext = newCx;
+        }
+    }
+    /// @internal
+    setLookAhead(lookAhead) {
+        if (lookAhead > this.lookAhead) {
+            this.emitLookAhead();
+            this.lookAhead = lookAhead;
+        }
+    }
+    /// @internal
+    close() {
+        if (this.curContext && this.curContext.tracker.strict)
+            this.emitContext();
+        if (this.lookAhead > 0)
+            this.emitLookAhead();
+    }
+}
+class StackContext$2 {
+    constructor(tracker, context) {
+        this.tracker = tracker;
+        this.context = context;
+        this.hash = tracker.strict ? tracker.hash(context) : 0;
+    }
+}
+var Recover$2;
+(function (Recover) {
+    Recover[Recover["Insert"] = 200] = "Insert";
+    Recover[Recover["Delete"] = 190] = "Delete";
+    Recover[Recover["Reduce"] = 100] = "Reduce";
+    Recover[Recover["MaxNext"] = 4] = "MaxNext";
+    Recover[Recover["MaxInsertStackDepth"] = 300] = "MaxInsertStackDepth";
+    Recover[Recover["DampenInsertStackDepth"] = 120] = "DampenInsertStackDepth";
+})(Recover$2 || (Recover$2 = {}));
+// Used to cheaply run some reductions to scan ahead without mutating
+// an entire stack
+class SimulatedStack$2 {
+    constructor(start) {
+        this.start = start;
+        this.state = start.state;
+        this.stack = start.stack;
+        this.base = this.stack.length;
+    }
+    reduce(action) {
+        let term = action & 65535 /* ValueMask */, depth = action >> 19 /* ReduceDepthShift */;
+        if (depth == 0) {
+            if (this.stack == this.start.stack)
+                this.stack = this.stack.slice();
+            this.stack.push(this.state, 0, 0);
+            this.base += 3;
+        }
+        else {
+            this.base -= (depth - 1) * 3;
+        }
+        let goto = this.start.p.parser.getGoto(this.stack[this.base - 3], term, true);
+        this.state = goto;
+    }
+}
+// This is given to `Tree.build` to build a buffer, and encapsulates
+// the parent-stack-walking necessary to read the nodes.
+class StackBufferCursor$2 {
+    constructor(stack, pos, index) {
+        this.stack = stack;
+        this.pos = pos;
+        this.index = index;
+        this.buffer = stack.buffer;
+        if (this.index == 0)
+            this.maybeNext();
+    }
+    static create(stack, pos = stack.bufferBase + stack.buffer.length) {
+        return new StackBufferCursor$2(stack, pos, pos - stack.bufferBase);
+    }
+    maybeNext() {
+        let next = this.stack.parent;
+        if (next != null) {
+            this.index = this.stack.bufferBase - next.bufferBase;
+            this.stack = next;
+            this.buffer = next.buffer;
+        }
+    }
+    get id() { return this.buffer[this.index - 4]; }
+    get start() { return this.buffer[this.index - 3]; }
+    get end() { return this.buffer[this.index - 2]; }
+    get size() { return this.buffer[this.index - 1]; }
+    next() {
+        this.index -= 4;
+        this.pos -= 4;
+        if (this.index == 0)
+            this.maybeNext();
+    }
+    fork() {
+        return new StackBufferCursor$2(this.stack, this.pos, this.index);
+    }
+}
+
+class CachedToken$2 {
+    constructor() {
+        this.start = -1;
+        this.value = -1;
+        this.end = -1;
+        this.extended = -1;
+        this.lookAhead = 0;
+        this.mask = 0;
+        this.context = 0;
+    }
+}
+const nullToken$2 = new CachedToken$2;
+/// [Tokenizers](#lr.ExternalTokenizer) interact with the input
+/// through this interface. It presents the input as a stream of
+/// characters, tracking lookahead and hiding the complexity of
+/// [ranges](#common.Parser.parse^ranges) from tokenizer code.
+class InputStream$2 {
+    /// @internal
+    constructor(
+    /// @internal
+    input, 
+    /// @internal
+    ranges) {
+        this.input = input;
+        this.ranges = ranges;
+        /// @internal
+        this.chunk = "";
+        /// @internal
+        this.chunkOff = 0;
+        /// Backup chunk
+        this.chunk2 = "";
+        this.chunk2Pos = 0;
+        /// The character code of the next code unit in the input, or -1
+        /// when the stream is at the end of the input.
+        this.next = -1;
+        /// @internal
+        this.token = nullToken$2;
+        this.rangeIndex = 0;
+        this.pos = this.chunkPos = ranges[0].from;
+        this.range = ranges[0];
+        this.end = ranges[ranges.length - 1].to;
+        this.readNext();
+    }
+    resolveOffset(offset, assoc) {
+        let range = this.range, index = this.rangeIndex;
+        let pos = this.pos + offset;
+        while (pos < range.from) {
+            if (!index)
+                return null;
+            let next = this.ranges[--index];
+            pos -= range.from - next.to;
+            range = next;
+        }
+        while (assoc < 0 ? pos > range.to : pos >= range.to) {
+            if (index == this.ranges.length - 1)
+                return null;
+            let next = this.ranges[++index];
+            pos += next.from - range.to;
+            range = next;
+        }
+        return pos;
+    }
+    /// Look at a code unit near the stream position. `.peek(0)` equals
+    /// `.next`, `.peek(-1)` gives you the previous character, and so
+    /// on.
+    ///
+    /// Note that looking around during tokenizing creates dependencies
+    /// on potentially far-away content, which may reduce the
+    /// effectiveness incremental parsing—when looking forward—or even
+    /// cause invalid reparses when looking backward more than 25 code
+    /// units, since the library does not track lookbehind.
+    peek(offset) {
+        let idx = this.chunkOff + offset, pos, result;
+        if (idx >= 0 && idx < this.chunk.length) {
+            pos = this.pos + offset;
+            result = this.chunk.charCodeAt(idx);
+        }
+        else {
+            let resolved = this.resolveOffset(offset, 1);
+            if (resolved == null)
+                return -1;
+            pos = resolved;
+            if (pos >= this.chunk2Pos && pos < this.chunk2Pos + this.chunk2.length) {
+                result = this.chunk2.charCodeAt(pos - this.chunk2Pos);
+            }
+            else {
+                let i = this.rangeIndex, range = this.range;
+                while (range.to <= pos)
+                    range = this.ranges[++i];
+                this.chunk2 = this.input.chunk(this.chunk2Pos = pos);
+                if (pos + this.chunk2.length > range.to)
+                    this.chunk2 = this.chunk2.slice(0, range.to - pos);
+                result = this.chunk2.charCodeAt(0);
+            }
+        }
+        if (pos >= this.token.lookAhead)
+            this.token.lookAhead = pos + 1;
+        return result;
+    }
+    /// Accept a token. By default, the end of the token is set to the
+    /// current stream position, but you can pass an offset (relative to
+    /// the stream position) to change that.
+    acceptToken(token, endOffset = 0) {
+        let end = endOffset ? this.resolveOffset(endOffset, -1) : this.pos;
+        if (end == null || end < this.token.start)
+            throw new RangeError("Token end out of bounds");
+        this.token.value = token;
+        this.token.end = end;
+    }
+    getChunk() {
+        if (this.pos >= this.chunk2Pos && this.pos < this.chunk2Pos + this.chunk2.length) {
+            let { chunk, chunkPos } = this;
+            this.chunk = this.chunk2;
+            this.chunkPos = this.chunk2Pos;
+            this.chunk2 = chunk;
+            this.chunk2Pos = chunkPos;
+            this.chunkOff = this.pos - this.chunkPos;
+        }
+        else {
+            this.chunk2 = this.chunk;
+            this.chunk2Pos = this.chunkPos;
+            let nextChunk = this.input.chunk(this.pos);
+            let end = this.pos + nextChunk.length;
+            this.chunk = end > this.range.to ? nextChunk.slice(0, this.range.to - this.pos) : nextChunk;
+            this.chunkPos = this.pos;
+            this.chunkOff = 0;
+        }
+    }
+    readNext() {
+        if (this.chunkOff >= this.chunk.length) {
+            this.getChunk();
+            if (this.chunkOff == this.chunk.length)
+                return this.next = -1;
+        }
+        return this.next = this.chunk.charCodeAt(this.chunkOff);
+    }
+    /// Move the stream forward N (defaults to 1) code units. Returns
+    /// the new value of [`next`](#lr.InputStream.next).
+    advance(n = 1) {
+        this.chunkOff += n;
+        while (this.pos + n >= this.range.to) {
+            if (this.rangeIndex == this.ranges.length - 1)
+                return this.setDone();
+            n -= this.range.to - this.pos;
+            this.range = this.ranges[++this.rangeIndex];
+            this.pos = this.range.from;
+        }
+        this.pos += n;
+        if (this.pos >= this.token.lookAhead)
+            this.token.lookAhead = this.pos + 1;
+        return this.readNext();
+    }
+    setDone() {
+        this.pos = this.chunkPos = this.end;
+        this.range = this.ranges[this.rangeIndex = this.ranges.length - 1];
+        this.chunk = "";
+        return this.next = -1;
+    }
+    /// @internal
+    reset(pos, token) {
+        if (token) {
+            this.token = token;
+            token.start = pos;
+            token.lookAhead = pos + 1;
+            token.value = token.extended = -1;
+        }
+        else {
+            this.token = nullToken$2;
+        }
+        if (this.pos != pos) {
+            this.pos = pos;
+            if (pos == this.end) {
+                this.setDone();
+                return this;
+            }
+            while (pos < this.range.from)
+                this.range = this.ranges[--this.rangeIndex];
+            while (pos >= this.range.to)
+                this.range = this.ranges[++this.rangeIndex];
+            if (pos >= this.chunkPos && pos < this.chunkPos + this.chunk.length) {
+                this.chunkOff = pos - this.chunkPos;
+            }
+            else {
+                this.chunk = "";
+                this.chunkOff = 0;
+            }
+            this.readNext();
+        }
+        return this;
+    }
+    /// @internal
+    read(from, to) {
+        if (from >= this.chunkPos && to <= this.chunkPos + this.chunk.length)
+            return this.chunk.slice(from - this.chunkPos, to - this.chunkPos);
+        if (from >= this.chunk2Pos && to <= this.chunk2Pos + this.chunk2.length)
+            return this.chunk2.slice(from - this.chunk2Pos, to - this.chunk2Pos);
+        if (from >= this.range.from && to <= this.range.to)
+            return this.input.read(from, to);
+        let result = "";
+        for (let r of this.ranges) {
+            if (r.from >= to)
+                break;
+            if (r.to > from)
+                result += this.input.read(Math.max(r.from, from), Math.min(r.to, to));
+        }
+        return result;
+    }
+}
+/// @internal
+class TokenGroup$2 {
+    constructor(data, id) {
+        this.data = data;
+        this.id = id;
+    }
+    token(input, stack) { readToken$2(this.data, input, stack, this.id); }
+}
+TokenGroup$2.prototype.contextual = TokenGroup$2.prototype.fallback = TokenGroup$2.prototype.extend = false;
+/// `@external tokens` declarations in the grammar should resolve to
+/// an instance of this class.
+class ExternalTokenizer$2 {
+    /// Create a tokenizer. The first argument is the function that,
+    /// given an input stream, scans for the types of tokens it
+    /// recognizes at the stream's position, and calls
+    /// [`acceptToken`](#lr.InputStream.acceptToken) when it finds
+    /// one.
+    constructor(
+    /// @internal
+    token, options = {}) {
+        this.token = token;
+        this.contextual = !!options.contextual;
+        this.fallback = !!options.fallback;
+        this.extend = !!options.extend;
+    }
+}
+// Tokenizer data is stored a big uint16 array containing, for each
+// state:
+//
+//  - A group bitmask, indicating what token groups are reachable from
+//    this state, so that paths that can only lead to tokens not in
+//    any of the current groups can be cut off early.
+//
+//  - The position of the end of the state's sequence of accepting
+//    tokens
+//
+//  - The number of outgoing edges for the state
+//
+//  - The accepting tokens, as (token id, group mask) pairs
+//
+//  - The outgoing edges, as (start character, end character, state
+//    index) triples, with end character being exclusive
+//
+// This function interprets that data, running through a stream as
+// long as new states with the a matching group mask can be reached,
+// and updating `token` when it matches a token.
+function readToken$2(data, input, stack, group) {
+    let state = 0, groupMask = 1 << group, { parser } = stack.p, { dialect } = parser;
+    scan: for (;;) {
+        if ((groupMask & data[state]) == 0)
+            break;
+        let accEnd = data[state + 1];
+        // Check whether this state can lead to a token in the current group
+        // Accept tokens in this state, possibly overwriting
+        // lower-precedence / shorter tokens
+        for (let i = state + 3; i < accEnd; i += 2)
+            if ((data[i + 1] & groupMask) > 0) {
+                let term = data[i];
+                if (dialect.allows(term) &&
+                    (input.token.value == -1 || input.token.value == term || parser.overrides(term, input.token.value))) {
+                    input.acceptToken(term);
+                    break;
+                }
+            }
+        // Do a binary search on the state's edges
+        for (let next = input.next, low = 0, high = data[state + 2]; low < high;) {
+            let mid = (low + high) >> 1;
+            let index = accEnd + mid + (mid << 1);
+            let from = data[index], to = data[index + 1];
+            if (next < from)
+                high = mid;
+            else if (next >= to)
+                low = mid + 1;
+            else {
+                state = data[index + 2];
+                input.advance();
+                continue scan;
+            }
+        }
+        break;
+    }
+}
+
+// See lezer-generator/src/encode.ts for comments about the encoding
+// used here
+function decodeArray$2(input, Type = Uint16Array) {
+    if (typeof input != "string")
+        return input;
+    let array = null;
+    for (let pos = 0, out = 0; pos < input.length;) {
+        let value = 0;
+        for (;;) {
+            let next = input.charCodeAt(pos++), stop = false;
+            if (next == 126 /* BigValCode */) {
+                value = 65535 /* BigVal */;
+                break;
+            }
+            if (next >= 92 /* Gap2 */)
+                next--;
+            if (next >= 34 /* Gap1 */)
+                next--;
+            let digit = next - 32 /* Start */;
+            if (digit >= 46 /* Base */) {
+                digit -= 46 /* Base */;
+                stop = true;
+            }
+            value += digit;
+            if (stop)
+                break;
+            value *= 46 /* Base */;
+        }
+        if (array)
+            array[out++] = value;
+        else
+            array = new Type(value);
+    }
+    return array;
+}
+
+// Environment variable used to control console output
+const verbose$2 = typeof process != "undefined" && process.env && /\bparse\b/.test(process.env.LOG);
+let stackIDs$2 = null;
+var Safety$2;
+(function (Safety) {
+    Safety[Safety["Margin"] = 25] = "Margin";
+})(Safety$2 || (Safety$2 = {}));
+function cutAt$2(tree, pos, side) {
+    let cursor = tree.cursor(IterMode.IncludeAnonymous);
+    cursor.moveTo(pos);
+    for (;;) {
+        if (!(side < 0 ? cursor.childBefore(pos) : cursor.childAfter(pos)))
+            for (;;) {
+                if ((side < 0 ? cursor.to < pos : cursor.from > pos) && !cursor.type.isError)
+                    return side < 0 ? Math.max(0, Math.min(cursor.to - 1, pos - 25 /* Margin */))
+                        : Math.min(tree.length, Math.max(cursor.from + 1, pos + 25 /* Margin */));
+                if (side < 0 ? cursor.prevSibling() : cursor.nextSibling())
+                    break;
+                if (!cursor.parent())
+                    return side < 0 ? 0 : tree.length;
+            }
+    }
+}
+class FragmentCursor$2 {
+    constructor(fragments, nodeSet) {
+        this.fragments = fragments;
+        this.nodeSet = nodeSet;
+        this.i = 0;
+        this.fragment = null;
+        this.safeFrom = -1;
+        this.safeTo = -1;
+        this.trees = [];
+        this.start = [];
+        this.index = [];
+        this.nextFragment();
+    }
+    nextFragment() {
+        let fr = this.fragment = this.i == this.fragments.length ? null : this.fragments[this.i++];
+        if (fr) {
+            this.safeFrom = fr.openStart ? cutAt$2(fr.tree, fr.from + fr.offset, 1) - fr.offset : fr.from;
+            this.safeTo = fr.openEnd ? cutAt$2(fr.tree, fr.to + fr.offset, -1) - fr.offset : fr.to;
+            while (this.trees.length) {
+                this.trees.pop();
+                this.start.pop();
+                this.index.pop();
+            }
+            this.trees.push(fr.tree);
+            this.start.push(-fr.offset);
+            this.index.push(0);
+            this.nextStart = this.safeFrom;
+        }
+        else {
+            this.nextStart = 1e9;
+        }
+    }
+    // `pos` must be >= any previously given `pos` for this cursor
+    nodeAt(pos) {
+        if (pos < this.nextStart)
+            return null;
+        while (this.fragment && this.safeTo <= pos)
+            this.nextFragment();
+        if (!this.fragment)
+            return null;
+        for (;;) {
+            let last = this.trees.length - 1;
+            if (last < 0) { // End of tree
+                this.nextFragment();
+                return null;
+            }
+            let top = this.trees[last], index = this.index[last];
+            if (index == top.children.length) {
+                this.trees.pop();
+                this.start.pop();
+                this.index.pop();
+                continue;
+            }
+            let next = top.children[index];
+            let start = this.start[last] + top.positions[index];
+            if (start > pos) {
+                this.nextStart = start;
+                return null;
+            }
+            if (next instanceof Tree) {
+                if (start == pos) {
+                    if (start < this.safeFrom)
+                        return null;
+                    let end = start + next.length;
+                    if (end <= this.safeTo) {
+                        let lookAhead = next.prop(NodeProp.lookAhead);
+                        if (!lookAhead || end + lookAhead < this.fragment.to)
+                            return next;
+                    }
+                }
+                this.index[last]++;
+                if (start + next.length >= Math.max(this.safeFrom, pos)) { // Enter this node
+                    this.trees.push(next);
+                    this.start.push(start);
+                    this.index.push(0);
+                }
+            }
+            else {
+                this.index[last]++;
+                this.nextStart = start + next.length;
+            }
+        }
+    }
+}
+class TokenCache$2 {
+    constructor(parser, stream) {
+        this.stream = stream;
+        this.tokens = [];
+        this.mainToken = null;
+        this.actions = [];
+        this.tokens = parser.tokenizers.map(_ => new CachedToken$2);
+    }
+    getActions(stack) {
+        let actionIndex = 0;
+        let main = null;
+        let { parser } = stack.p, { tokenizers } = parser;
+        let mask = parser.stateSlot(stack.state, 3 /* TokenizerMask */);
+        let context = stack.curContext ? stack.curContext.hash : 0;
+        let lookAhead = 0;
+        for (let i = 0; i < tokenizers.length; i++) {
+            if (((1 << i) & mask) == 0)
+                continue;
+            let tokenizer = tokenizers[i], token = this.tokens[i];
+            if (main && !tokenizer.fallback)
+                continue;
+            if (tokenizer.contextual || token.start != stack.pos || token.mask != mask || token.context != context) {
+                this.updateCachedToken(token, tokenizer, stack);
+                token.mask = mask;
+                token.context = context;
+            }
+            if (token.lookAhead > token.end + 25 /* Margin */)
+                lookAhead = Math.max(token.lookAhead, lookAhead);
+            if (token.value != 0 /* Err */) {
+                let startIndex = actionIndex;
+                if (token.extended > -1)
+                    actionIndex = this.addActions(stack, token.extended, token.end, actionIndex);
+                actionIndex = this.addActions(stack, token.value, token.end, actionIndex);
+                if (!tokenizer.extend) {
+                    main = token;
+                    if (actionIndex > startIndex)
+                        break;
+                }
+            }
+        }
+        while (this.actions.length > actionIndex)
+            this.actions.pop();
+        if (lookAhead)
+            stack.setLookAhead(lookAhead);
+        if (!main && stack.pos == this.stream.end) {
+            main = new CachedToken$2;
+            main.value = stack.p.parser.eofTerm;
+            main.start = main.end = stack.pos;
+            actionIndex = this.addActions(stack, main.value, main.end, actionIndex);
+        }
+        this.mainToken = main;
+        return this.actions;
+    }
+    getMainToken(stack) {
+        if (this.mainToken)
+            return this.mainToken;
+        let main = new CachedToken$2, { pos, p } = stack;
+        main.start = pos;
+        main.end = Math.min(pos + 1, p.stream.end);
+        main.value = pos == p.stream.end ? p.parser.eofTerm : 0 /* Err */;
+        return main;
+    }
+    updateCachedToken(token, tokenizer, stack) {
+        tokenizer.token(this.stream.reset(stack.pos, token), stack);
+        if (token.value > -1) {
+            let { parser } = stack.p;
+            for (let i = 0; i < parser.specialized.length; i++)
+                if (parser.specialized[i] == token.value) {
+                    let result = parser.specializers[i](this.stream.read(token.start, token.end), stack);
+                    if (result >= 0 && stack.p.parser.dialect.allows(result >> 1)) {
+                        if ((result & 1) == 0 /* Specialize */)
+                            token.value = result >> 1;
+                        else
+                            token.extended = result >> 1;
+                        break;
+                    }
+                }
+        }
+        else {
+            token.value = 0 /* Err */;
+            token.end = Math.min(stack.p.stream.end, stack.pos + 1);
+        }
+    }
+    putAction(action, token, end, index) {
+        // Don't add duplicate actions
+        for (let i = 0; i < index; i += 3)
+            if (this.actions[i] == action)
+                return index;
+        this.actions[index++] = action;
+        this.actions[index++] = token;
+        this.actions[index++] = end;
+        return index;
+    }
+    addActions(stack, token, end, index) {
+        let { state } = stack, { parser } = stack.p, { data } = parser;
+        for (let set = 0; set < 2; set++) {
+            for (let i = parser.stateSlot(state, set ? 2 /* Skip */ : 1 /* Actions */);; i += 3) {
+                if (data[i] == 65535 /* End */) {
+                    if (data[i + 1] == 1 /* Next */) {
+                        i = pair$2(data, i + 2);
+                    }
+                    else {
+                        if (index == 0 && data[i + 1] == 2 /* Other */)
+                            index = this.putAction(pair$2(data, i + 2), token, end, index);
+                        break;
+                    }
+                }
+                if (data[i] == token)
+                    index = this.putAction(pair$2(data, i + 1), token, end, index);
+            }
+        }
+        return index;
+    }
+}
+var Rec$2;
+(function (Rec) {
+    Rec[Rec["Distance"] = 5] = "Distance";
+    Rec[Rec["MaxRemainingPerStep"] = 3] = "MaxRemainingPerStep";
+    // When two stacks have been running independently long enough to
+    // add this many elements to their buffers, prune one.
+    Rec[Rec["MinBufferLengthPrune"] = 500] = "MinBufferLengthPrune";
+    Rec[Rec["ForceReduceLimit"] = 10] = "ForceReduceLimit";
+    // Once a stack reaches this depth (in .stack.length) force-reduce
+    // it back to CutTo to avoid creating trees that overflow the stack
+    // on recursive traversal.
+    Rec[Rec["CutDepth"] = 15000] = "CutDepth";
+    Rec[Rec["CutTo"] = 9000] = "CutTo";
+})(Rec$2 || (Rec$2 = {}));
+class Parse$2 {
+    constructor(parser, input, fragments, ranges) {
+        this.parser = parser;
+        this.input = input;
+        this.ranges = ranges;
+        this.recovering = 0;
+        this.nextStackID = 0x2654; // ♔, ♕, ♖, ♗, ♘, ♙, ♠, ♡, ♢, ♣, ♤, ♥, ♦, ♧
+        this.minStackPos = 0;
+        this.reused = [];
+        this.stoppedAt = null;
+        this.stream = new InputStream$2(input, ranges);
+        this.tokens = new TokenCache$2(parser, this.stream);
+        this.topTerm = parser.top[1];
+        let { from } = ranges[0];
+        this.stacks = [Stack$2.start(this, parser.top[0], from)];
+        this.fragments = fragments.length && this.stream.end - from > parser.bufferLength * 4
+            ? new FragmentCursor$2(fragments, parser.nodeSet) : null;
+    }
+    get parsedPos() {
+        return this.minStackPos;
+    }
+    // Move the parser forward. This will process all parse stacks at
+    // `this.pos` and try to advance them to a further position. If no
+    // stack for such a position is found, it'll start error-recovery.
+    //
+    // When the parse is finished, this will return a syntax tree. When
+    // not, it returns `null`.
+    advance() {
+        let stacks = this.stacks, pos = this.minStackPos;
+        // This will hold stacks beyond `pos`.
+        let newStacks = this.stacks = [];
+        let stopped, stoppedTokens;
+        // Keep advancing any stacks at `pos` until they either move
+        // forward or can't be advanced. Gather stacks that can't be
+        // advanced further in `stopped`.
+        for (let i = 0; i < stacks.length; i++) {
+            let stack = stacks[i];
+            for (;;) {
+                this.tokens.mainToken = null;
+                if (stack.pos > pos) {
+                    newStacks.push(stack);
+                }
+                else if (this.advanceStack(stack, newStacks, stacks)) {
+                    continue;
+                }
+                else {
+                    if (!stopped) {
+                        stopped = [];
+                        stoppedTokens = [];
+                    }
+                    stopped.push(stack);
+                    let tok = this.tokens.getMainToken(stack);
+                    stoppedTokens.push(tok.value, tok.end);
+                }
+                break;
+            }
+        }
+        if (!newStacks.length) {
+            let finished = stopped && findFinished$2(stopped);
+            if (finished)
+                return this.stackToTree(finished);
+            if (this.parser.strict) {
+                if (verbose$2 && stopped)
+                    console.log("Stuck with token " + (this.tokens.mainToken ? this.parser.getName(this.tokens.mainToken.value) : "none"));
+                throw new SyntaxError("No parse at " + pos);
+            }
+            if (!this.recovering)
+                this.recovering = 5 /* Distance */;
+        }
+        if (this.recovering && stopped) {
+            let finished = this.stoppedAt != null && stopped[0].pos > this.stoppedAt ? stopped[0]
+                : this.runRecovery(stopped, stoppedTokens, newStacks);
+            if (finished)
+                return this.stackToTree(finished.forceAll());
+        }
+        if (this.recovering) {
+            let maxRemaining = this.recovering == 1 ? 1 : this.recovering * 3 /* MaxRemainingPerStep */;
+            if (newStacks.length > maxRemaining) {
+                newStacks.sort((a, b) => b.score - a.score);
+                while (newStacks.length > maxRemaining)
+                    newStacks.pop();
+            }
+            if (newStacks.some(s => s.reducePos > pos))
+                this.recovering--;
+        }
+        else if (newStacks.length > 1) {
+            // Prune stacks that are in the same state, or that have been
+            // running without splitting for a while, to avoid getting stuck
+            // with multiple successful stacks running endlessly on.
+            outer: for (let i = 0; i < newStacks.length - 1; i++) {
+                let stack = newStacks[i];
+                for (let j = i + 1; j < newStacks.length; j++) {
+                    let other = newStacks[j];
+                    if (stack.sameState(other) ||
+                        stack.buffer.length > 500 /* MinBufferLengthPrune */ && other.buffer.length > 500 /* MinBufferLengthPrune */) {
+                        if (((stack.score - other.score) || (stack.buffer.length - other.buffer.length)) > 0) {
+                            newStacks.splice(j--, 1);
+                        }
+                        else {
+                            newStacks.splice(i--, 1);
+                            continue outer;
+                        }
+                    }
+                }
+            }
+        }
+        this.minStackPos = newStacks[0].pos;
+        for (let i = 1; i < newStacks.length; i++)
+            if (newStacks[i].pos < this.minStackPos)
+                this.minStackPos = newStacks[i].pos;
+        return null;
+    }
+    stopAt(pos) {
+        if (this.stoppedAt != null && this.stoppedAt < pos)
+            throw new RangeError("Can't move stoppedAt forward");
+        this.stoppedAt = pos;
+    }
+    // Returns an updated version of the given stack, or null if the
+    // stack can't advance normally. When `split` and `stacks` are
+    // given, stacks split off by ambiguous operations will be pushed to
+    // `split`, or added to `stacks` if they move `pos` forward.
+    advanceStack(stack, stacks, split) {
+        let start = stack.pos, { parser } = this;
+        let base = verbose$2 ? this.stackID(stack) + " -> " : "";
+        if (this.stoppedAt != null && start > this.stoppedAt)
+            return stack.forceReduce() ? stack : null;
+        if (this.fragments) {
+            let strictCx = stack.curContext && stack.curContext.tracker.strict, cxHash = strictCx ? stack.curContext.hash : 0;
+            for (let cached = this.fragments.nodeAt(start); cached;) {
+                let match = this.parser.nodeSet.types[cached.type.id] == cached.type ? parser.getGoto(stack.state, cached.type.id) : -1;
+                if (match > -1 && cached.length && (!strictCx || (cached.prop(NodeProp.contextHash) || 0) == cxHash)) {
+                    stack.useNode(cached, match);
+                    if (verbose$2)
+                        console.log(base + this.stackID(stack) + ` (via reuse of ${parser.getName(cached.type.id)})`);
+                    return true;
+                }
+                if (!(cached instanceof Tree) || cached.children.length == 0 || cached.positions[0] > 0)
+                    break;
+                let inner = cached.children[0];
+                if (inner instanceof Tree && cached.positions[0] == 0)
+                    cached = inner;
+                else
+                    break;
+            }
+        }
+        let defaultReduce = parser.stateSlot(stack.state, 4 /* DefaultReduce */);
+        if (defaultReduce > 0) {
+            stack.reduce(defaultReduce);
+            if (verbose$2)
+                console.log(base + this.stackID(stack) + ` (via always-reduce ${parser.getName(defaultReduce & 65535 /* ValueMask */)})`);
+            return true;
+        }
+        if (stack.stack.length >= 15000 /* CutDepth */) {
+            while (stack.stack.length > 9000 /* CutTo */ && stack.forceReduce()) { }
+        }
+        let actions = this.tokens.getActions(stack);
+        for (let i = 0; i < actions.length;) {
+            let action = actions[i++], term = actions[i++], end = actions[i++];
+            let last = i == actions.length || !split;
+            let localStack = last ? stack : stack.split();
+            localStack.apply(action, term, end);
+            if (verbose$2)
+                console.log(base + this.stackID(localStack) + ` (via ${(action & 65536 /* ReduceFlag */) == 0 ? "shift"
+                    : `reduce of ${parser.getName(action & 65535 /* ValueMask */)}`} for ${parser.getName(term)} @ ${start}${localStack == stack ? "" : ", split"})`);
+            if (last)
+                return true;
+            else if (localStack.pos > start)
+                stacks.push(localStack);
+            else
+                split.push(localStack);
+        }
+        return false;
+    }
+    // Advance a given stack forward as far as it will go. Returns the
+    // (possibly updated) stack if it got stuck, or null if it moved
+    // forward and was given to `pushStackDedup`.
+    advanceFully(stack, newStacks) {
+        let pos = stack.pos;
+        for (;;) {
+            if (!this.advanceStack(stack, null, null))
+                return false;
+            if (stack.pos > pos) {
+                pushStackDedup$2(stack, newStacks);
+                return true;
+            }
+        }
+    }
+    runRecovery(stacks, tokens, newStacks) {
+        let finished = null, restarted = false;
+        for (let i = 0; i < stacks.length; i++) {
+            let stack = stacks[i], token = tokens[i << 1], tokenEnd = tokens[(i << 1) + 1];
+            let base = verbose$2 ? this.stackID(stack) + " -> " : "";
+            if (stack.deadEnd) {
+                if (restarted)
+                    continue;
+                restarted = true;
+                stack.restart();
+                if (verbose$2)
+                    console.log(base + this.stackID(stack) + " (restarted)");
+                let done = this.advanceFully(stack, newStacks);
+                if (done)
+                    continue;
+            }
+            let force = stack.split(), forceBase = base;
+            for (let j = 0; force.forceReduce() && j < 10 /* ForceReduceLimit */; j++) {
+                if (verbose$2)
+                    console.log(forceBase + this.stackID(force) + " (via force-reduce)");
+                let done = this.advanceFully(force, newStacks);
+                if (done)
+                    break;
+                if (verbose$2)
+                    forceBase = this.stackID(force) + " -> ";
+            }
+            for (let insert of stack.recoverByInsert(token)) {
+                if (verbose$2)
+                    console.log(base + this.stackID(insert) + " (via recover-insert)");
+                this.advanceFully(insert, newStacks);
+            }
+            if (this.stream.end > stack.pos) {
+                if (tokenEnd == stack.pos) {
+                    tokenEnd++;
+                    token = 0 /* Err */;
+                }
+                stack.recoverByDelete(token, tokenEnd);
+                if (verbose$2)
+                    console.log(base + this.stackID(stack) + ` (via recover-delete ${this.parser.getName(token)})`);
+                pushStackDedup$2(stack, newStacks);
+            }
+            else if (!finished || finished.score < stack.score) {
+                finished = stack;
+            }
+        }
+        return finished;
+    }
+    // Convert the stack's buffer to a syntax tree.
+    stackToTree(stack) {
+        stack.close();
+        return Tree.build({ buffer: StackBufferCursor$2.create(stack),
+            nodeSet: this.parser.nodeSet,
+            topID: this.topTerm,
+            maxBufferLength: this.parser.bufferLength,
+            reused: this.reused,
+            start: this.ranges[0].from,
+            length: stack.pos - this.ranges[0].from,
+            minRepeatType: this.parser.minRepeatTerm });
+    }
+    stackID(stack) {
+        let id = (stackIDs$2 || (stackIDs$2 = new WeakMap)).get(stack);
+        if (!id)
+            stackIDs$2.set(stack, id = String.fromCodePoint(this.nextStackID++));
+        return id + stack;
+    }
+}
+function pushStackDedup$2(stack, newStacks) {
+    for (let i = 0; i < newStacks.length; i++) {
+        let other = newStacks[i];
+        if (other.pos == stack.pos && other.sameState(stack)) {
+            if (newStacks[i].score < stack.score)
+                newStacks[i] = stack;
+            return;
+        }
+    }
+    newStacks.push(stack);
+}
+class Dialect$2 {
+    constructor(source, flags, disabled) {
+        this.source = source;
+        this.flags = flags;
+        this.disabled = disabled;
+    }
+    allows(term) { return !this.disabled || this.disabled[term] == 0; }
+}
+const id$1 = x => x;
+/// Context trackers are used to track stateful context (such as
+/// indentation in the Python grammar, or parent elements in the XML
+/// grammar) needed by external tokenizers. You declare them in a
+/// grammar file as `@context exportName from "module"`.
+///
+/// Context values should be immutable, and can be updated (replaced)
+/// on shift or reduce actions.
+///
+/// The export used in a `@context` declaration should be of this
+/// type.
+class ContextTracker$1 {
+    /// Define a context tracker.
+    constructor(spec) {
+        this.start = spec.start;
+        this.shift = spec.shift || id$1;
+        this.reduce = spec.reduce || id$1;
+        this.reuse = spec.reuse || id$1;
+        this.hash = spec.hash || (() => 0);
+        this.strict = spec.strict !== false;
+    }
+}
+/// A parser holds the parse tables for a given grammar, as generated
+/// by `lezer-generator`.
+class LRParser$2 extends Parser {
+    /// @internal
+    constructor(spec) {
+        super();
+        /// @internal
+        this.wrappers = [];
+        if (spec.version != 14 /* Version */)
+            throw new RangeError(`Parser version (${spec.version}) doesn't match runtime version (${14 /* Version */})`);
+        let nodeNames = spec.nodeNames.split(" ");
+        this.minRepeatTerm = nodeNames.length;
+        for (let i = 0; i < spec.repeatNodeCount; i++)
+            nodeNames.push("");
+        let topTerms = Object.keys(spec.topRules).map(r => spec.topRules[r][1]);
+        let nodeProps = [];
+        for (let i = 0; i < nodeNames.length; i++)
+            nodeProps.push([]);
+        function setProp(nodeID, prop, value) {
+            nodeProps[nodeID].push([prop, prop.deserialize(String(value))]);
+        }
+        if (spec.nodeProps)
+            for (let propSpec of spec.nodeProps) {
+                let prop = propSpec[0];
+                if (typeof prop == "string")
+                    prop = NodeProp[prop];
+                for (let i = 1; i < propSpec.length;) {
+                    let next = propSpec[i++];
+                    if (next >= 0) {
+                        setProp(next, prop, propSpec[i++]);
+                    }
+                    else {
+                        let value = propSpec[i + -next];
+                        for (let j = -next; j > 0; j--)
+                            setProp(propSpec[i++], prop, value);
+                        i++;
+                    }
+                }
+            }
+        this.nodeSet = new NodeSet(nodeNames.map((name, i) => NodeType.define({
+            name: i >= this.minRepeatTerm ? undefined : name,
+            id: i,
+            props: nodeProps[i],
+            top: topTerms.indexOf(i) > -1,
+            error: i == 0,
+            skipped: spec.skippedNodes && spec.skippedNodes.indexOf(i) > -1
+        })));
+        if (spec.propSources)
+            this.nodeSet = this.nodeSet.extend(...spec.propSources);
+        this.strict = false;
+        this.bufferLength = DefaultBufferLength;
+        let tokenArray = decodeArray$2(spec.tokenData);
+        this.context = spec.context;
+        this.specialized = new Uint16Array(spec.specialized ? spec.specialized.length : 0);
+        this.specializers = [];
+        if (spec.specialized)
+            for (let i = 0; i < spec.specialized.length; i++) {
+                this.specialized[i] = spec.specialized[i].term;
+                this.specializers[i] = spec.specialized[i].get;
+            }
+        this.states = decodeArray$2(spec.states, Uint32Array);
+        this.data = decodeArray$2(spec.stateData);
+        this.goto = decodeArray$2(spec.goto);
+        this.maxTerm = spec.maxTerm;
+        this.tokenizers = spec.tokenizers.map(value => typeof value == "number" ? new TokenGroup$2(tokenArray, value) : value);
+        this.topRules = spec.topRules;
+        this.dialects = spec.dialects || {};
+        this.dynamicPrecedences = spec.dynamicPrecedences || null;
+        this.tokenPrecTable = spec.tokenPrec;
+        this.termNames = spec.termNames || null;
+        this.maxNode = this.nodeSet.types.length - 1;
+        this.dialect = this.parseDialect();
+        this.top = this.topRules[Object.keys(this.topRules)[0]];
+    }
+    createParse(input, fragments, ranges) {
+        let parse = new Parse$2(this, input, fragments, ranges);
+        for (let w of this.wrappers)
+            parse = w(parse, input, fragments, ranges);
+        return parse;
+    }
+    /// Get a goto table entry @internal
+    getGoto(state, term, loose = false) {
+        let table = this.goto;
+        if (term >= table[0])
+            return -1;
+        for (let pos = table[term + 1];;) {
+            let groupTag = table[pos++], last = groupTag & 1;
+            let target = table[pos++];
+            if (last && loose)
+                return target;
+            for (let end = pos + (groupTag >> 1); pos < end; pos++)
+                if (table[pos] == state)
+                    return target;
+            if (last)
+                return -1;
+        }
+    }
+    /// Check if this state has an action for a given terminal @internal
+    hasAction(state, terminal) {
+        let data = this.data;
+        for (let set = 0; set < 2; set++) {
+            for (let i = this.stateSlot(state, set ? 2 /* Skip */ : 1 /* Actions */), next;; i += 3) {
+                if ((next = data[i]) == 65535 /* End */) {
+                    if (data[i + 1] == 1 /* Next */)
+                        next = data[i = pair$2(data, i + 2)];
+                    else if (data[i + 1] == 2 /* Other */)
+                        return pair$2(data, i + 2);
+                    else
+                        break;
+                }
+                if (next == terminal || next == 0 /* Err */)
+                    return pair$2(data, i + 1);
+            }
+        }
+        return 0;
+    }
+    /// @internal
+    stateSlot(state, slot) {
+        return this.states[(state * 6 /* Size */) + slot];
+    }
+    /// @internal
+    stateFlag(state, flag) {
+        return (this.stateSlot(state, 0 /* Flags */) & flag) > 0;
+    }
+    /// @internal
+    validAction(state, action) {
+        if (action == this.stateSlot(state, 4 /* DefaultReduce */))
+            return true;
+        for (let i = this.stateSlot(state, 1 /* Actions */);; i += 3) {
+            if (this.data[i] == 65535 /* End */) {
+                if (this.data[i + 1] == 1 /* Next */)
+                    i = pair$2(this.data, i + 2);
+                else
+                    return false;
+            }
+            if (action == pair$2(this.data, i + 1))
+                return true;
+        }
+    }
+    /// Get the states that can follow this one through shift actions or
+    /// goto jumps. @internal
+    nextStates(state) {
+        let result = [];
+        for (let i = this.stateSlot(state, 1 /* Actions */);; i += 3) {
+            if (this.data[i] == 65535 /* End */) {
+                if (this.data[i + 1] == 1 /* Next */)
+                    i = pair$2(this.data, i + 2);
+                else
+                    break;
+            }
+            if ((this.data[i + 2] & (65536 /* ReduceFlag */ >> 16)) == 0) {
+                let value = this.data[i + 1];
+                if (!result.some((v, i) => (i & 1) && v == value))
+                    result.push(this.data[i], value);
+            }
+        }
+        return result;
+    }
+    /// @internal
+    overrides(token, prev) {
+        let iPrev = findOffset$2(this.data, this.tokenPrecTable, prev);
+        return iPrev < 0 || findOffset$2(this.data, this.tokenPrecTable, token) < iPrev;
+    }
+    /// Configure the parser. Returns a new parser instance that has the
+    /// given settings modified. Settings not provided in `config` are
+    /// kept from the original parser.
+    configure(config) {
+        // Hideous reflection-based kludge to make it easy to create a
+        // slightly modified copy of a parser.
+        let copy = Object.assign(Object.create(LRParser$2.prototype), this);
+        if (config.props)
+            copy.nodeSet = this.nodeSet.extend(...config.props);
+        if (config.top) {
+            let info = this.topRules[config.top];
+            if (!info)
+                throw new RangeError(`Invalid top rule name ${config.top}`);
+            copy.top = info;
+        }
+        if (config.tokenizers)
+            copy.tokenizers = this.tokenizers.map(t => {
+                let found = config.tokenizers.find(r => r.from == t);
+                return found ? found.to : t;
+            });
+        if (config.contextTracker)
+            copy.context = config.contextTracker;
+        if (config.dialect)
+            copy.dialect = this.parseDialect(config.dialect);
+        if (config.strict != null)
+            copy.strict = config.strict;
+        if (config.wrap)
+            copy.wrappers = copy.wrappers.concat(config.wrap);
+        if (config.bufferLength != null)
+            copy.bufferLength = config.bufferLength;
+        return copy;
+    }
+    /// Tells you whether any [parse wrappers](#lr.ParserConfig.wrap)
+    /// are registered for this parser.
+    hasWrappers() {
+        return this.wrappers.length > 0;
+    }
+    /// Returns the name associated with a given term. This will only
+    /// work for all terms when the parser was generated with the
+    /// `--names` option. By default, only the names of tagged terms are
+    /// stored.
+    getName(term) {
+        return this.termNames ? this.termNames[term] : String(term <= this.maxNode && this.nodeSet.types[term].name || term);
+    }
+    /// The eof term id is always allocated directly after the node
+    /// types. @internal
+    get eofTerm() { return this.maxNode + 1; }
+    /// The type of top node produced by the parser.
+    get topNode() { return this.nodeSet.types[this.top[1]]; }
+    /// @internal
+    dynamicPrecedence(term) {
+        let prec = this.dynamicPrecedences;
+        return prec == null ? 0 : prec[term] || 0;
+    }
+    /// @internal
+    parseDialect(dialect) {
+        let values = Object.keys(this.dialects), flags = values.map(() => false);
+        if (dialect)
+            for (let part of dialect.split(" ")) {
+                let id = values.indexOf(part);
+                if (id >= 0)
+                    flags[id] = true;
+            }
+        let disabled = null;
+        for (let i = 0; i < values.length; i++)
+            if (!flags[i]) {
+                for (let j = this.dialects[values[i]], id; (id = this.data[j++]) != 65535 /* End */;)
+                    (disabled || (disabled = new Uint8Array(this.maxTerm + 1)))[id] = 1;
+            }
+        return new Dialect$2(dialect, flags, disabled);
+    }
+    /// (used by the output of the parser generator) @internal
+    static deserialize(spec) {
+        return new LRParser$2(spec);
+    }
+}
+function pair$2(data, off) { return data[off] | (data[off + 1] << 16); }
+function findOffset$2(data, start, term) {
+    for (let i = start, next; (next = data[i]) != 65535 /* End */; i++)
+        if (next == term)
+            return i - start;
+    return -1;
+}
+function findFinished$2(stacks) {
+    let best = null;
+    for (let stack of stacks) {
+        let stopped = stack.p.stoppedAt;
+        if ((stack.pos == stack.p.stream.end || stopped != null && stack.pos > stopped) &&
+            stack.p.parser.stateFlag(stack.state, 2 /* Accepting */) &&
+            (!best || best.score < stack.score))
+            best = stack;
+    }
+    return best;
+}
+
 // This file was generated by lezer-generator. You probably shouldn't edit it.
 const noSemi = 281,
   incdec = 1,
@@ -25777,7 +30508,7 @@ const space$1 = [9, 10, 11, 12, 13, 32, 133, 160, 5760, 8192, 8193, 8194, 8195, 
 const braceR = 125, braceL = 123, semicolon = 59, slash = 47, star = 42,
       plus = 43, minus = 45, dollar = 36, backtick = 96, backslash = 92;
 
-const trackNewline = new ContextTracker({
+const trackNewline = new ContextTracker$1({
   start: false,
   shift(context, term) {
     return term == LineComment$1 || term == BlockComment$1 || term == spaces ? context : term == newline$2
@@ -25785,13 +30516,13 @@ const trackNewline = new ContextTracker({
   strict: false
 });
 
-const insertSemicolon = new ExternalTokenizer((input, stack) => {
+const insertSemicolon = new ExternalTokenizer$2((input, stack) => {
   let {next} = input;
   if ((next == braceR || next == -1 || stack.context) && stack.canShift(insertSemi))
     input.acceptToken(insertSemi);
 }, {contextual: true, fallback: true});
 
-const noSemicolon = new ExternalTokenizer((input, stack) => {
+const noSemicolon = new ExternalTokenizer$2((input, stack) => {
   let {next} = input, after;
   if (space$1.indexOf(next) > -1) return
   if (next == slash && ((after = input.peek(1)) == slash || after == star)) return
@@ -25799,7 +30530,7 @@ const noSemicolon = new ExternalTokenizer((input, stack) => {
     input.acceptToken(noSemi);
 }, {contextual: true});
 
-const incdecToken = new ExternalTokenizer((input, stack) => {
+const incdecToken = new ExternalTokenizer$2((input, stack) => {
   let {next} = input;
   if (next == plus || next == minus) {
     input.advance();
@@ -25811,7 +30542,7 @@ const incdecToken = new ExternalTokenizer((input, stack) => {
   }
 }, {contextual: true});
 
-const template = new ExternalTokenizer(input => {
+const template = new ExternalTokenizer$2(input => {
   for (let afterDollar = false, i = 0;; i++) {
     let {next} = input;
     if (next < 0) {
@@ -25902,7 +30633,7 @@ const jsHighlight = styleTags({
 const spec_identifier$1 = {__proto__:null,export:18, as:23, from:29, default:32, async:37, function:38, this:48, true:56, false:56, void:66, typeof:70, null:86, super:88, new:122, await:139, yield:141, delete:142, class:152, extends:154, public:197, private:197, protected:197, readonly:199, instanceof:220, in:222, const:224, import:256, keyof:307, unique:311, infer:317, is:351, abstract:371, implements:373, type:375, let:378, var:380, interface:387, enum:391, namespace:397, module:399, declare:403, global:407, for:428, of:437, while:440, with:444, do:448, if:452, else:454, switch:458, case:464, try:470, catch:474, finally:478, return:482, throw:486, break:490, continue:494, debugger:498};
 const spec_word = {__proto__:null,async:109, get:111, set:113, public:161, private:161, protected:161, static:163, abstract:165, override:167, readonly:173, new:355};
 const spec_LessThan = {__proto__:null,"<":129};
-const parser$3 = LRParser.deserialize({
+const parser$3 = LRParser$2.deserialize({
   version: 14,
   states: "$4|O`QYOOO'QQ$IfO'#ChO'XOSO'#DVO)dQYO'#D]O)tQYO'#DhO){QYO'#DrO-xQYO'#DxOOQO'#E]'#E]O.]QWO'#E[O.bQWO'#E[OOQ$IU'#Ef'#EfO0aQ$IfO'#ItO2wQ$IfO'#IuO3eQWO'#EzO3jQpO'#FaOOQ$IU'#FS'#FSO3rO!bO'#FSO4QQWO'#FhO5_QWO'#FgOOQ$IU'#Iu'#IuOOQ$IS'#It'#ItOOQQ'#J^'#J^O5dQWO'#HpO5iQ$I[O'#HqOOQQ'#Ih'#IhOOQQ'#Hr'#HrQ`QYOOO){QYO'#DjO5qQWO'#G[O5vQ#tO'#CmO6UQWO'#EZO6aQWO'#EgO6fQ#tO'#FRO7QQWO'#G[O7VQWO'#G`O7bQWO'#G`O7pQWO'#GcO7pQWO'#GdO7pQWO'#GfO5qQWO'#GiO8aQWO'#GlO9oQWO'#CdO:PQWO'#GyO:XQWO'#HPO:XQWO'#HRO`QYO'#HTO:XQWO'#HVO:XQWO'#HYO:^QWO'#H`O:cQ$I]O'#HfO){QYO'#HhO:nQ$I]O'#HjO:yQ$I]O'#HlO5iQ$I[O'#HnO){QYO'#DWOOOS'#Ht'#HtO;UOSO,59qOOQ$IU,59q,59qO=gQbO'#ChO=qQYO'#HuO>UQWO'#IvO@TQbO'#IvO'dQYO'#IvO@[QWO,59wO@rQ&jO'#DbOAkQWO'#E]OAxQWO'#JROBTQWO'#JQOBTQWO'#JQOB]QWO,5:yOBbQWO'#JPOBiQWO'#DyO5vQ#tO'#EZOBwQWO'#EZOCSQ`O'#FROOQ$IU,5:S,5:SOC[QYO,5:SOEYQ$IfO,5:^OEvQWO,5:dOFaQ$I[O'#JOO7VQWO'#I}OFhQWO'#I}OFpQWO,5:xOFuQWO'#I}OGTQYO,5:vOITQWO'#EWOJ_QWO,5:vOKnQWO'#DlOKuQYO'#DqOLPQ&jO,5;PO){QYO,5;POOQQ'#Er'#ErOOQQ'#Et'#EtO){QYO,5;RO){QYO,5;RO){QYO,5;RO){QYO,5;RO){QYO,5;RO){QYO,5;RO){QYO,5;RO){QYO,5;RO){QYO,5;RO){QYO,5;RO){QYO,5;ROOQQ'#Ex'#ExOLXQYO,5;cOOQ$IU,5;h,5;hOOQ$IU,5;i,5;iONXQWO,5;iOOQ$IU,5;j,5;jO){QYO'#IPON^Q$I[O,5<TONxQWO,5;RO){QYO,5;fO! bQpO'#JVO! PQpO'#JVO! iQpO'#JVO! zQpO,5;qOOOO,5;{,5;{O!!YQYO'#FcOOOO'#IO'#IOO3rO!bO,5;nO!!aQpO'#FeOOQ$IU,5;n,5;nO!!}Q,UO'#CrOOQ$IU'#Cu'#CuO!#bQWO'#CuO!#gOSO'#CyO!$TQ#tO,5<QO!$[QWO,5<SO!%hQWO'#FrO!%uQWO'#FsO!%zQWO'#FwO!&yQ&jO'#F{O!'lQ,UO'#IqOOQ$IU'#Iq'#IqO!'vQWO'#IpO!(UQWO'#IoOOQ$IU'#Cs'#CsOOQ$IU'#C|'#C|O!(^QWO'#DOOJdQWO'#FjOJdQWO'#FlO!(cQWO'#FnO!(hQWO'#FoO!(mQWO'#FuOJdQWO'#FzO!(rQWO'#E^O!)ZQWO,5<RO`QYO,5>[OOQQ'#Ik'#IkOOQQ,5>],5>]OOQQ-E;p-E;pO!+VQ$IfO,5:UOOQ$IS'#Cp'#CpO!+vQ#tO,5<vOOQO'#Cf'#CfO!,XQWO'#CqO!,aQ$I[O'#IlO5_QWO'#IlO:^QWO,59XO!,rQpO,59XO!,zQ#tO,59XO5vQ#tO,59XO!-VQWO,5:vO!-_QWO'#GxO!-mQWO'#JbO){QYO,5;kO!-uQ&jO,5;mO!-zQWO,5=cO!.PQWO,5=cO!.UQWO,5=cO5iQ$I[O,5=cO5qQWO,5<vO!.dQWO'#E_O!.xQ&jO'#E`OOQ$IS'#JP'#JPO!/ZQ$I[O'#J_O5iQ$I[O,5<zO7pQWO,5=QOOQO'#Cr'#CrO!/fQpO,5<}O!/nQ#tO,5=OO!/yQWO,5=QO!0OQ`O,5=TO:^QWO'#GnO5qQWO'#GpO!0WQWO'#GpO5vQ#tO'#GsO!0]QWO'#GsOOQQ,5=W,5=WO!0bQWO'#GtO!0jQWO'#CmO!0oQWO,59OO!0yQWO,59OO!2{QYO,59OOOQQ,59O,59OO!3YQ$I[O,59OO){QYO,59OO!3eQYO'#G{OOQQ'#G|'#G|OOQQ'#G}'#G}O`QYO,5=eO!3uQWO,5=eO){QYO'#DxO`QYO,5=kO`QYO,5=mO!3zQWO,5=oO`QYO,5=qO!4PQWO,5=tO!4UQYO,5=zOOQQ,5>Q,5>QO){QYO,5>QO5iQ$I[O,5>SOOQQ,5>U,5>UO!8VQWO,5>UOOQQ,5>W,5>WO!8VQWO,5>WOOQQ,5>Y,5>YO!8[Q`O,59rOOOS-E;r-E;rOOQ$IU1G/]1G/]O!8aQbO,5>aO'dQYO,5>aOOQO,5>f,5>fO!8kQYO'#HuOOQO-E;s-E;sO!8xQWO,5?bO!9QQbO,5?bO!9XQWO,5?lOOQ$IU1G/c1G/cO!9aQpO'#DTOOQO'#Ix'#IxO){QYO'#IxO!:OQpO'#IxO!:mQpO'#DcO!;OQ&jO'#DcO!=ZQYO'#DcO!=bQWO'#IwO!=jQWO,59|O!=oQWO'#EaO!=}QWO'#JSO!>VQWO,5:zO!>mQ&jO'#DcO){QYO,5?mO!>wQWO'#HzOOQO-E;x-E;xO!9XQWO,5?lOOQ$IS1G0e1G0eO!@TQ&jO'#D|OOQ$IU,5:e,5:eO){QYO,5:eOITQWO,5:eO!@[QWO,5:eO:^QWO,5:uO!,rQpO,5:uO!,zQ#tO,5:uO5vQ#tO,5:uOOQ$IU1G/n1G/nOOQ$IU1G0O1G0OOOQ$IS'#EV'#EVO){QYO,5?jO!@gQ$I[O,5?jO!@xQ$I[O,5?jO!APQWO,5?iO!AXQWO'#H|O!APQWO,5?iOOQ$IS1G0d1G0dO7VQWO,5?iOOQ$IU1G0b1G0bO!AsQ$IfO1G0bO!BdQ$IdO,5:rOOQ$IU'#Fq'#FqO!CQQ$IfO'#IqOGTQYO1G0bO!EPQ#tO'#IyO!EZQWO,5:WO!E`QbO'#IzO){QYO'#IzO!EjQWO,5:]OOQ$IU'#DT'#DTOOQ$IU1G0k1G0kO!EoQWO1G0kO!HQQ$IfO1G0mO!HXQ$IfO1G0mO!JlQ$IfO1G0mO!JsQ$IfO1G0mO!LzQ$IfO1G0mO!M_Q$IfO1G0mO#!OQ$IfO1G0mO#!VQ$IfO1G0mO#$jQ$IfO1G0mO#$qQ$IfO1G0mO#&fQ$IfO1G0mO#)`Q7^O'#ChO#+ZQ7^O1G0}O#-UQ7^O'#IuOOQ$IU1G1T1G1TO#-iQ$IfO,5>kOOQ$IS-E;}-E;}O#.YQ$IfO1G0mOOQ$IU1G0m1G0mO#0[Q$IfO1G1QO#0{QpO,5;sO#1QQpO,5;tO#1VQpO'#F[O#1kQWO'#FZOOQO'#JW'#JWOOQO'#H}'#H}O#1pQpO1G1]OOQ$IU1G1]1G1]OOOO1G1f1G1fO#2OQ7^O'#ItO#2YQWO,5;}OLXQYO,5;}OOOO-E;|-E;|OOQ$IU1G1Y1G1YOOQ$IU,5<P,5<PO#2_QpO,5<POOQ$IU,59a,59aOITQWO'#C{OOOS'#Hs'#HsO#2dOSO,59eOOQ$IU,59e,59eO){QYO1G1lO!(hQWO'#IRO#2oQWO,5<eOOQ$IU,5<b,5<bOOQO'#GV'#GVOJdQWO,5<pOOQO'#GX'#GXOJdQWO,5<rOJdQWO,5<tOOQO1G1n1G1nO#2zQ`O'#CpO#3_Q`O,5<^O#3fQWO'#JZO5qQWO'#JZO#3tQWO,5<`OJdQWO,5<_O#3yQ`O'#FqO#4WQ`O'#J[O#4bQWO'#J[OITQWO'#J[O#4gQWO,5<cOOQ$IS'#Dg'#DgO#4lQWO'#FtO#4wQpO'#F|O!&tQ&jO'#F|O!&tQ&jO'#GOO#5YQWO'#GPO!(mQWO'#GSO#5_Q$I[O'#ITO#5jQ&jO,5<gOOQ$IU,5<g,5<gO#5qQ&jO'#F|O#6PQ&jO'#F}O#6XQ&jO'#F}OOQ$IU,5<u,5<uOJdQWO,5?[OJdQWO,5?[O#6^QWO'#IUO#6iQWO,5?ZOOQ$IU'#Ch'#ChO#7]Q#tO,59jOOQ$IU,59j,59jO#8OQ#tO,5<UO#8qQ#tO,5<WO#8{QWO,5<YOOQ$IU,5<Z,5<ZO#9QQWO,5<aO#9VQ#tO,5<fOGTQYO1G1mO#9gQWO1G1mOOQQ1G3v1G3vOOQ$IU1G/p1G/pONXQWO1G/pOOQQ1G2b1G2bOITQWO1G2bO){QYO1G2bOITQWO1G2bO#9lQWO1G2bO#9zQWO,59]O#;TQWO'#EWOOQ$IS,5?W,5?WO#;_Q$I[O,5?WOOQQ1G.s1G.sO:^QWO1G.sO!,rQpO1G.sO!,zQ#tO1G.sO#;pQWO1G0bO#;uQWO'#ChO#<QQWO'#JcO#<YQWO,5=dO#<_QWO'#JcO#<dQWO'#JcO#<lQWO'#I^O#<zQWO,5?|O#=SQbO1G1VOOQ$IU1G1X1G1XO5qQWO1G2}O#=ZQWO1G2}O#=`QWO1G2}O#=eQWO1G2}OOQQ1G2}1G2}O#=jQ#tO1G2bO7VQWO'#JQO7VQWO'#EaO7VQWO'#IWO#={Q$I[O,5?yOOQQ1G2f1G2fO!/yQWO1G2lOITQWO1G2iO#>WQWO1G2iOOQQ1G2j1G2jOITQWO1G2jO#>]QWO1G2jO#>eQ&jO'#GhOOQQ1G2l1G2lO!&tQ&jO'#IYO!0OQ`O1G2oOOQQ1G2o1G2oOOQQ,5=Y,5=YO#>mQ#tO,5=[O5qQWO,5=[O#5YQWO,5=_O5_QWO,5=_O!,rQpO,5=_O!,zQ#tO,5=_O5vQ#tO,5=_O#?OQWO'#JaO#?ZQWO,5=`OOQQ1G.j1G.jO#?`Q$I[O1G.jO#?kQWO1G.jO#?pQWO1G.jO5iQ$I[O1G.jO#?xQbO,5@OO#@SQWO,5@OO#@_QYO,5=gO#@fQWO,5=gO7VQWO,5@OOOQQ1G3P1G3PO`QYO1G3POOQQ1G3V1G3VOOQQ1G3X1G3XO:XQWO1G3ZO#@kQYO1G3]O#DfQYO'#H[OOQQ1G3`1G3`O#DsQWO'#HbO:^QWO'#HdOOQQ1G3f1G3fO#D{QYO1G3fO5iQ$I[O1G3lOOQQ1G3n1G3nOOQ$IS'#Fx'#FxO5iQ$I[O1G3pO5iQ$I[O1G3rOOOS1G/^1G/^O#HyQ`O,5<TO#IRQbO1G3{OOQO1G4Q1G4QO){QYO,5>aO#I]QWO1G4|O#IeQWO1G5WO#ImQWO,5?dOLXQYO,5:{O7VQWO,5:{O:^QWO,59}OLXQYO,59}O!,rQpO,59}O#IrQ7^O,59}OOQO,5:{,5:{O#I|Q&jO'#HvO#JdQWO,5?cOOQ$IU1G/h1G/hO#JlQ&jO'#H{O#KQQWO,5?nOOQ$IS1G0f1G0fO!;OQ&jO,59}O#KYQbO1G5XO7VQWO,5>fOOQ$IS'#ES'#ESO#KdQ$ItO'#ETO!?{Q&jO'#D}OOQO'#Hy'#HyO#LOQ&jO,5:hOOQ$IU,5:h,5:hO#LVQ&jO'#D}O#LhQ&jO'#D}O#LoQ&jO'#EYO#LrQ&jO'#ETO#MPQ&jO'#ETO!?{Q&jO'#ETO#MdQWO1G0PO#MiQ`O1G0POOQ$IU1G0P1G0PO){QYO1G0POITQWO1G0POOQ$IU1G0a1G0aO:^QWO1G0aO!,rQpO1G0aO!,zQ#tO1G0aO#MpQ$IfO1G5UO){QYO1G5UO#NQQ$I[O1G5UO#NcQWO1G5TO7VQWO,5>hOOQO,5>h,5>hO#NkQWO,5>hOOQO-E;z-E;zO#NcQWO1G5TO#NyQ$IfO,59jO$!xQ$IfO,5<UO$$zQ$IfO,5<WO$&|Q$IfO,5<fOOQ$IU7+%|7+%|O$)UQ$IfO7+%|O$)uQWO'#HwO$*PQWO,5?eOOQ$IU1G/r1G/rO$*XQYO'#HxO$*fQWO,5?fO$*nQbO,5?fOOQ$IU1G/w1G/wOOQ$IU7+&V7+&VO$*xQ7^O,5:^O){QYO7+&iO$+SQ7^O,5:UOOQO1G1_1G1_OOQO1G1`1G1`O$+aQMhO,5;vOLXQYO,5;uOOQO-E;{-E;{OOQ$IU7+&w7+&wOOOO7+'Q7+'QOOOO1G1i1G1iO$+lQWO1G1iOOQ$IU1G1k1G1kO$+qQ`O,59gOOOS-E;q-E;qOOQ$IU1G/P1G/PO$+xQ$IfO7+'WOOQ$IU,5>m,5>mO$,iQWO,5>mOOQ$IU1G2P1G2PP$,nQWO'#IRPOQ$IU-E<P-E<PO$-_Q#tO1G2[O$.QQ#tO1G2^O$.[Q#tO1G2`OOQ$IU1G1x1G1xO$.cQWO'#IQO$.qQWO,5?uO$.qQWO,5?uO$.yQWO,5?uO$/UQWO,5?uOOQO1G1z1G1zO$/dQ#tO1G1yO$/tQWO'#ISO$0UQWO,5?vOITQWO,5?vO$0^Q`O,5?vOOQ$IU1G1}1G1}OOQ$IS,5<h,5<hOOQ$IS,5<i,5<iO$0hQWO,5<iO#5TQWO,5<iO!,rQpO,5<hO$0mQWO,5<jOOQ$IS,5<k,5<kO$0hQWO,5<nOOQO,5>o,5>oOOQO-E<R-E<ROOQ$IU1G2R1G2RO!&tQ&jO,5<hO$0uQWO,5<iO!&tQ&jO,5<jO!&tQ&jO,5<iO$1QQ#tO1G4vO$1[Q#tO1G4vOOQO,5>p,5>pOOQO-E<S-E<SO!-uQ&jO,59lO){QYO,59lO$1iQWO1G1tOJdQWO1G1{O$1nQ$IfO7+'XOOQ$IU7+'X7+'XOGTQYO7+'XOOQ$IU7+%[7+%[O$2_Q`O'#J]O#MdQWO7+'|O$2iQWO7+'|O$2qQ`O7+'|OOQQ7+'|7+'|OITQWO7+'|O){QYO7+'|OITQWO7+'|OOQO1G.w1G.wO$2{Q$IdO'#ChO$3`Q$IdO,5<lO$4QQWO,5<lOOQ$IS1G4r1G4rOOQQ7+$_7+$_O:^QWO7+$_O!,rQpO7+$_OGTQYO7+%|O$4VQWO'#I]O$4hQWO,5?}OOQO1G3O1G3OO5qQWO,5?}O$4hQWO,5?}O$4pQWO,5?}OOQO,5>x,5>xOOQO-E<[-E<[OOQ$IU7+&q7+&qO$4uQWO7+(iO5iQ$I[O7+(iO5qQWO7+(iO$4zQWO7+(iO$5PQWO7+'|OOQ$IS,5>r,5>rOOQ$IS-E<U-E<UOOQQ7+(W7+(WO$5_Q$IdO7+(TOITQWO7+(TO$5iQ`O7+(UOOQQ7+(U7+(UOITQWO7+(UO$5pQWO'#J`O$5{QWO,5=SOOQO,5>t,5>tOOQO-E<W-E<WOOQQ7+(Z7+(ZO$6uQ&jO'#GqOOQQ1G2v1G2vOITQWO1G2vO){QYO1G2vOITQWO1G2vO$6|QWO1G2vO$7[Q#tO1G2vO5iQ$I[O1G2yO#5YQWO1G2yO5_QWO1G2yO!,rQpO1G2yO!,zQ#tO1G2yO$7mQWO'#I[O$7xQWO,5?{O$8QQ&jO,5?{OOQ$IS1G2z1G2zOOQQ7+$U7+$UO$8YQWO7+$UO5iQ$I[O7+$UO$8_QWO7+$UO){QYO1G5jO){QYO1G5kO$8dQYO1G3RO$8kQWO1G3RO$8pQYO1G3RO$8wQ$I[O1G5jOOQQ7+(k7+(kO5iQ$I[O7+(uO`QYO7+(wOOQQ'#Jf'#JfOOQQ'#I_'#I_O$9RQYO,5=vOOQQ,5=v,5=vO){QYO'#H]O$9`QWO'#H_OOQQ,5=|,5=|O7VQWO,5=|OOQQ,5>O,5>OOOQQ7+)Q7+)QOOQQ7+)W7+)WOOQQ7+)[7+)[OOQQ7+)^7+)^OOQO1G5O1G5OO$9eQ7^O1G0gO$9oQWO1G0gOOQO1G/i1G/iO$9zQ7^O1G/iO:^QWO1G/iOLXQYO'#DcOOQO,5>b,5>bOOQO-E;t-E;tOOQO,5>g,5>gOOQO-E;y-E;yO!,rQpO1G/iO:^QWO,5:iOOQO,5:o,5:oO){QYO,5:oO$:UQ$I[O,5:oO$:aQ$I[O,5:oO!,rQpO,5:iOOQO-E;w-E;wOOQ$IU1G0S1G0SO!?{Q&jO,5:iO$:oQ&jO,5:iO$;QQ$ItO,5:oO$;lQ&jO,5:iO!?{Q&jO,5:oOOQO,5:t,5:tO$;sQ&jO,5:oO$<QQ$I[O,5:oOOQ$IU7+%k7+%kO#MdQWO7+%kO#MiQ`O7+%kOOQ$IU7+%{7+%{O:^QWO7+%{O!,rQpO7+%{O$<fQ$IfO7+*pO){QYO7+*pOOQO1G4S1G4SO7VQWO1G4SO$<vQWO7+*oO$=OQ$IfO1G2[O$?QQ$IfO1G2^O$ASQ$IfO1G1yO$C[Q#tO,5>cOOQO-E;u-E;uO$CfQbO,5>dO){QYO,5>dOOQO-E;v-E;vO$CpQWO1G5QO$CxQ7^O1G0bO$FPQ7^O1G0mO$FWQ7^O1G0mO$HXQ7^O1G0mO$H`Q7^O1G0mO$JTQ7^O1G0mO$JhQ7^O1G0mO$LuQ7^O1G0mO$L|Q7^O1G0mO$N}Q7^O1G0mO% UQ7^O1G0mO%!yQ7^O1G0mO%#^Q$IfO<<JTO%#}Q7^O1G0mO%&UQ7^O'#IqO%'nQ7^O1G1QOLXQYO'#F^OOQO'#JX'#JXOOQO1G1b1G1bO%'{QWO1G1aO%(QQ7^O,5>kOOOO7+'T7+'TOOOS1G/R1G/ROOQ$IU1G4X1G4XOJdQWO7+'zO%([QWO,5>lO5qQWO,5>lOOQO-E<O-E<OO%(jQWO1G5aO%(jQWO1G5aO%(rQWO1G5aO%(}Q`O,5>nO%)XQWO,5>nOITQWO,5>nOOQO-E<Q-E<QO%)^Q`O1G5bO%)hQWO1G5bOOQ$IS1G2T1G2TO$0hQWO1G2TOOQ$IS1G2S1G2SO%)pQWO1G2UOITQWO1G2UOOQ$IS1G2Y1G2YO!,rQpO1G2SO#5TQWO1G2TO%)uQWO1G2UO%)}QWO1G2TOJdQWO7+*bOOQ$IU1G/W1G/WO%*YQWO1G/WOOQ$IU7+'`7+'`O%*_Q#tO7+'gO%*oQ$IfO<<JsOOQ$IU<<Js<<JsOITQWO'#IVO%+`QWO,5?wOOQQ<<Kh<<KhOITQWO<<KhO#MdQWO<<KhO%+hQWO<<KhO%+pQ`O<<KhOITQWO1G2WOOQQ<<Gy<<GyO:^QWO<<GyO%+zQ$IfO<<IhOOQ$IU<<Ih<<IhOOQO,5>w,5>wO%,kQWO,5>wO%,pQWO,5>wOOQO-E<Z-E<ZO%,xQWO1G5iO%,xQWO1G5iO5qQWO1G5iO%-QQWO<<LTOOQQ<<LT<<LTO%-VQWO<<LTO5iQ$I[O<<LTO){QYO<<KhOITQWO<<KhOOQQ<<Ko<<KoO$5_Q$IdO<<KoOOQQ<<Kp<<KpO$5iQ`O<<KpO%-[Q&jO'#IXO%-gQWO,5?zOLXQYO,5?zOOQQ1G2n1G2nO#KdQ$ItO'#ETO!?{Q&jO'#GrOOQO'#IZ'#IZO%-oQ&jO,5=]OOQQ,5=],5=]O%-vQ&jO'#ETO%.RQ&jO'#ETO%.jQ&jO'#ETO%.tQ&jO'#GrO%/VQWO7+(bO%/[QWO7+(bO%/dQ`O7+(bOOQQ7+(b7+(bOITQWO7+(bO){QYO7+(bOITQWO7+(bO%/nQWO7+(bOOQQ7+(e7+(eO5iQ$I[O7+(eO#5YQWO7+(eO5_QWO7+(eO!,rQpO7+(eO%/|QWO,5>vOOQO-E<Y-E<YOOQO'#Gu'#GuO%0XQWO1G5gO5iQ$I[O<<GpOOQQ<<Gp<<GpO%0aQWO<<GpO%0fQWO7++UO%0kQWO7++VOOQQ7+(m7+(mO%0pQWO7+(mO%0uQYO7+(mO%0|QWO7+(mO){QYO7++UO){QYO7++VOOQQ<<La<<LaOOQQ<<Lc<<LcOOQQ-E<]-E<]OOQQ1G3b1G3bO%1RQWO,5=wOOQQ,5=y,5=yO%1WQWO1G3hOLXQYO7+&ROOQO7+%T7+%TO%1]Q7^O1G5XO:^QWO7+%TOOQO1G0T1G0TO%1gQ$IfO1G0ZOOQO1G0Z1G0ZO){QYO1G0ZO%1qQ$I[O1G0ZO:^QWO1G0TO!,rQpO1G0TO!?{Q&jO1G0TO%1|Q$I[O1G0ZO%2[Q&jO1G0TO%2mQ$I[O1G0ZO%3RQ$ItO1G0ZO%3]Q&jO1G0TO!?{Q&jO1G0ZOOQ$IU<<IV<<IVOOQ$IU<<Ig<<IgO:^QWO<<IgO%3dQ$IfO<<N[OOQO7+)n7+)nO%3tQ$IfO7+'gO%5|QbO1G4OO%6WQ7^O7+%|O%6|Q7^O,59jO%8zQ7^O,5<UO%:{Q7^O,5<WO%<hQ7^O,5<fO%>WQ7^O7+'WO%>eQ7^O7+'XO%>rQWO,5;xOOQO7+&{7+&{O%>wQ#tO<<KfOOQO1G4W1G4WO%?XQWO1G4WO%?dQWO1G4WO%?rQWO7+*{O%?rQWO7+*{OITQWO1G4YO%?zQ`O1G4YO%@UQWO7+*|OOQ$IS7+'o7+'oO$0hQWO7+'pO%@^Q`O7+'pOOQ$IS7+'n7+'nO$0hQWO7+'oO%@eQWO7+'pOITQWO7+'pO#5TQWO7+'oO%@jQ#tO<<M|OOQ$IU7+$r7+$rO%@tQ`O,5>qOOQO-E<T-E<TO#MdQWOANASOOQQANASANASOITQWOANASO%AOQ$IdO7+'rOOQQAN=eAN=eO5qQWO1G4cOOQO1G4c1G4cO%A`QWO1G4cO%AeQWO7++TO%AeQWO7++TO5iQ$I[OANAoO%AmQWOANAoOOQQANAoANAoO%ArQWOANASO%AzQ`OANASOOQQANAZANAZOOQQANA[ANA[O%BUQWO,5>sOOQO-E<V-E<VO%BaQ7^O1G5fO#5YQWO,5=^O5_QWO,5=^O!,rQpO,5=^OOQO-E<X-E<XOOQQ1G2w1G2wO$;QQ$ItO,5:oO!?{Q&jO,5=^O%BkQ&jO,5=^O%B|Q&jO,5:oOOQQ<<K|<<K|OITQWO<<K|O%/VQWO<<K|O%CWQWO<<K|O%C`Q`O<<K|O){QYO<<K|OITQWO<<K|OOQQ<<LP<<LPO5iQ$I[O<<LPO#5YQWO<<LPO5_QWO<<LPO%CjQ&jO1G4bO%CrQWO7++ROOQQAN=[AN=[O5iQ$I[OAN=[OOQQ<<Np<<NpOOQQ<<Nq<<NqOOQQ<<LX<<LXO%CzQWO<<LXO%DPQYO<<LXO%DWQWO<<NpO%D]QWO<<NqOOQQ1G3c1G3cO:^QWO7+)SO%DbQ7^O<<ImOOQO<<Ho<<HoOOQO7+%u7+%uO%1gQ$IfO7+%uO){QYO7+%uOOQO7+%o7+%oO:^QWO7+%oO!,rQpO7+%oO%DlQ$I[O7+%uO!?{Q&jO7+%oO%DwQ$I[O7+%uO%EVQ&jO7+%oO%EhQ$I[O7+%uOOQ$IUAN?RAN?RO%E|Q$IfO<<KfO%HUQ7^O<<JTO%HcQ7^O1G1yO%JgQ7^O1G2[O%LhQ7^O1G2^O%NTQ7^O<<JsO%NbQ7^O<<IhOOQO1G1d1G1dOOQO7+)r7+)rO%NoQWO7+)rO%NzQWO<<NgO& SQ`O7+)tOOQ$IS<<K[<<K[O$0hQWO<<K[OOQ$IS<<KZ<<KZO& ^Q`O<<K[O$0hQWO<<KZOOQQG26nG26nO#MdQWOG26nOOQO7+)}7+)}O5qQWO7+)}O& eQWO<<NoOOQQG27ZG27ZO5iQ$I[OG27ZOITQWOG26nOLXQYO1G4_O& mQWO7++QO5iQ$I[O1G2xO#5YQWO1G2xO5_QWO1G2xO!,rQpO1G2xO!?{Q&jO1G2xO%3RQ$ItO1G0ZO& uQ&jO1G2xO%/VQWOANAhOOQQANAhANAhOITQWOANAhO&!WQWOANAhO&!`Q`OANAhOOQQANAkANAkO5iQ$I[OANAkO#5YQWOANAkOOQO'#Gv'#GvOOQO7+)|7+)|OOQQG22vG22vOOQQANAsANAsO&!jQWOANAsOOQQAND[AND[OOQQAND]AND]OOQQ<<Ln<<LnOOQO<<Ia<<IaO%1gQ$IfO<<IaOOQO<<IZ<<IZO:^QWO<<IZO){QYO<<IaO!,rQpO<<IZO&!oQ$I[O<<IaO!?{Q&jO<<IZO&!zQ$I[O<<IaO&#YQ7^O7+'gOOQO<<M^<<M^OOQ$ISAN@vAN@vO$0hQWOAN@vOOQ$ISAN@uAN@uOOQQLD,YLD,YOOQO<<Mi<<MiOOQQLD,uLD,uO#MdQWOLD,YO&$xQ7^O7+)yOOQO7+(d7+(dO5iQ$I[O7+(dO#5YQWO7+(dO5_QWO7+(dO!,rQpO7+(dO!?{Q&jO7+(dOOQQG27SG27SO%/VQWOG27SOITQWOG27SOOQQG27VG27VO5iQ$I[OG27VOOQQG27_G27_OOQOAN>{AN>{OOQOAN>uAN>uO%1gQ$IfOAN>{O:^QWOAN>uO){QYOAN>{O!,rQpOAN>uO&%SQ$I[OAN>{O&%_Q7^O<<KfOOQ$ISG26bG26bOOQQ!$( t!$( tOOQO<<LO<<LOO5iQ$I[O<<LOO#5YQWO<<LOO5_QWO<<LOO!,rQpO<<LOOOQQLD,nLD,nO%/VQWOLD,nOOQQLD,qLD,qOOQOG24gG24gOOQOG24aG24aO%1gQ$IfOG24gO:^QWOG24aO){QYOG24gO&&}QMhO,5:rO&'tQ!LQO'#IqOOQOANAjANAjO5iQ$I[OANAjO#5YQWOANAjO5_QWOANAjOOQQ!$(!Y!$(!YOOQOLD*RLD*ROOQOLD){LD){O%1gQ$IfOLD*RO&(hQMhO,59jO&)[QMhO,5<UO&*OQMhO,5<WO&*rQMhO,5<fOOQOG27UG27UO5iQ$I[OG27UO#5YQWOG27UOOQO!$'Mm!$'MmO&+iQMhO1G2[O&,]QMhO1G2^O&-PQMhO1G1yOOQOLD,pLD,pO5iQ$I[OLD,pO&-vQMhO7+'gOOQO!$(![!$(![O&.mQMhO<<KfOLXQYO'#DrO&/dQbO'#ItOLXQYO'#DjO&/kQ$IfO'#ChO&0UQbO'#ChO&0fQYO,5:vO&2fQWO'#EWOLXQYO,5;ROLXQYO,5;ROLXQYO,5;ROLXQYO,5;ROLXQYO,5;ROLXQYO,5;ROLXQYO,5;ROLXQYO,5;ROLXQYO,5;ROLXQYO,5;ROLXQYO,5;ROLXQYO'#IPO&3pQWO,5<TO&5SQWO,5;ROLXQYO,5;fO!(^QWO'#DOO!(^QWO'#DOO!(^QWO'#DOOITQWO'#FjO&2fQWO'#FjO&3xQWO'#FjOITQWO'#FlO&2fQWO'#FlO&3xQWO'#FlOITQWO'#FzO&2fQWO'#FzO&3xQWO'#FzOLXQYO,5?mO&0fQYO1G0bO&5ZQ7^O'#ChOLXQYO1G1lOITQWO,5<pO&2fQWO,5<pO&3xQWO,5<pOITQWO,5<rO&2fQWO,5<rO&3xQWO,5<rOITQWO,5<_O&2fQWO,5<_O&3xQWO,5<_O&0fQYO1G1mOLXQYO7+&iOITQWO1G1{O&2fQWO1G1{O&3xQWO1G1{O&0fQYO7+'XO&0fQYO7+%|OITQWO7+'zO&2fQWO7+'zO&3xQWO7+'zO&5eQWO7+'pO&5eQWO<<K[O&5eQWOAN@vO&5jQWO'#E[O&5oQWO'#E[O&5wQWO'#EzO&5|QWO'#EgO&6RQWO'#JRO&6^QWO'#JPO&6iQWO,5:vO&6nQ#tO,5<QO&6uQWO'#FsO&6zQWO'#FsO&7PQWO'#FsO&7UQWO,5<RO&7^QWO,5:vO&7fQ7^O1G0}O&7mQWO,5<aO&7rQWO,5<aO&7wQWO,5<aO&7|QWO1G1mO&8RQWO1G0bO&8WQ#tO1G2`O&8_Q#tO1G2`O&8fQ#tO1G2`O&8mQWO1G2UO&8rQ`O7+'pO&8yQWO7+'pO&9OQ`O<<K[O4QQWO'#FhO5_QWO'#FgOBwQWO'#EZOLXQYO,5;cO!(mQWO'#FuO!(mQWO'#FuO!(mQWO'#FuOJdQWO,5<tOJdQWO,5<tOJdQWO,5<tO&9VQWO,5<jOITQWO1G2UO&9_QWO1G2UOITQWO7+'pO!&tQ&jO'#GOO!&tQ&jO,5<j",
   stateData: "&:]~O'YOS'ZOSTOSUOS~OPTOQTOXyO]cO_hObnOcmOhcOjTOkcOlcOqTOsTOxRO{cO|cO}cO!TSO!_kO!dUO!gTO!hTO!iTO!jTO!kTO!nlO#dsO#tpO#x^O%PqO%RtO%TrO%UrO%XuO%ZvO%^wO%_wO%axO%nzO%t{O%v|O%x}O%z!OO%}!PO&T!QO&Z!RO&]!SO&_!TO&a!UO&c!VO']PO'fQO'oYO'|aO~OP[XZ[X_[Xj[Xu[Xv[Xx[X!R[X!a[X!b[X!d[X!j[X!{[X#WdX#[[X#][X#^[X#_[X#`[X#a[X#b[X#c[X#e[X#g[X#i[X#j[X#o[X'W[X'f[X'p[X'w[X'x[X~O!]$lX~P$zOR!WO'U!XO'V!ZO~OPTOQTO]cOb!kOc!jOhcOjTOkcOlcOqTOsTOxRO{cO|cO}cO!T!bO!_kO!dUO!gTO!hTO!iTO!jTO!kTO!n!iO#t!lO#x^O']![O'fQO'oYO'|aO~O!Q!`O!R!]O!O'jP!O'tP~P'dO!S!mO~P`OPTOQTO]cOb!kOc!jOhcOjTOkcOlcOqTOsTOxRO{cO|cO}cO!T!bO!_kO!dUO!gTO!hTO!iTO!jTO!kTO!n!iO#t!lO#x^O']9WO'fQO'oYO'|aO~OPTOQTO]cOb!kOc!jOhcOjTOkcOlcOqTOsTOxRO{cO|cO}cO!T!bO!_kO!dUO!gTO!hTO!iTO!jTO!kTO!n!iO#t!lO#x^O'fQO'oYO'|aO~O!Q!rO#U!uO#V!rO']9XO!c'qP~P+{O#W!vO~O!]!wO#W!vO~OP#^OZ#dOj#ROu!{Ov!{Ox!|O!R#bO!a#TO!b!yO!d!zO!j#^O#[#PO#]#QO#^#QO#_#QO#`#SO#a#TO#b#TO#c#TO#e#UO#g#WO#i#YO#j#ZO'fQO'p#[O'w!}O'x#OO~O_'hX'W'hX!c'hX!O'hX!T'hX%Q'hX!]'hX~P.jO!{#eO#o#eOP'iXZ'iX_'iXj'iXu'iXv'iXx'iX!R'iX!a'iX!b'iX!d'iX!j'iX#['iX#]'iX#^'iX#_'iX#`'iX#a'iX#b'iX#e'iX#g'iX#i'iX#j'iX'f'iX'p'iX'w'iX'x'iX~O#c'iX'W'iX!O'iX!c'iXn'iX!T'iX%Q'iX!]'iX~P0zO!{#eO~O#z#fO$R#jO~O!T#kO#x^O$U#lO$W#nO~O]#qOh$OOj#rOk#qOl#qOq$POs$QOx#xO!T#yO!_$VO!d#vO#V$WO#t$TO$_$RO$a$SO$d$UO']#pO'f#sO'a'cP~O!d$XO~O!]$ZO~O_$[O'W$[O~O']$`O~O!d$XO']$`O'^$bO'b$cO~Oc$iO!d$XO']$`O~O#c#TO~O]$rOu$nO!T$kO!d$mO%R$qO']$`O'^$bO^(UP~O!n$sO~Ox$tO!T$uO']$`O~Ox$tO!T$uO%Z$yO']$`O~O']$zO~O#dsO%RtO%TrO%UrO%XuO%ZvO%^wO%_wO~Ob%TOc%SO!n%QO%P%RO%c%PO~P7uOb%WOcmO!T%VO!nlO#dsO%PqO%TrO%UrO%XuO%ZvO%^wO%_wO%axO~O`%ZO!{%^O%R%XO'^$bO~P8tO!d%_O!g%cO~O!d%dO~O!TSO~O_$[O'T%lO'W$[O~O_$[O'T%oO'W$[O~O_$[O'T%qO'W$[O~OR!WO'U!XO'V%uO~OP[XZ[Xj[Xu[Xv[Xx[X!R[X!RdX!a[X!b[X!d[X!j[X!{[X!{dX#WdX#[[X#][X#^[X#_[X#`[X#a[X#b[X#c[X#e[X#g[X#i[X#j[X#o[X'f[X'p[X'w[X'x[X~O!O[X!OdX~P;aO!Q%wO!O&iX!O&nX!R&iX!R&nX~P'dO!R%yO!O'jX~OP#^OZ#dOj#ROu!{Ov!{Ox!|O!R%yO!a#TO!b!yO!d!zO!j#^O#[#PO#]#QO#^#QO#_#QO#`#SO#a#TO#b#TO#c#TO#e#UO#g#WO#i#YO#j#ZO'fQO'p#[O'w!}O'x#OO~O!O'jX~P>^O!O&OO~Ox&RO!W&]O!X&UO!Y&UO'^$bO~O]&SOk&SO!Q&VO'g&PO!S'kP!S'vP~P@aO!O'sX!R'sX!]'sX!c'sX'p'sX~O!{'sX#W#PX!S'sX~PAYO!{&^O!O'uX!R'uX~O!R&_O!O'tX~O!O&bO~O!{#eO~PAYOS&fO!T&cO!o&eO']$`O~Oc&kO!d$XO']$`O~Ou$nO!d$mO~O!S&lO~P`Ou!{Ov!{Ox!|O!b!yO!d!zO'fQOP!faZ!faj!fa!R!fa!a!fa!j!fa#[!fa#]!fa#^!fa#_!fa#`!fa#a!fa#b!fa#c!fa#e!fa#g!fa#i!fa#j!fa'p!fa'w!fa'x!fa~O_!fa'W!fa!O!fa!c!fan!fa!T!fa%Q!fa!]!fa~PCcO!c&mO~O!]!wO!{&oO'p&nO!R'rX_'rX'W'rX~O!c'rX~PE{O!R&sO!c'qX~O!c&uO~Ox$tO!T$uO#V&vO']$`O~OPTOQTO]cOb!kOc!jOhcOjTOkcOlcOqTOsTOxRO{cO|cO}cO!TSO!_kO!dUO!gTO!hTO!iTO!jTO!kTO!n!iO#t!lO#x^O']9WO'fQO'oYO'|aO~O]#qOh$OOj#rOk#qOl#qOq$POs9kOx#xO!T#yO!_;RO!d#vO#V9tO#t$TO$_9nO$a9qO$d$UO']&zO'f#sO~O#W&|O~O]#qOh$OOj#rOk#qOl#qOq$POs$QOx#xO!T#yO!_$VO!d#vO#V$WO#t$TO$_$RO$a$SO$d$UO']&zO'f#sO~O'a'mP~PJdO!Q'QO!c'nP~P){O'g'SO'oYO~OP9TOQ9TO]cOb;POc!jOhcOj9TOkcOlcOq9TOs9TOxRO{cO|cO}cO!T!bO!_9VO!dUO!g9TO!h9TO!i9TO!j9TO!k9TO!n!iO#t!lO#x^O']'bO'fQO'oYO'|:}O~O!d!zO~O!R#bO_$]a'W$]a!c$]a!O$]a!T$]a%Q$]a!]$]a~O#d'iO~PITO!]'kO!T'yX#w'yX#z'yX$R'yX~Ou'lO~P! POu'lO!T'yX#w'yX#z'yX$R'yX~O!T'nO#w'rO#z'mO$R'sO~O!Q'vO~PLXO#z#fO$R'yO~Ou$eXx$eX!b$eX'p$eX'w$eX'x$eX~OSfX!RfX!{fX'afX'a$eX~P!!iOk'{O~OR'|O'U'}O'V(PO~Ou(ROx(SO'p#[O'w(UO'x(WO~O'a(QO~P!#rO'a(ZO~O]#qOh$OOj#rOk#qOl#qOq$POs9kOx#xO!T#yO!_;RO!d#vO#V9tO#t$TO$_9nO$a9qO$d$UO'f#sO~O!Q(_O']([O!c'}P~P!$aO#W(aO~O!Q(eO'](bO!O(OP~P!$aOj(sOx(kO!W(qO!X(jO!Y(jO!d(hO!x(rO$w(mO'^$bO'g(gO~O!S(pO~P!&XO!b!yOu'eXx'eX'p'eX'w'eX'x'eX!R'eX!{'eX~O'a'eX#m'eX~P!'QOS(vO!{(uO!R'dX'a'dX~O!R(wO'a'cX~O'](yO~O!d)OO~O']&zO~O!d(hO~Ox$tO!Q!rO!T$uO#U!uO#V!rO']$`O!c'qP~O!]!wO#W)SO~OP#^OZ#dOj#ROu!{Ov!{Ox!|O!a#TO!b!yO!d!zO!j#^O#[#PO#]#QO#^#QO#_#QO#`#SO#a#TO#b#TO#c#TO#e#UO#g#WO#i#YO#j#ZO'fQO'p#[O'w!}O'x#OO~O_!^a!R!^a'W!^a!O!^a!c!^an!^a!T!^a%Q!^a!]!^a~P!)cOS)[O!T&cO!o)ZO%Q)YO'b$cO~O']$zO'a'cP~O!])_O!T'`X_'`X!R'`X'W'`X~O!d$XO'b$cO~O!d$XO']$`O'b$cO~O!]!wO#W&|O~O])jO%R)kO'])gO!S(VP~O!R)lO^(UX~O'g'SO~OZ)pO~O^)qO~O!T$kO']$`O'^$bO^(UP~Ox$tO!Q)vO!R&_O!T$uO']$`O!O'tP~O]&YOk&YO!Q)wO'g'SO!S'vP~O!R)xO_(RX'W(RX~O!{)|O'b$cO~OS*PO!T#yO'b$cO~O!T*RO~Ou*TO!TSO~O!n*YO~Oc*_O~O'](yO!S(TP~Oc$iO~O%RtO']$zO~P8tOZ*eO^*dO~OPTOQTO]cObnOcmOhcOjTOkcOlcOqTOsTOxRO{cO|cO}cO!_kO!dUO!gTO!hTO!iTO!jTO!kTO!nlO#x^O%PqO'fQO'oYO'|aO~O!T!bO#t!lO']9WO~P!1RO^*dO_$[O'W$[O~O_*iO#d*kO%T*kO%U*kO~P){O!d%_O~O%t*pO~O!T*rO~O&V*tO&X*uOP&SaQ&SaX&Sa]&Sa_&Sab&Sac&Sah&Saj&Sak&Sal&Saq&Sas&Sax&Sa{&Sa|&Sa}&Sa!T&Sa!_&Sa!d&Sa!g&Sa!h&Sa!i&Sa!j&Sa!k&Sa!n&Sa#d&Sa#t&Sa#x&Sa%P&Sa%R&Sa%T&Sa%U&Sa%X&Sa%Z&Sa%^&Sa%_&Sa%a&Sa%n&Sa%t&Sa%v&Sa%x&Sa%z&Sa%}&Sa&T&Sa&Z&Sa&]&Sa&_&Sa&a&Sa&c&Sa'S&Sa']&Sa'f&Sa'o&Sa'|&Sa!S&Sa%{&Sa`&Sa&Q&Sa~O']*zO~On*}O~O!O&ia!R&ia~P!)cO!Q+RO!O&iX!R&iX~P){O!R%yO!O'ja~O!O'ja~P>^O!R&_O!O'ta~O!RwX!R!ZX!SwX!S!ZX!]wX!]!ZX!d!ZX!{wX'b!ZX~O!]+WO!{+VO!R#TX!R'lX!S#TX!S'lX!]'lX!d'lX'b'lX~O!]+YO!d$XO'b$cO!R!VX!S!VX~O]&QOk&QOx&RO'g(gO~OP9TOQ9TO]cOb;POc!jOhcOj9TOkcOlcOq9TOs9TOxRO{cO|cO}cO!T!bO!_9VO!dUO!g9TO!h9TO!i9TO!j9TO!k9TO!n!iO#t!lO#x^O'fQO'oYO'|:}O~O']9yO~P!;^O!R+^O!S'kX~O!S+`O~O!]+WO!{+VO!R#TX!S#TX~O!R+aO!S'vX~O!S+cO~O]&QOk&QOx&RO'^$bO'g(gO~O!X+dO!Y+dO~P!>[Ox$tO!Q+fO!T$uO']$`O!O&nX!R&nX~O_+jO!W+mO!X+iO!Y+iO!r+qO!s+oO!t+pO!u+nO!x+rO'^$bO'g(gO'o+gO~O!S+lO~P!?]OS+wO!T&cO!o+vO~O!{+}O!R'ra!c'ra_'ra'W'ra~O!]!wO~P!@gO!R&sO!c'qa~Ox$tO!Q,QO!T$uO#U,SO#V,QO']$`O!R&pX!c&pX~O_#Oi!R#Oi'W#Oi!O#Oi!c#Oin#Oi!T#Oi%Q#Oi!]#Oi~P!)cO#W!za!R!za!c!za!{!za!T!za_!za'W!za!O!za~P!#rO#W'eXP'eXZ'eX_'eXj'eXv'eX!a'eX!d'eX!j'eX#['eX#]'eX#^'eX#_'eX#`'eX#a'eX#b'eX#c'eX#e'eX#g'eX#i'eX#j'eX'W'eX'f'eX!c'eX!O'eX!T'eXn'eX%Q'eX!]'eX~P!'QO!R,]O'a'mX~P!#rO'a,_O~O!R,`O!c'nX~P!)cO!c,cO~O!O,dO~OP#^Ou!{Ov!{Ox!|O!b!yO!d!zO!j#^O'fQOZ#Zi_#Zij#Zi!R#Zi!a#Zi#]#Zi#^#Zi#_#Zi#`#Zi#a#Zi#b#Zi#c#Zi#e#Zi#g#Zi#i#Zi#j#Zi'W#Zi'p#Zi'w#Zi'x#Zi!O#Zi!c#Zin#Zi!T#Zi%Q#Zi!]#Zi~O#[#Zi~P!EtO#[#PO~P!EtOP#^Ou!{Ov!{Ox!|O!b!yO!d!zO!j#^O#[#PO#]#QO#^#QO#_#QO'fQOZ#Zi_#Zi!R#Zi!a#Zi#`#Zi#a#Zi#b#Zi#c#Zi#e#Zi#g#Zi#i#Zi#j#Zi'W#Zi'p#Zi'w#Zi'x#Zi!O#Zi!c#Zin#Zi!T#Zi%Q#Zi!]#Zi~Oj#Zi~P!H`Oj#RO~P!H`OP#^Oj#ROu!{Ov!{Ox!|O!b!yO!d!zO!j#^O#[#PO#]#QO#^#QO#_#QO#`#SO'fQO_#Zi!R#Zi#e#Zi#g#Zi#i#Zi#j#Zi'W#Zi'p#Zi'w#Zi'x#Zi!O#Zi!c#Zin#Zi!T#Zi%Q#Zi!]#Zi~OZ#Zi!a#Zi#a#Zi#b#Zi#c#Zi~P!JzOZ#dO!a#TO#a#TO#b#TO#c#TO~P!JzOP#^OZ#dOj#ROu!{Ov!{Ox!|O!a#TO!b!yO!d!zO!j#^O#[#PO#]#QO#^#QO#_#QO#`#SO#a#TO#b#TO#c#TO#e#UO'fQO_#Zi!R#Zi#g#Zi#i#Zi#j#Zi'W#Zi'p#Zi'x#Zi!O#Zi!c#Zin#Zi!T#Zi%Q#Zi!]#Zi~O'w#Zi~P!MrO'w!}O~P!MrOP#^OZ#dOj#ROu!{Ov!{Ox!|O!a#TO!b!yO!d!zO!j#^O#[#PO#]#QO#^#QO#_#QO#`#SO#a#TO#b#TO#c#TO#e#UO#g#WO'fQO'w!}O_#Zi!R#Zi#i#Zi#j#Zi'W#Zi'p#Zi!O#Zi!c#Zin#Zi!T#Zi%Q#Zi!]#Zi~O'x#Zi~P#!^O'x#OO~P#!^OP#^OZ#dOj#ROu!{Ov!{Ox!|O!a#TO!b!yO!d!zO!j#^O#[#PO#]#QO#^#QO#_#QO#`#SO#a#TO#b#TO#c#TO#e#UO#g#WO#i#YO'fQO'w!}O'x#OO~O_#Zi!R#Zi#j#Zi'W#Zi'p#Zi!O#Zi!c#Zin#Zi!T#Zi%Q#Zi!]#Zi~P#$xOP[XZ[Xj[Xu[Xv[Xx[X!a[X!b[X!d[X!j[X!{[X#WdX#[[X#][X#^[X#_[X#`[X#a[X#b[X#c[X#e[X#g[X#i[X#j[X#o[X'f[X'p[X'w[X'x[X!R[X!S[X~O#m[X~P#']OP#^OZ9iOj9^Ou!{Ov!{Ox!|O!a9`O!b!yO!d!zO!j#^O#[9[O#]9]O#^9]O#_9]O#`9_O#a9`O#b9`O#c9`O#e9aO#g9cO#i9eO#j9fO'fQO'p#[O'w!}O'x#OO~O#m,fO~P#)gOP'iXZ'iXj'iXu'iXv'iXx'iX!a'iX!b'iX!d'iX!j'iX#['iX#]'iX#^'iX#_'iX#`'iX#a'iX#b'iX#e'iX#g'iX#i'iX#j'iX'f'iX'p'iX'w'iX'x'iX!R'iX~O!{9jO#o9jO#c'iX#m'iX!S'iX~P#+bO_&sa!R&sa'W&sa!c&san&sa!O&sa!T&sa%Q&sa!]&sa~P!)cOP#ZiZ#Zi_#Zij#Ziv#Zi!R#Zi!a#Zi!b#Zi!d#Zi!j#Zi#[#Zi#]#Zi#^#Zi#_#Zi#`#Zi#a#Zi#b#Zi#c#Zi#e#Zi#g#Zi#i#Zi#j#Zi'W#Zi'f#Zi!O#Zi!c#Zin#Zi!T#Zi%Q#Zi!]#Zi~P!#rO_#ni!R#ni'W#ni!O#ni!c#nin#ni!T#ni%Q#ni!]#ni~P!)cO#z,hO~O#z,iO~O!]'kO!{,jO!T$OX#w$OX#z$OX$R$OX~O!Q,kO~O!T'nO#w,mO#z'mO$R,nO~O!R9gO!S'hX~P#)gO!S,oO~O$R,qO~OR'|O'U'}O'V,tO~O],wOk,wO!O,xO~O!RdX!]dX!cdX!c$eX'pdX~P!!iO!c-OO~P!#rO!R-PO!]!wO'p&nO!c'}X~O!c-UO~O!O$eX!R$eX!]$lX~P!!iO!R-WO!O(OX~P!#rO!]-YO~O!O-[O~O!Q(_O']$`O!c'}P~Oj-`O!]!wO!d$XO'b$cO'p&nO~O!])_O~O_$[O!R-eO'W$[O~O!S-gO~P!&XO!X-hO!Y-hO'^$bO'g(gO~Ox-jO'g(gO~O!x-kO~O']$zO!R&xX'a&xX~O!R(wO'a'ca~Ou-pOv-pOx-qO'pra'wra'xra!Rra!{ra~O'ara#mra~P#6qOu(ROx(SO'p$^a'w$^a'x$^a!R$^a!{$^a~O'a$^a#m$^a~P#7gOu(ROx(SO'p$`a'w$`a'x$`a!R$`a!{$`a~O'a$`a#m$`a~P#8YO]-rO~O#W-sO~O'a$na!R$na#m$na!{$na~P!#rO#W-vO~OS.PO!T&cO!o.OO%Q-}O~O'a.QO~O]#qOj#rOk#qOl#qOq$POs9kOx#xO!T#yO!_;RO!d#vO#V9tO#t$TO$_9nO$a9qO$d$UO'f#sO~Oh.SO'].RO~P#:PO!])_O!T'`a_'`a!R'`a'W'`a~O#W.YO~OZ[X!RdX!SdX~O!R.ZO!S(VX~O!S.]O~OZ.^O~O].`O'])gO~O!T$kO']$`O^'QX!R'QX~O!R)lO^(Ua~O!c.cO~P!)cO].eO~OZ.fO~O^.gO~OS.PO!T&cO!o.OO%Q-}O'b$cO~O!R)xO_(Ra'W(Ra~O!{.mO~OS.pO!T#yO~O'g'SO!S(SP~OS.zO!T.vO!o.yO%Q.xO'b$cO~OZ/UO!R/SO!S(TX~O!S/VO~O^/XO_$[O'W$[O~O]/YO~O]/ZO'](yO~O#c/[O%r/]O~P0zO!{#eO#c/[O%r/]O~O_/^O~P){O_/`O~O%{/dOP%yiQ%yiX%yi]%yi_%yib%yic%yih%yij%yik%yil%yiq%yis%yix%yi{%yi|%yi}%yi!T%yi!_%yi!d%yi!g%yi!h%yi!i%yi!j%yi!k%yi!n%yi#d%yi#t%yi#x%yi%P%yi%R%yi%T%yi%U%yi%X%yi%Z%yi%^%yi%_%yi%a%yi%n%yi%t%yi%v%yi%x%yi%z%yi%}%yi&T%yi&Z%yi&]%yi&_%yi&a%yi&c%yi'S%yi']%yi'f%yi'o%yi'|%yi!S%yi`%yi&Q%yi~O`/jO!S/hO&Q/iO~P`O!TSO!d/lO~O&X*uOP&SiQ&SiX&Si]&Si_&Sib&Sic&Sih&Sij&Sik&Sil&Siq&Sis&Six&Si{&Si|&Si}&Si!T&Si!_&Si!d&Si!g&Si!h&Si!i&Si!j&Si!k&Si!n&Si#d&Si#t&Si#x&Si%P&Si%R&Si%T&Si%U&Si%X&Si%Z&Si%^&Si%_&Si%a&Si%n&Si%t&Si%v&Si%x&Si%z&Si%}&Si&T&Si&Z&Si&]&Si&_&Si&a&Si&c&Si'S&Si']&Si'f&Si'o&Si'|&Si!S&Si%{&Si`&Si&Q&Si~O!R#bOn$]a~O!O&ii!R&ii~P!)cO!R%yO!O'ji~O!R&_O!O'ti~O!O/rO~O!R!Va!S!Va~P#)gO]&QOk&QO!Q/xO'g(gO!R&jX!S&jX~P@aO!R+^O!S'ka~O]&YOk&YO!Q)wO'g'SO!R&oX!S&oX~O!R+aO!S'va~O!O'ui!R'ui~P!)cO_$[O!]!wO!d$XO!j0SO!{0QO'W$[O'b$cO'p&nO~O!S0VO~P!?]O!X0WO!Y0WO'^$bO'g(gO'o+gO~O!W0XO~P#LVO!TSO!W0XO!u0ZO!x0[O~P#LVO!W0XO!s0^O!t0^O!u0ZO!x0[O~P#LVO!T&cO~O!T&cO~P!#rO!R'ri!c'ri_'ri'W'ri~P!)cO!{0gO!R'ri!c'ri_'ri'W'ri~O!R&sO!c'qi~Ox$tO!T$uO#V0iO']$`O~O#WraPraZra_rajra!ara!bra!dra!jra#[ra#]ra#^ra#_ra#`ra#ara#bra#cra#era#gra#ira#jra'Wra'fra!cra!Ora!Tranra%Qra!]ra~P#6qO#W$^aP$^aZ$^a_$^aj$^av$^a!a$^a!b$^a!d$^a!j$^a#[$^a#]$^a#^$^a#_$^a#`$^a#a$^a#b$^a#c$^a#e$^a#g$^a#i$^a#j$^a'W$^a'f$^a!c$^a!O$^a!T$^an$^a%Q$^a!]$^a~P#7gO#W$`aP$`aZ$`a_$`aj$`av$`a!a$`a!b$`a!d$`a!j$`a#[$`a#]$`a#^$`a#_$`a#`$`a#a$`a#b$`a#c$`a#e$`a#g$`a#i$`a#j$`a'W$`a'f$`a!c$`a!O$`a!T$`an$`a%Q$`a!]$`a~P#8YO#W$naP$naZ$na_$naj$nav$na!R$na!a$na!b$na!d$na!j$na#[$na#]$na#^$na#_$na#`$na#a$na#b$na#c$na#e$na#g$na#i$na#j$na'W$na'f$na!c$na!O$na!T$na!{$nan$na%Q$na!]$na~P!#rO_#Oq!R#Oq'W#Oq!O#Oq!c#Oqn#Oq!T#Oq%Q#Oq!]#Oq~P!)cO!R&kX'a&kX~PJdO!R,]O'a'ma~O!Q0qO!R&lX!c&lX~P){O!R,`O!c'na~O!R,`O!c'na~P!)cO#m!fa!S!fa~PCcO#m!^a!R!^a!S!^a~P#)gO!T1UO#x^O$P1VO~O!S1ZO~On1[O~P!#rO_$Yq!R$Yq'W$Yq!O$Yq!c$Yqn$Yq!T$Yq%Q$Yq!]$Yq~P!)cO!O1]O~O],wOk,wO~Ou(ROx(SO'x(WO'p$xi'w$xi!R$xi!{$xi~O'a$xi#m$xi~P$,vOu(ROx(SO'p$zi'w$zi'x$zi!R$zi!{$zi~O'a$zi#m$zi~P$-iO#m1^O~P!#rO!Q1`O']$`O!R&tX!c&tX~O!R-PO!c'}a~O!R-PO!]!wO!c'}a~O!R-PO!]!wO'p&nO!c'}a~O'a$gi!R$gi#m$gi!{$gi~P!#rO!Q1gO'](bO!O&vX!R&vX~P!$aO!R-WO!O(Oa~O!R-WO!O(Oa~P!#rO!]!wO~O!]!wO#c1oO~Oj1rO!]!wO'p&nO~O!R'di'a'di~P!#rO!{1uO!R'di'a'di~P!#rO!c1xO~O_$Zq!R$Zq'W$Zq!O$Zq!c$Zqn$Zq!T$Zq%Q$Zq!]$Zq~P!)cO!R1|O!T(PX~P!#rO!T&cO%Q2PO~O!T&cO%Q2PO~P!#rO!T$eX$u[X_$eX!R$eX'W$eX~P!!iO$u2TOugXxgX!TgX'pgX'wgX'xgX_gX!RgX'WgX~O$u2TO~O]2ZO%R2[O'])gO!R'PX!S'PX~O!R.ZO!S(Va~OZ2`O~O^2aO~O]2dO~OS2fO!T&cO!o2eO%Q2PO~O_$[O'W$[O~P!#rO!T#yO~P!#rO!R2kO!{2mO!S(SX~O!S2nO~Ox;]O!W2wO!X2pO!Y2pO!r2vO!s2uO!t2uO!x2tO'^$bO'g(gO'o+gO~O!S2sO~P$6QOS3OO!T.vO!o2}O%Q2|O~OS3OO!T.vO!o2}O%Q2|O'b$cO~O'](yO!R'OX!S'OX~O!R/SO!S(Ta~O]3YO'g3XO~O]3ZO~O^3]O~O!c3`O~P){O_3bO~O_3bO~P){O#c3dO%r3eO~PE{O`/jO!S3iO&Q/iO~P`O!]3kO~O!R#Ti!S#Ti~P#)gO!{3mO!R#Ti!S#Ti~O!R!Vi!S!Vi~P#)gO_$[O!{3tO'W$[O~O_$[O!]!wO!{3tO'W$[O~O!X3xO!Y3xO'^$bO'g(gO'o+gO~O_$[O!]!wO!d$XO!j3yO!{3tO'W$[O'b$cO'p&nO~O!W3zO~P$:oO!W3zO!u3}O!x4OO~P$:oO_$[O!]!wO!j3yO!{3tO'W$[O'p&nO~O!R'rq!c'rq_'rq'W'rq~P!)cO!R&sO!c'qq~O#W$xiP$xiZ$xi_$xij$xiv$xi!a$xi!b$xi!d$xi!j$xi#[$xi#]$xi#^$xi#_$xi#`$xi#a$xi#b$xi#c$xi#e$xi#g$xi#i$xi#j$xi'W$xi'f$xi!c$xi!O$xi!T$xin$xi%Q$xi!]$xi~P$,vO#W$ziP$ziZ$zi_$zij$ziv$zi!a$zi!b$zi!d$zi!j$zi#[$zi#]$zi#^$zi#_$zi#`$zi#a$zi#b$zi#c$zi#e$zi#g$zi#i$zi#j$zi'W$zi'f$zi!c$zi!O$zi!T$zin$zi%Q$zi!]$zi~P$-iO#W$giP$giZ$gi_$gij$giv$gi!R$gi!a$gi!b$gi!d$gi!j$gi#[$gi#]$gi#^$gi#_$gi#`$gi#a$gi#b$gi#c$gi#e$gi#g$gi#i$gi#j$gi'W$gi'f$gi!c$gi!O$gi!T$gi!{$gin$gi%Q$gi!]$gi~P!#rO!R&ka'a&ka~P!#rO!R&la!c&la~P!)cO!R,`O!c'ni~O#m#Oi!R#Oi!S#Oi~P#)gOP#^Ou!{Ov!{Ox!|O!b!yO!d!zO!j#^O'fQOZ#Zij#Zi!a#Zi#]#Zi#^#Zi#_#Zi#`#Zi#a#Zi#b#Zi#c#Zi#e#Zi#g#Zi#i#Zi#j#Zi#m#Zi'p#Zi'w#Zi'x#Zi!R#Zi!S#Zi~O#[#Zi~P$DVO#[9[O~P$DVOP#^Ou!{Ov!{Ox!|O!b!yO!d!zO!j#^O#[9[O#]9]O#^9]O#_9]O'fQOZ#Zi!a#Zi#`#Zi#a#Zi#b#Zi#c#Zi#e#Zi#g#Zi#i#Zi#j#Zi#m#Zi'p#Zi'w#Zi'x#Zi!R#Zi!S#Zi~Oj#Zi~P$F_Oj9^O~P$F_OP#^Oj9^Ou!{Ov!{Ox!|O!b!yO!d!zO!j#^O#[9[O#]9]O#^9]O#_9]O#`9_O'fQO#e#Zi#g#Zi#i#Zi#j#Zi#m#Zi'p#Zi'w#Zi'x#Zi!R#Zi!S#Zi~OZ#Zi!a#Zi#a#Zi#b#Zi#c#Zi~P$HgOZ9iO!a9`O#a9`O#b9`O#c9`O~P$HgOP#^OZ9iOj9^Ou!{Ov!{Ox!|O!a9`O!b!yO!d!zO!j#^O#[9[O#]9]O#^9]O#_9]O#`9_O#a9`O#b9`O#c9`O#e9aO'fQO#g#Zi#i#Zi#j#Zi#m#Zi'p#Zi'x#Zi!R#Zi!S#Zi~O'w#Zi~P$J{O'w!}O~P$J{OP#^OZ9iOj9^Ou!{Ov!{Ox!|O!a9`O!b!yO!d!zO!j#^O#[9[O#]9]O#^9]O#_9]O#`9_O#a9`O#b9`O#c9`O#e9aO#g9cO'fQO'w!}O#i#Zi#j#Zi#m#Zi'p#Zi!R#Zi!S#Zi~O'x#Zi~P$MTO'x#OO~P$MTOP#^OZ9iOj9^Ou!{Ov!{Ox!|O!a9`O!b!yO!d!zO!j#^O#[9[O#]9]O#^9]O#_9]O#`9_O#a9`O#b9`O#c9`O#e9aO#g9cO#i9eO'fQO'w!}O'x#OO~O#j#Zi#m#Zi'p#Zi!R#Zi!S#Zi~P% ]O_#ky!R#ky'W#ky!O#ky!c#kyn#ky!T#ky%Q#ky!]#ky~P!)cOP#ZiZ#Zij#Ziv#Zi!a#Zi!b#Zi!d#Zi!j#Zi#[#Zi#]#Zi#^#Zi#_#Zi#`#Zi#a#Zi#b#Zi#c#Zi#e#Zi#g#Zi#i#Zi#j#Zi#m#Zi'f#Zi!R#Zi!S#Zi~P!#rO!b!yOu'eXx'eX'p'eX'w'eX'x'eX!S'eX~OP'eXZ'eXj'eXv'eX!a'eX!d'eX!j'eX#['eX#]'eX#^'eX#_'eX#`'eX#a'eX#b'eX#c'eX#e'eX#g'eX#i'eX#j'eX#m'eX'f'eX!R'eX~P%%mO#m#ni!R#ni!S#ni~P#)gO!S4`O~O!R&sa!S&sa~P#)gO!]!wO'p&nO!R&ta!c&ta~O!R-PO!c'}i~O!R-PO!]!wO!c'}i~O!O&va!R&va~P!#rO!]4gO~O!R-WO!O(Oi~P!#rO!R-WO!O(Oi~O!O4kO~O!]!wO#c4pO~Oj4qO!]!wO'p&nO~O!O4sO~O'a$iq!R$iq#m$iq!{$iq~P!#rO_$Zy!R$Zy'W$Zy!O$Zy!c$Zyn$Zy!T$Zy%Q$Zy!]$Zy~P!)cO!R1|O!T(Pa~O!T&cO%Q4xO~O!T&cO%Q4xO~P!#rO_#Oy!R#Oy'W#Oy!O#Oy!c#Oyn#Oy!T#Oy%Q#Oy!]#Oy~P!)cOZ4{O~O]4}O'])gO~O!R.ZO!S(Vi~O]5QO~O^5RO~O'g'SO!R&{X!S&{X~O!R2kO!S(Sa~O!S5`O~P$6QOx;^O'g(gO'o+gO~O!W5cO!X5bO!Y5bO!x0[O'^$bO'g(gO'o+gO~O!s5dO!t5dO~P%.RO!X5bO!Y5bO'^$bO'g(gO'o+gO~O!T.vO~O!T.vO%Q5fO~O!T.vO%Q5fO~P!#rOS5kO!T.vO!o5jO%Q5fO~OZ5pO!R'Oa!S'Oa~O!R/SO!S(Ti~O]5sO~O!c5tO~O!c5uO~O!c5vO~O!c5vO~P){O_5xO~O!]5{O~O!c5|O~O!R'ui!S'ui~P#)gO_$[O'W$[O~P!)cO_$[O!{6RO'W$[O~O_$[O!]!wO!{6RO'W$[O~O!X6WO!Y6WO'^$bO'g(gO'o+gO~O_$[O!]!wO!j6XO!{6RO'W$[O'p&nO~O!d$XO'b$cO~P%2mO!W6YO~P%2[O!R'ry!c'ry_'ry'W'ry~P!)cO#W$iqP$iqZ$iq_$iqj$iqv$iq!R$iq!a$iq!b$iq!d$iq!j$iq#[$iq#]$iq#^$iq#_$iq#`$iq#a$iq#b$iq#c$iq#e$iq#g$iq#i$iq#j$iq'W$iq'f$iq!c$iq!O$iq!T$iq!{$iqn$iq%Q$iq!]$iq~P!#rO!R&li!c&li~P!)cO#m#Oq!R#Oq!S#Oq~P#)gOu-pOv-pOx-qO'pra'wra'xra!Sra~OPraZrajra!ara!bra!dra!jra#[ra#]ra#^ra#_ra#`ra#ara#bra#cra#era#gra#ira#jra#mra'fra!Rra~P%6eOu(ROx(SO'p$^a'w$^a'x$^a!S$^a~OP$^aZ$^aj$^av$^a!a$^a!b$^a!d$^a!j$^a#[$^a#]$^a#^$^a#_$^a#`$^a#a$^a#b$^a#c$^a#e$^a#g$^a#i$^a#j$^a#m$^a'f$^a!R$^a~P%8fOu(ROx(SO'p$`a'w$`a'x$`a!S$`a~OP$`aZ$`aj$`av$`a!a$`a!b$`a!d$`a!j$`a#[$`a#]$`a#^$`a#_$`a#`$`a#a$`a#b$`a#c$`a#e$`a#g$`a#i$`a#j$`a#m$`a'f$`a!R$`a~P%:gOP$naZ$naj$nav$na!a$na!b$na!d$na!j$na#[$na#]$na#^$na#_$na#`$na#a$na#b$na#c$na#e$na#g$na#i$na#j$na#m$na'f$na!R$na!S$na~P!#rO#m$Yq!R$Yq!S$Yq~P#)gO#m$Zq!R$Zq!S$Zq~P#)gO!S6dO~O'a$|y!R$|y#m$|y!{$|y~P!#rO!]!wO!R&ti!c&ti~O!]!wO'p&nO!R&ti!c&ti~O!R-PO!c'}q~O!O&vi!R&vi~P!#rO!R-WO!O(Oq~O!O6jO~P!#rO!O6jO~O!R'dy'a'dy~P!#rO!R&ya!T&ya~P!#rO!T$tq_$tq!R$tq'W$tq~P!#rOZ6qO~O!R.ZO!S(Vq~O]6tO~O!T&cO%Q6uO~O!T&cO%Q6uO~P!#rO!{6vO!R&{a!S&{a~O!R2kO!S(Si~P#)gO!X6|O!Y6|O'^$bO'g(gO'o+gO~O!W7OO!x4OO~P%BkO!T.vO%Q7RO~O!T.vO%Q7RO~P!#rO]7YO'g7XO~O!R/SO!S(Tq~O!c7[O~O!c7[O~P){O!c7^O~O!c7_O~O!R#Ty!S#Ty~P#)gO_$[O!{7eO'W$[O~O_$[O!]!wO!{7eO'W$[O~O!X7hO!Y7hO'^$bO'g(gO'o+gO~O_$[O!]!wO!j7iO!{7eO'W$[O'p&nO~O#W$|yP$|yZ$|y_$|yj$|yv$|y!R$|y!a$|y!b$|y!d$|y!j$|y#[$|y#]$|y#^$|y#_$|y#`$|y#a$|y#b$|y#c$|y#e$|y#g$|y#i$|y#j$|y'W$|y'f$|y!c$|y!O$|y!T$|y!{$|yn$|y%Q$|y!]$|y~P!#rO#m#ky!R#ky!S#ky~P#)gOP$giZ$gij$giv$gi!a$gi!b$gi!d$gi!j$gi#[$gi#]$gi#^$gi#_$gi#`$gi#a$gi#b$gi#c$gi#e$gi#g$gi#i$gi#j$gi#m$gi'f$gi!R$gi!S$gi~P!#rOu(ROx(SO'x(WO'p$xi'w$xi!S$xi~OP$xiZ$xij$xiv$xi!a$xi!b$xi!d$xi!j$xi#[$xi#]$xi#^$xi#_$xi#`$xi#a$xi#b$xi#c$xi#e$xi#g$xi#i$xi#j$xi#m$xi'f$xi!R$xi~P%JROu(ROx(SO'p$zi'w$zi'x$zi!S$zi~OP$ziZ$zij$ziv$zi!a$zi!b$zi!d$zi!j$zi#[$zi#]$zi#^$zi#_$zi#`$zi#a$zi#b$zi#c$zi#e$zi#g$zi#i$zi#j$zi#m$zi'f$zi!R$zi~P%LSO#m$Zy!R$Zy!S$Zy~P#)gO#m#Oy!R#Oy!S#Oy~P#)gO!]!wO!R&tq!c&tq~O!R-PO!c'}y~O!O&vq!R&vq~P!#rO!O7mO~P!#rO!R.ZO!S(Vy~O!R2kO!S(Sq~O!X7yO!Y7yO'^$bO'g(gO'o+gO~O!T.vO%Q7|O~O!T.vO%Q7|O~P!#rO!c8PO~O_$[O!{8UO'W$[O~O_$[O!]!wO!{8UO'W$[O~OP$iqZ$iqj$iqv$iq!a$iq!b$iq!d$iq!j$iq#[$iq#]$iq#^$iq#_$iq#`$iq#a$iq#b$iq#c$iq#e$iq#g$iq#i$iq#j$iq#m$iq'f$iq!R$iq!S$iq~P!#rO!R&{q!S&{q~P#)gO_$[O!{8hO'W$[O~OP$|yZ$|yj$|yv$|y!a$|y!b$|y!d$|y!j$|y#[$|y#]$|y#^$|y#_$|y#`$|y#a$|y#b$|y#c$|y#e$|y#g$|y#i$|y#j$|y#m$|y'f$|y!R$|y!S$|y~P!#rO!S!za!W!za!X!za!Y!za!r!za!s!za!t!za!x!za'^!za'g!za'o!za~P!#rO!W'eX!X'eX!Y'eX!r'eX!s'eX!t'eX!x'eX'^'eX'g'eX'o'eX~P%%mO!Wra!Xra!Yra!rra!sra!tra!xra'^ra'gra'ora~P%6eO!W$^a!X$^a!Y$^a!r$^a!s$^a!t$^a!x$^a'^$^a'g$^a'o$^a~P%8fO!W$`a!X$`a!Y$`a!r$`a!s$`a!t$`a!x$`a'^$`a'g$`a'o$`a~P%:gO!S$na!W$na!X$na!Y$na!r$na!s$na!t$na!x$na'^$na'g$na'o$na~P!#rO!W$xi!X$xi!Y$xi!r$xi!s$xi!t$xi!x$xi'^$xi'g$xi'o$xi~P%JRO!W$zi!X$zi!Y$zi!r$zi!s$zi!t$zi!x$zi'^$zi'g$zi'o$zi~P%LSO!S$gi!W$gi!X$gi!Y$gi!r$gi!s$gi!t$gi!x$gi'^$gi'g$gi'o$gi~P!#rO!S$iq!W$iq!X$iq!Y$iq!r$iq!s$iq!t$iq!x$iq'^$iq'g$iq'o$iq~P!#rO!S$|y!W$|y!X$|y!Y$|y!r$|y!s$|y!t$|y!x$|y'^$|y'g$|y'o$|y~P!#rOn'hX~P.jOn[X!O[X!c[X%r[X!T[X%Q[X!][X~P$zO!]dX!c[X!cdX'pdX~P;aOP9TOQ9TO]cOb;POc!jOhcOj9TOkcOlcOq9TOs9TOxRO{cO|cO}cO!TSO!_9VO!dUO!g9TO!h9TO!i9TO!j9TO!k9TO!n!iO#t!lO#x^O']'bO'fQO'oYO'|:}O~O]#qOh$OOj#rOk#qOl#qOq$POs9lOx#xO!T#yO!_;SO!d#vO#V9uO#t$TO$_9oO$a9rO$d$UO']&zO'f#sO~O!R9gO!S$]a~O]#qOh$OOj#rOk#qOl#qOq$POs9mOx#xO!T#yO!_;TO!d#vO#V9vO#t$TO$_9pO$a9sO$d$UO']&zO'f#sO~O#d'iO~P&3xO!S[X!SdX~P;aO!]9ZO~O#W9YO~O!]!wO#W9YO~O!{9jO~O#c9`O~O!{9wO!R'uX!S'uX~O!{9jO!R'sX!S'sX~O#W9xO~O'a9zO~P!#rO#W:RO~O#W:SO~O#W:TO~O!]!wO#W:UO~O!]!wO#W9xO~O#m:VO~P#)gO#W:WO~O#W:XO~O#W:YO~O#W:ZO~O#W:[O~O#m:]O~P!#rO#m:^O~P!#rO#m:_O~P!#rO!O:`O~O!O:aO~P!#rO!O:aO~O!O:bO~P!#rO!]!wO#c;YO~O!]!wO#c;[O~O#x~!b!r!t!u#U#V'|$_$a$d$u%P%Q%R%X%Z%^%_%a%c~UT#x'|#]}'Y'Z#z'Y']'g~",
@@ -26987,6 +31718,1571 @@ function markdown(config = {}) {
     return new LanguageSupport(mkLang(parser.configure(extensions)), support);
 }
 
+/// A parse stack. These are used internally by the parser to track
+/// parsing progress. They also provide some properties and methods
+/// that external code such as a tokenizer can use to get information
+/// about the parse state.
+class Stack$1 {
+    /// @internal
+    constructor(
+    /// The parse that this stack is part of @internal
+    p, 
+    /// Holds state, input pos, buffer index triplets for all but the
+    /// top state @internal
+    stack, 
+    /// The current parse state @internal
+    state, 
+    // The position at which the next reduce should take place. This
+    // can be less than `this.pos` when skipped expressions have been
+    // added to the stack (which should be moved outside of the next
+    // reduction)
+    /// @internal
+    reducePos, 
+    /// The input position up to which this stack has parsed.
+    pos, 
+    /// The dynamic score of the stack, including dynamic precedence
+    /// and error-recovery penalties
+    /// @internal
+    score, 
+    // The output buffer. Holds (type, start, end, size) quads
+    // representing nodes created by the parser, where `size` is
+    // amount of buffer array entries covered by this node.
+    /// @internal
+    buffer, 
+    // The base offset of the buffer. When stacks are split, the split
+    // instance shared the buffer history with its parent up to
+    // `bufferBase`, which is the absolute offset (including the
+    // offset of previous splits) into the buffer at which this stack
+    // starts writing.
+    /// @internal
+    bufferBase, 
+    /// @internal
+    curContext, 
+    /// @internal
+    lookAhead = 0, 
+    // A parent stack from which this was split off, if any. This is
+    // set up so that it always points to a stack that has some
+    // additional buffer content, never to a stack with an equal
+    // `bufferBase`.
+    /// @internal
+    parent) {
+        this.p = p;
+        this.stack = stack;
+        this.state = state;
+        this.reducePos = reducePos;
+        this.pos = pos;
+        this.score = score;
+        this.buffer = buffer;
+        this.bufferBase = bufferBase;
+        this.curContext = curContext;
+        this.lookAhead = lookAhead;
+        this.parent = parent;
+    }
+    /// @internal
+    toString() {
+        return `[${this.stack.filter((_, i) => i % 3 == 0).concat(this.state)}]@${this.pos}${this.score ? "!" + this.score : ""}`;
+    }
+    // Start an empty stack
+    /// @internal
+    static start(p, state, pos = 0) {
+        let cx = p.parser.context;
+        return new Stack$1(p, [], state, pos, pos, 0, [], 0, cx ? new StackContext$1(cx, cx.start) : null, 0, null);
+    }
+    /// The stack's current [context](#lr.ContextTracker) value, if
+    /// any. Its type will depend on the context tracker's type
+    /// parameter, or it will be `null` if there is no context
+    /// tracker.
+    get context() { return this.curContext ? this.curContext.context : null; }
+    // Push a state onto the stack, tracking its start position as well
+    // as the buffer base at that point.
+    /// @internal
+    pushState(state, start) {
+        this.stack.push(this.state, start, this.bufferBase + this.buffer.length);
+        this.state = state;
+    }
+    // Apply a reduce action
+    /// @internal
+    reduce(action) {
+        let depth = action >> 19 /* ReduceDepthShift */, type = action & 65535 /* ValueMask */;
+        let { parser } = this.p;
+        let dPrec = parser.dynamicPrecedence(type);
+        if (dPrec)
+            this.score += dPrec;
+        if (depth == 0) {
+            this.pushState(parser.getGoto(this.state, type, true), this.reducePos);
+            // Zero-depth reductions are a special case—they add stuff to
+            // the stack without popping anything off.
+            if (type < parser.minRepeatTerm)
+                this.storeNode(type, this.reducePos, this.reducePos, 4, true);
+            this.reduceContext(type, this.reducePos);
+            return;
+        }
+        // Find the base index into `this.stack`, content after which will
+        // be dropped. Note that with `StayFlag` reductions we need to
+        // consume two extra frames (the dummy parent node for the skipped
+        // expression and the state that we'll be staying in, which should
+        // be moved to `this.state`).
+        let base = this.stack.length - ((depth - 1) * 3) - (action & 262144 /* StayFlag */ ? 6 : 0);
+        let start = this.stack[base - 2];
+        let bufferBase = this.stack[base - 1], count = this.bufferBase + this.buffer.length - bufferBase;
+        // Store normal terms or `R -> R R` repeat reductions
+        if (type < parser.minRepeatTerm || (action & 131072 /* RepeatFlag */)) {
+            let pos = parser.stateFlag(this.state, 1 /* Skipped */) ? this.pos : this.reducePos;
+            this.storeNode(type, start, pos, count + 4, true);
+        }
+        if (action & 262144 /* StayFlag */) {
+            this.state = this.stack[base];
+        }
+        else {
+            let baseStateID = this.stack[base - 3];
+            this.state = parser.getGoto(baseStateID, type, true);
+        }
+        while (this.stack.length > base)
+            this.stack.pop();
+        this.reduceContext(type, start);
+    }
+    // Shift a value into the buffer
+    /// @internal
+    storeNode(term, start, end, size = 4, isReduce = false) {
+        if (term == 0 /* Err */ &&
+            (!this.stack.length || this.stack[this.stack.length - 1] < this.buffer.length + this.bufferBase)) {
+            // Try to omit/merge adjacent error nodes
+            let cur = this, top = this.buffer.length;
+            if (top == 0 && cur.parent) {
+                top = cur.bufferBase - cur.parent.bufferBase;
+                cur = cur.parent;
+            }
+            if (top > 0 && cur.buffer[top - 4] == 0 /* Err */ && cur.buffer[top - 1] > -1) {
+                if (start == end)
+                    return;
+                if (cur.buffer[top - 2] >= start) {
+                    cur.buffer[top - 2] = end;
+                    return;
+                }
+            }
+        }
+        if (!isReduce || this.pos == end) { // Simple case, just append
+            this.buffer.push(term, start, end, size);
+        }
+        else { // There may be skipped nodes that have to be moved forward
+            let index = this.buffer.length;
+            if (index > 0 && this.buffer[index - 4] != 0 /* Err */)
+                while (index > 0 && this.buffer[index - 2] > end) {
+                    // Move this record forward
+                    this.buffer[index] = this.buffer[index - 4];
+                    this.buffer[index + 1] = this.buffer[index - 3];
+                    this.buffer[index + 2] = this.buffer[index - 2];
+                    this.buffer[index + 3] = this.buffer[index - 1];
+                    index -= 4;
+                    if (size > 4)
+                        size -= 4;
+                }
+            this.buffer[index] = term;
+            this.buffer[index + 1] = start;
+            this.buffer[index + 2] = end;
+            this.buffer[index + 3] = size;
+        }
+    }
+    // Apply a shift action
+    /// @internal
+    shift(action, next, nextEnd) {
+        let start = this.pos;
+        if (action & 131072 /* GotoFlag */) {
+            this.pushState(action & 65535 /* ValueMask */, this.pos);
+        }
+        else if ((action & 262144 /* StayFlag */) == 0) { // Regular shift
+            let nextState = action, { parser } = this.p;
+            if (nextEnd > this.pos || next <= parser.maxNode) {
+                this.pos = nextEnd;
+                if (!parser.stateFlag(nextState, 1 /* Skipped */))
+                    this.reducePos = nextEnd;
+            }
+            this.pushState(nextState, start);
+            this.shiftContext(next, start);
+            if (next <= parser.maxNode)
+                this.buffer.push(next, start, nextEnd, 4);
+        }
+        else { // Shift-and-stay, which means this is a skipped token
+            this.pos = nextEnd;
+            this.shiftContext(next, start);
+            if (next <= this.p.parser.maxNode)
+                this.buffer.push(next, start, nextEnd, 4);
+        }
+    }
+    // Apply an action
+    /// @internal
+    apply(action, next, nextEnd) {
+        if (action & 65536 /* ReduceFlag */)
+            this.reduce(action);
+        else
+            this.shift(action, next, nextEnd);
+    }
+    // Add a prebuilt (reused) node into the buffer.
+    /// @internal
+    useNode(value, next) {
+        let index = this.p.reused.length - 1;
+        if (index < 0 || this.p.reused[index] != value) {
+            this.p.reused.push(value);
+            index++;
+        }
+        let start = this.pos;
+        this.reducePos = this.pos = start + value.length;
+        this.pushState(next, start);
+        this.buffer.push(index, start, this.reducePos, -1 /* size == -1 means this is a reused value */);
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.reuse(this.curContext.context, value, this, this.p.stream.reset(this.pos - value.length)));
+    }
+    // Split the stack. Due to the buffer sharing and the fact
+    // that `this.stack` tends to stay quite shallow, this isn't very
+    // expensive.
+    /// @internal
+    split() {
+        let parent = this;
+        let off = parent.buffer.length;
+        // Because the top of the buffer (after this.pos) may be mutated
+        // to reorder reductions and skipped tokens, and shared buffers
+        // should be immutable, this copies any outstanding skipped tokens
+        // to the new buffer, and puts the base pointer before them.
+        while (off > 0 && parent.buffer[off - 2] > parent.reducePos)
+            off -= 4;
+        let buffer = parent.buffer.slice(off), base = parent.bufferBase + off;
+        // Make sure parent points to an actual parent with content, if there is such a parent.
+        while (parent && base == parent.bufferBase)
+            parent = parent.parent;
+        return new Stack$1(this.p, this.stack.slice(), this.state, this.reducePos, this.pos, this.score, buffer, base, this.curContext, this.lookAhead, parent);
+    }
+    // Try to recover from an error by 'deleting' (ignoring) one token.
+    /// @internal
+    recoverByDelete(next, nextEnd) {
+        let isNode = next <= this.p.parser.maxNode;
+        if (isNode)
+            this.storeNode(next, this.pos, nextEnd, 4);
+        this.storeNode(0 /* Err */, this.pos, nextEnd, isNode ? 8 : 4);
+        this.pos = this.reducePos = nextEnd;
+        this.score -= 190 /* Delete */;
+    }
+    /// Check if the given term would be able to be shifted (optionally
+    /// after some reductions) on this stack. This can be useful for
+    /// external tokenizers that want to make sure they only provide a
+    /// given token when it applies.
+    canShift(term) {
+        for (let sim = new SimulatedStack$1(this);;) {
+            let action = this.p.parser.stateSlot(sim.state, 4 /* DefaultReduce */) || this.p.parser.hasAction(sim.state, term);
+            if ((action & 65536 /* ReduceFlag */) == 0)
+                return true;
+            if (action == 0)
+                return false;
+            sim.reduce(action);
+        }
+    }
+    // Apply up to Recover.MaxNext recovery actions that conceptually
+    // inserts some missing token or rule.
+    /// @internal
+    recoverByInsert(next) {
+        if (this.stack.length >= 300 /* MaxInsertStackDepth */)
+            return [];
+        let nextStates = this.p.parser.nextStates(this.state);
+        if (nextStates.length > 4 /* MaxNext */ << 1 || this.stack.length >= 120 /* DampenInsertStackDepth */) {
+            let best = [];
+            for (let i = 0, s; i < nextStates.length; i += 2) {
+                if ((s = nextStates[i + 1]) != this.state && this.p.parser.hasAction(s, next))
+                    best.push(nextStates[i], s);
+            }
+            if (this.stack.length < 120 /* DampenInsertStackDepth */)
+                for (let i = 0; best.length < 4 /* MaxNext */ << 1 && i < nextStates.length; i += 2) {
+                    let s = nextStates[i + 1];
+                    if (!best.some((v, i) => (i & 1) && v == s))
+                        best.push(nextStates[i], s);
+                }
+            nextStates = best;
+        }
+        let result = [];
+        for (let i = 0; i < nextStates.length && result.length < 4 /* MaxNext */; i += 2) {
+            let s = nextStates[i + 1];
+            if (s == this.state)
+                continue;
+            let stack = this.split();
+            stack.pushState(s, this.pos);
+            stack.storeNode(0 /* Err */, stack.pos, stack.pos, 4, true);
+            stack.shiftContext(nextStates[i], this.pos);
+            stack.score -= 200 /* Insert */;
+            result.push(stack);
+        }
+        return result;
+    }
+    // Force a reduce, if possible. Return false if that can't
+    // be done.
+    /// @internal
+    forceReduce() {
+        let reduce = this.p.parser.stateSlot(this.state, 5 /* ForcedReduce */);
+        if ((reduce & 65536 /* ReduceFlag */) == 0)
+            return false;
+        let { parser } = this.p;
+        if (!parser.validAction(this.state, reduce)) {
+            let depth = reduce >> 19 /* ReduceDepthShift */, term = reduce & 65535 /* ValueMask */;
+            let target = this.stack.length - depth * 3;
+            if (target < 0 || parser.getGoto(this.stack[target], term, false) < 0)
+                return false;
+            this.storeNode(0 /* Err */, this.reducePos, this.reducePos, 4, true);
+            this.score -= 100 /* Reduce */;
+        }
+        this.reducePos = this.pos;
+        this.reduce(reduce);
+        return true;
+    }
+    /// @internal
+    forceAll() {
+        while (!this.p.parser.stateFlag(this.state, 2 /* Accepting */)) {
+            if (!this.forceReduce()) {
+                this.storeNode(0 /* Err */, this.pos, this.pos, 4, true);
+                break;
+            }
+        }
+        return this;
+    }
+    /// Check whether this state has no further actions (assumed to be a direct descendant of the
+    /// top state, since any other states must be able to continue
+    /// somehow). @internal
+    get deadEnd() {
+        if (this.stack.length != 3)
+            return false;
+        let { parser } = this.p;
+        return parser.data[parser.stateSlot(this.state, 1 /* Actions */)] == 65535 /* End */ &&
+            !parser.stateSlot(this.state, 4 /* DefaultReduce */);
+    }
+    /// Restart the stack (put it back in its start state). Only safe
+    /// when this.stack.length == 3 (state is directly below the top
+    /// state). @internal
+    restart() {
+        this.state = this.stack[0];
+        this.stack.length = 0;
+    }
+    /// @internal
+    sameState(other) {
+        if (this.state != other.state || this.stack.length != other.stack.length)
+            return false;
+        for (let i = 0; i < this.stack.length; i += 3)
+            if (this.stack[i] != other.stack[i])
+                return false;
+        return true;
+    }
+    /// Get the parser used by this stack.
+    get parser() { return this.p.parser; }
+    /// Test whether a given dialect (by numeric ID, as exported from
+    /// the terms file) is enabled.
+    dialectEnabled(dialectID) { return this.p.parser.dialect.flags[dialectID]; }
+    shiftContext(term, start) {
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.shift(this.curContext.context, term, this, this.p.stream.reset(start)));
+    }
+    reduceContext(term, start) {
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.reduce(this.curContext.context, term, this, this.p.stream.reset(start)));
+    }
+    /// @internal
+    emitContext() {
+        let last = this.buffer.length - 1;
+        if (last < 0 || this.buffer[last] != -3)
+            this.buffer.push(this.curContext.hash, this.reducePos, this.reducePos, -3);
+    }
+    /// @internal
+    emitLookAhead() {
+        let last = this.buffer.length - 1;
+        if (last < 0 || this.buffer[last] != -4)
+            this.buffer.push(this.lookAhead, this.reducePos, this.reducePos, -4);
+    }
+    updateContext(context) {
+        if (context != this.curContext.context) {
+            let newCx = new StackContext$1(this.curContext.tracker, context);
+            if (newCx.hash != this.curContext.hash)
+                this.emitContext();
+            this.curContext = newCx;
+        }
+    }
+    /// @internal
+    setLookAhead(lookAhead) {
+        if (lookAhead > this.lookAhead) {
+            this.emitLookAhead();
+            this.lookAhead = lookAhead;
+        }
+    }
+    /// @internal
+    close() {
+        if (this.curContext && this.curContext.tracker.strict)
+            this.emitContext();
+        if (this.lookAhead > 0)
+            this.emitLookAhead();
+    }
+}
+class StackContext$1 {
+    constructor(tracker, context) {
+        this.tracker = tracker;
+        this.context = context;
+        this.hash = tracker.strict ? tracker.hash(context) : 0;
+    }
+}
+var Recover$1;
+(function (Recover) {
+    Recover[Recover["Insert"] = 200] = "Insert";
+    Recover[Recover["Delete"] = 190] = "Delete";
+    Recover[Recover["Reduce"] = 100] = "Reduce";
+    Recover[Recover["MaxNext"] = 4] = "MaxNext";
+    Recover[Recover["MaxInsertStackDepth"] = 300] = "MaxInsertStackDepth";
+    Recover[Recover["DampenInsertStackDepth"] = 120] = "DampenInsertStackDepth";
+})(Recover$1 || (Recover$1 = {}));
+// Used to cheaply run some reductions to scan ahead without mutating
+// an entire stack
+class SimulatedStack$1 {
+    constructor(start) {
+        this.start = start;
+        this.state = start.state;
+        this.stack = start.stack;
+        this.base = this.stack.length;
+    }
+    reduce(action) {
+        let term = action & 65535 /* ValueMask */, depth = action >> 19 /* ReduceDepthShift */;
+        if (depth == 0) {
+            if (this.stack == this.start.stack)
+                this.stack = this.stack.slice();
+            this.stack.push(this.state, 0, 0);
+            this.base += 3;
+        }
+        else {
+            this.base -= (depth - 1) * 3;
+        }
+        let goto = this.start.p.parser.getGoto(this.stack[this.base - 3], term, true);
+        this.state = goto;
+    }
+}
+// This is given to `Tree.build` to build a buffer, and encapsulates
+// the parent-stack-walking necessary to read the nodes.
+class StackBufferCursor$1 {
+    constructor(stack, pos, index) {
+        this.stack = stack;
+        this.pos = pos;
+        this.index = index;
+        this.buffer = stack.buffer;
+        if (this.index == 0)
+            this.maybeNext();
+    }
+    static create(stack, pos = stack.bufferBase + stack.buffer.length) {
+        return new StackBufferCursor$1(stack, pos, pos - stack.bufferBase);
+    }
+    maybeNext() {
+        let next = this.stack.parent;
+        if (next != null) {
+            this.index = this.stack.bufferBase - next.bufferBase;
+            this.stack = next;
+            this.buffer = next.buffer;
+        }
+    }
+    get id() { return this.buffer[this.index - 4]; }
+    get start() { return this.buffer[this.index - 3]; }
+    get end() { return this.buffer[this.index - 2]; }
+    get size() { return this.buffer[this.index - 1]; }
+    next() {
+        this.index -= 4;
+        this.pos -= 4;
+        if (this.index == 0)
+            this.maybeNext();
+    }
+    fork() {
+        return new StackBufferCursor$1(this.stack, this.pos, this.index);
+    }
+}
+
+class CachedToken$1 {
+    constructor() {
+        this.start = -1;
+        this.value = -1;
+        this.end = -1;
+        this.extended = -1;
+        this.lookAhead = 0;
+        this.mask = 0;
+        this.context = 0;
+    }
+}
+const nullToken$1 = new CachedToken$1;
+/// [Tokenizers](#lr.ExternalTokenizer) interact with the input
+/// through this interface. It presents the input as a stream of
+/// characters, tracking lookahead and hiding the complexity of
+/// [ranges](#common.Parser.parse^ranges) from tokenizer code.
+class InputStream$1 {
+    /// @internal
+    constructor(
+    /// @internal
+    input, 
+    /// @internal
+    ranges) {
+        this.input = input;
+        this.ranges = ranges;
+        /// @internal
+        this.chunk = "";
+        /// @internal
+        this.chunkOff = 0;
+        /// Backup chunk
+        this.chunk2 = "";
+        this.chunk2Pos = 0;
+        /// The character code of the next code unit in the input, or -1
+        /// when the stream is at the end of the input.
+        this.next = -1;
+        /// @internal
+        this.token = nullToken$1;
+        this.rangeIndex = 0;
+        this.pos = this.chunkPos = ranges[0].from;
+        this.range = ranges[0];
+        this.end = ranges[ranges.length - 1].to;
+        this.readNext();
+    }
+    resolveOffset(offset, assoc) {
+        let range = this.range, index = this.rangeIndex;
+        let pos = this.pos + offset;
+        while (pos < range.from) {
+            if (!index)
+                return null;
+            let next = this.ranges[--index];
+            pos -= range.from - next.to;
+            range = next;
+        }
+        while (assoc < 0 ? pos > range.to : pos >= range.to) {
+            if (index == this.ranges.length - 1)
+                return null;
+            let next = this.ranges[++index];
+            pos += next.from - range.to;
+            range = next;
+        }
+        return pos;
+    }
+    /// Look at a code unit near the stream position. `.peek(0)` equals
+    /// `.next`, `.peek(-1)` gives you the previous character, and so
+    /// on.
+    ///
+    /// Note that looking around during tokenizing creates dependencies
+    /// on potentially far-away content, which may reduce the
+    /// effectiveness incremental parsing—when looking forward—or even
+    /// cause invalid reparses when looking backward more than 25 code
+    /// units, since the library does not track lookbehind.
+    peek(offset) {
+        let idx = this.chunkOff + offset, pos, result;
+        if (idx >= 0 && idx < this.chunk.length) {
+            pos = this.pos + offset;
+            result = this.chunk.charCodeAt(idx);
+        }
+        else {
+            let resolved = this.resolveOffset(offset, 1);
+            if (resolved == null)
+                return -1;
+            pos = resolved;
+            if (pos >= this.chunk2Pos && pos < this.chunk2Pos + this.chunk2.length) {
+                result = this.chunk2.charCodeAt(pos - this.chunk2Pos);
+            }
+            else {
+                let i = this.rangeIndex, range = this.range;
+                while (range.to <= pos)
+                    range = this.ranges[++i];
+                this.chunk2 = this.input.chunk(this.chunk2Pos = pos);
+                if (pos + this.chunk2.length > range.to)
+                    this.chunk2 = this.chunk2.slice(0, range.to - pos);
+                result = this.chunk2.charCodeAt(0);
+            }
+        }
+        if (pos >= this.token.lookAhead)
+            this.token.lookAhead = pos + 1;
+        return result;
+    }
+    /// Accept a token. By default, the end of the token is set to the
+    /// current stream position, but you can pass an offset (relative to
+    /// the stream position) to change that.
+    acceptToken(token, endOffset = 0) {
+        let end = endOffset ? this.resolveOffset(endOffset, -1) : this.pos;
+        if (end == null || end < this.token.start)
+            throw new RangeError("Token end out of bounds");
+        this.token.value = token;
+        this.token.end = end;
+    }
+    getChunk() {
+        if (this.pos >= this.chunk2Pos && this.pos < this.chunk2Pos + this.chunk2.length) {
+            let { chunk, chunkPos } = this;
+            this.chunk = this.chunk2;
+            this.chunkPos = this.chunk2Pos;
+            this.chunk2 = chunk;
+            this.chunk2Pos = chunkPos;
+            this.chunkOff = this.pos - this.chunkPos;
+        }
+        else {
+            this.chunk2 = this.chunk;
+            this.chunk2Pos = this.chunkPos;
+            let nextChunk = this.input.chunk(this.pos);
+            let end = this.pos + nextChunk.length;
+            this.chunk = end > this.range.to ? nextChunk.slice(0, this.range.to - this.pos) : nextChunk;
+            this.chunkPos = this.pos;
+            this.chunkOff = 0;
+        }
+    }
+    readNext() {
+        if (this.chunkOff >= this.chunk.length) {
+            this.getChunk();
+            if (this.chunkOff == this.chunk.length)
+                return this.next = -1;
+        }
+        return this.next = this.chunk.charCodeAt(this.chunkOff);
+    }
+    /// Move the stream forward N (defaults to 1) code units. Returns
+    /// the new value of [`next`](#lr.InputStream.next).
+    advance(n = 1) {
+        this.chunkOff += n;
+        while (this.pos + n >= this.range.to) {
+            if (this.rangeIndex == this.ranges.length - 1)
+                return this.setDone();
+            n -= this.range.to - this.pos;
+            this.range = this.ranges[++this.rangeIndex];
+            this.pos = this.range.from;
+        }
+        this.pos += n;
+        if (this.pos >= this.token.lookAhead)
+            this.token.lookAhead = this.pos + 1;
+        return this.readNext();
+    }
+    setDone() {
+        this.pos = this.chunkPos = this.end;
+        this.range = this.ranges[this.rangeIndex = this.ranges.length - 1];
+        this.chunk = "";
+        return this.next = -1;
+    }
+    /// @internal
+    reset(pos, token) {
+        if (token) {
+            this.token = token;
+            token.start = pos;
+            token.lookAhead = pos + 1;
+            token.value = token.extended = -1;
+        }
+        else {
+            this.token = nullToken$1;
+        }
+        if (this.pos != pos) {
+            this.pos = pos;
+            if (pos == this.end) {
+                this.setDone();
+                return this;
+            }
+            while (pos < this.range.from)
+                this.range = this.ranges[--this.rangeIndex];
+            while (pos >= this.range.to)
+                this.range = this.ranges[++this.rangeIndex];
+            if (pos >= this.chunkPos && pos < this.chunkPos + this.chunk.length) {
+                this.chunkOff = pos - this.chunkPos;
+            }
+            else {
+                this.chunk = "";
+                this.chunkOff = 0;
+            }
+            this.readNext();
+        }
+        return this;
+    }
+    /// @internal
+    read(from, to) {
+        if (from >= this.chunkPos && to <= this.chunkPos + this.chunk.length)
+            return this.chunk.slice(from - this.chunkPos, to - this.chunkPos);
+        if (from >= this.chunk2Pos && to <= this.chunk2Pos + this.chunk2.length)
+            return this.chunk2.slice(from - this.chunk2Pos, to - this.chunk2Pos);
+        if (from >= this.range.from && to <= this.range.to)
+            return this.input.read(from, to);
+        let result = "";
+        for (let r of this.ranges) {
+            if (r.from >= to)
+                break;
+            if (r.to > from)
+                result += this.input.read(Math.max(r.from, from), Math.min(r.to, to));
+        }
+        return result;
+    }
+}
+/// @internal
+class TokenGroup$1 {
+    constructor(data, id) {
+        this.data = data;
+        this.id = id;
+    }
+    token(input, stack) { readToken$1(this.data, input, stack, this.id); }
+}
+TokenGroup$1.prototype.contextual = TokenGroup$1.prototype.fallback = TokenGroup$1.prototype.extend = false;
+/// `@external tokens` declarations in the grammar should resolve to
+/// an instance of this class.
+class ExternalTokenizer$1 {
+    /// Create a tokenizer. The first argument is the function that,
+    /// given an input stream, scans for the types of tokens it
+    /// recognizes at the stream's position, and calls
+    /// [`acceptToken`](#lr.InputStream.acceptToken) when it finds
+    /// one.
+    constructor(
+    /// @internal
+    token, options = {}) {
+        this.token = token;
+        this.contextual = !!options.contextual;
+        this.fallback = !!options.fallback;
+        this.extend = !!options.extend;
+    }
+}
+// Tokenizer data is stored a big uint16 array containing, for each
+// state:
+//
+//  - A group bitmask, indicating what token groups are reachable from
+//    this state, so that paths that can only lead to tokens not in
+//    any of the current groups can be cut off early.
+//
+//  - The position of the end of the state's sequence of accepting
+//    tokens
+//
+//  - The number of outgoing edges for the state
+//
+//  - The accepting tokens, as (token id, group mask) pairs
+//
+//  - The outgoing edges, as (start character, end character, state
+//    index) triples, with end character being exclusive
+//
+// This function interprets that data, running through a stream as
+// long as new states with the a matching group mask can be reached,
+// and updating `token` when it matches a token.
+function readToken$1(data, input, stack, group) {
+    let state = 0, groupMask = 1 << group, { parser } = stack.p, { dialect } = parser;
+    scan: for (;;) {
+        if ((groupMask & data[state]) == 0)
+            break;
+        let accEnd = data[state + 1];
+        // Check whether this state can lead to a token in the current group
+        // Accept tokens in this state, possibly overwriting
+        // lower-precedence / shorter tokens
+        for (let i = state + 3; i < accEnd; i += 2)
+            if ((data[i + 1] & groupMask) > 0) {
+                let term = data[i];
+                if (dialect.allows(term) &&
+                    (input.token.value == -1 || input.token.value == term || parser.overrides(term, input.token.value))) {
+                    input.acceptToken(term);
+                    break;
+                }
+            }
+        // Do a binary search on the state's edges
+        for (let next = input.next, low = 0, high = data[state + 2]; low < high;) {
+            let mid = (low + high) >> 1;
+            let index = accEnd + mid + (mid << 1);
+            let from = data[index], to = data[index + 1];
+            if (next < from)
+                high = mid;
+            else if (next >= to)
+                low = mid + 1;
+            else {
+                state = data[index + 2];
+                input.advance();
+                continue scan;
+            }
+        }
+        break;
+    }
+}
+
+// See lezer-generator/src/encode.ts for comments about the encoding
+// used here
+function decodeArray$1(input, Type = Uint16Array) {
+    if (typeof input != "string")
+        return input;
+    let array = null;
+    for (let pos = 0, out = 0; pos < input.length;) {
+        let value = 0;
+        for (;;) {
+            let next = input.charCodeAt(pos++), stop = false;
+            if (next == 126 /* BigValCode */) {
+                value = 65535 /* BigVal */;
+                break;
+            }
+            if (next >= 92 /* Gap2 */)
+                next--;
+            if (next >= 34 /* Gap1 */)
+                next--;
+            let digit = next - 32 /* Start */;
+            if (digit >= 46 /* Base */) {
+                digit -= 46 /* Base */;
+                stop = true;
+            }
+            value += digit;
+            if (stop)
+                break;
+            value *= 46 /* Base */;
+        }
+        if (array)
+            array[out++] = value;
+        else
+            array = new Type(value);
+    }
+    return array;
+}
+
+// Environment variable used to control console output
+const verbose$1 = typeof process != "undefined" && process.env && /\bparse\b/.test(process.env.LOG);
+let stackIDs$1 = null;
+var Safety$1;
+(function (Safety) {
+    Safety[Safety["Margin"] = 25] = "Margin";
+})(Safety$1 || (Safety$1 = {}));
+function cutAt$1(tree, pos, side) {
+    let cursor = tree.cursor(IterMode.IncludeAnonymous);
+    cursor.moveTo(pos);
+    for (;;) {
+        if (!(side < 0 ? cursor.childBefore(pos) : cursor.childAfter(pos)))
+            for (;;) {
+                if ((side < 0 ? cursor.to < pos : cursor.from > pos) && !cursor.type.isError)
+                    return side < 0 ? Math.max(0, Math.min(cursor.to - 1, pos - 25 /* Margin */))
+                        : Math.min(tree.length, Math.max(cursor.from + 1, pos + 25 /* Margin */));
+                if (side < 0 ? cursor.prevSibling() : cursor.nextSibling())
+                    break;
+                if (!cursor.parent())
+                    return side < 0 ? 0 : tree.length;
+            }
+    }
+}
+class FragmentCursor$1 {
+    constructor(fragments, nodeSet) {
+        this.fragments = fragments;
+        this.nodeSet = nodeSet;
+        this.i = 0;
+        this.fragment = null;
+        this.safeFrom = -1;
+        this.safeTo = -1;
+        this.trees = [];
+        this.start = [];
+        this.index = [];
+        this.nextFragment();
+    }
+    nextFragment() {
+        let fr = this.fragment = this.i == this.fragments.length ? null : this.fragments[this.i++];
+        if (fr) {
+            this.safeFrom = fr.openStart ? cutAt$1(fr.tree, fr.from + fr.offset, 1) - fr.offset : fr.from;
+            this.safeTo = fr.openEnd ? cutAt$1(fr.tree, fr.to + fr.offset, -1) - fr.offset : fr.to;
+            while (this.trees.length) {
+                this.trees.pop();
+                this.start.pop();
+                this.index.pop();
+            }
+            this.trees.push(fr.tree);
+            this.start.push(-fr.offset);
+            this.index.push(0);
+            this.nextStart = this.safeFrom;
+        }
+        else {
+            this.nextStart = 1e9;
+        }
+    }
+    // `pos` must be >= any previously given `pos` for this cursor
+    nodeAt(pos) {
+        if (pos < this.nextStart)
+            return null;
+        while (this.fragment && this.safeTo <= pos)
+            this.nextFragment();
+        if (!this.fragment)
+            return null;
+        for (;;) {
+            let last = this.trees.length - 1;
+            if (last < 0) { // End of tree
+                this.nextFragment();
+                return null;
+            }
+            let top = this.trees[last], index = this.index[last];
+            if (index == top.children.length) {
+                this.trees.pop();
+                this.start.pop();
+                this.index.pop();
+                continue;
+            }
+            let next = top.children[index];
+            let start = this.start[last] + top.positions[index];
+            if (start > pos) {
+                this.nextStart = start;
+                return null;
+            }
+            if (next instanceof Tree) {
+                if (start == pos) {
+                    if (start < this.safeFrom)
+                        return null;
+                    let end = start + next.length;
+                    if (end <= this.safeTo) {
+                        let lookAhead = next.prop(NodeProp.lookAhead);
+                        if (!lookAhead || end + lookAhead < this.fragment.to)
+                            return next;
+                    }
+                }
+                this.index[last]++;
+                if (start + next.length >= Math.max(this.safeFrom, pos)) { // Enter this node
+                    this.trees.push(next);
+                    this.start.push(start);
+                    this.index.push(0);
+                }
+            }
+            else {
+                this.index[last]++;
+                this.nextStart = start + next.length;
+            }
+        }
+    }
+}
+class TokenCache$1 {
+    constructor(parser, stream) {
+        this.stream = stream;
+        this.tokens = [];
+        this.mainToken = null;
+        this.actions = [];
+        this.tokens = parser.tokenizers.map(_ => new CachedToken$1);
+    }
+    getActions(stack) {
+        let actionIndex = 0;
+        let main = null;
+        let { parser } = stack.p, { tokenizers } = parser;
+        let mask = parser.stateSlot(stack.state, 3 /* TokenizerMask */);
+        let context = stack.curContext ? stack.curContext.hash : 0;
+        let lookAhead = 0;
+        for (let i = 0; i < tokenizers.length; i++) {
+            if (((1 << i) & mask) == 0)
+                continue;
+            let tokenizer = tokenizers[i], token = this.tokens[i];
+            if (main && !tokenizer.fallback)
+                continue;
+            if (tokenizer.contextual || token.start != stack.pos || token.mask != mask || token.context != context) {
+                this.updateCachedToken(token, tokenizer, stack);
+                token.mask = mask;
+                token.context = context;
+            }
+            if (token.lookAhead > token.end + 25 /* Margin */)
+                lookAhead = Math.max(token.lookAhead, lookAhead);
+            if (token.value != 0 /* Err */) {
+                let startIndex = actionIndex;
+                if (token.extended > -1)
+                    actionIndex = this.addActions(stack, token.extended, token.end, actionIndex);
+                actionIndex = this.addActions(stack, token.value, token.end, actionIndex);
+                if (!tokenizer.extend) {
+                    main = token;
+                    if (actionIndex > startIndex)
+                        break;
+                }
+            }
+        }
+        while (this.actions.length > actionIndex)
+            this.actions.pop();
+        if (lookAhead)
+            stack.setLookAhead(lookAhead);
+        if (!main && stack.pos == this.stream.end) {
+            main = new CachedToken$1;
+            main.value = stack.p.parser.eofTerm;
+            main.start = main.end = stack.pos;
+            actionIndex = this.addActions(stack, main.value, main.end, actionIndex);
+        }
+        this.mainToken = main;
+        return this.actions;
+    }
+    getMainToken(stack) {
+        if (this.mainToken)
+            return this.mainToken;
+        let main = new CachedToken$1, { pos, p } = stack;
+        main.start = pos;
+        main.end = Math.min(pos + 1, p.stream.end);
+        main.value = pos == p.stream.end ? p.parser.eofTerm : 0 /* Err */;
+        return main;
+    }
+    updateCachedToken(token, tokenizer, stack) {
+        tokenizer.token(this.stream.reset(stack.pos, token), stack);
+        if (token.value > -1) {
+            let { parser } = stack.p;
+            for (let i = 0; i < parser.specialized.length; i++)
+                if (parser.specialized[i] == token.value) {
+                    let result = parser.specializers[i](this.stream.read(token.start, token.end), stack);
+                    if (result >= 0 && stack.p.parser.dialect.allows(result >> 1)) {
+                        if ((result & 1) == 0 /* Specialize */)
+                            token.value = result >> 1;
+                        else
+                            token.extended = result >> 1;
+                        break;
+                    }
+                }
+        }
+        else {
+            token.value = 0 /* Err */;
+            token.end = Math.min(stack.p.stream.end, stack.pos + 1);
+        }
+    }
+    putAction(action, token, end, index) {
+        // Don't add duplicate actions
+        for (let i = 0; i < index; i += 3)
+            if (this.actions[i] == action)
+                return index;
+        this.actions[index++] = action;
+        this.actions[index++] = token;
+        this.actions[index++] = end;
+        return index;
+    }
+    addActions(stack, token, end, index) {
+        let { state } = stack, { parser } = stack.p, { data } = parser;
+        for (let set = 0; set < 2; set++) {
+            for (let i = parser.stateSlot(state, set ? 2 /* Skip */ : 1 /* Actions */);; i += 3) {
+                if (data[i] == 65535 /* End */) {
+                    if (data[i + 1] == 1 /* Next */) {
+                        i = pair$1(data, i + 2);
+                    }
+                    else {
+                        if (index == 0 && data[i + 1] == 2 /* Other */)
+                            index = this.putAction(pair$1(data, i + 2), token, end, index);
+                        break;
+                    }
+                }
+                if (data[i] == token)
+                    index = this.putAction(pair$1(data, i + 1), token, end, index);
+            }
+        }
+        return index;
+    }
+}
+var Rec$1;
+(function (Rec) {
+    Rec[Rec["Distance"] = 5] = "Distance";
+    Rec[Rec["MaxRemainingPerStep"] = 3] = "MaxRemainingPerStep";
+    // When two stacks have been running independently long enough to
+    // add this many elements to their buffers, prune one.
+    Rec[Rec["MinBufferLengthPrune"] = 500] = "MinBufferLengthPrune";
+    Rec[Rec["ForceReduceLimit"] = 10] = "ForceReduceLimit";
+    // Once a stack reaches this depth (in .stack.length) force-reduce
+    // it back to CutTo to avoid creating trees that overflow the stack
+    // on recursive traversal.
+    Rec[Rec["CutDepth"] = 15000] = "CutDepth";
+    Rec[Rec["CutTo"] = 9000] = "CutTo";
+})(Rec$1 || (Rec$1 = {}));
+class Parse$1 {
+    constructor(parser, input, fragments, ranges) {
+        this.parser = parser;
+        this.input = input;
+        this.ranges = ranges;
+        this.recovering = 0;
+        this.nextStackID = 0x2654; // ♔, ♕, ♖, ♗, ♘, ♙, ♠, ♡, ♢, ♣, ♤, ♥, ♦, ♧
+        this.minStackPos = 0;
+        this.reused = [];
+        this.stoppedAt = null;
+        this.stream = new InputStream$1(input, ranges);
+        this.tokens = new TokenCache$1(parser, this.stream);
+        this.topTerm = parser.top[1];
+        let { from } = ranges[0];
+        this.stacks = [Stack$1.start(this, parser.top[0], from)];
+        this.fragments = fragments.length && this.stream.end - from > parser.bufferLength * 4
+            ? new FragmentCursor$1(fragments, parser.nodeSet) : null;
+    }
+    get parsedPos() {
+        return this.minStackPos;
+    }
+    // Move the parser forward. This will process all parse stacks at
+    // `this.pos` and try to advance them to a further position. If no
+    // stack for such a position is found, it'll start error-recovery.
+    //
+    // When the parse is finished, this will return a syntax tree. When
+    // not, it returns `null`.
+    advance() {
+        let stacks = this.stacks, pos = this.minStackPos;
+        // This will hold stacks beyond `pos`.
+        let newStacks = this.stacks = [];
+        let stopped, stoppedTokens;
+        // Keep advancing any stacks at `pos` until they either move
+        // forward or can't be advanced. Gather stacks that can't be
+        // advanced further in `stopped`.
+        for (let i = 0; i < stacks.length; i++) {
+            let stack = stacks[i];
+            for (;;) {
+                this.tokens.mainToken = null;
+                if (stack.pos > pos) {
+                    newStacks.push(stack);
+                }
+                else if (this.advanceStack(stack, newStacks, stacks)) {
+                    continue;
+                }
+                else {
+                    if (!stopped) {
+                        stopped = [];
+                        stoppedTokens = [];
+                    }
+                    stopped.push(stack);
+                    let tok = this.tokens.getMainToken(stack);
+                    stoppedTokens.push(tok.value, tok.end);
+                }
+                break;
+            }
+        }
+        if (!newStacks.length) {
+            let finished = stopped && findFinished$1(stopped);
+            if (finished)
+                return this.stackToTree(finished);
+            if (this.parser.strict) {
+                if (verbose$1 && stopped)
+                    console.log("Stuck with token " + (this.tokens.mainToken ? this.parser.getName(this.tokens.mainToken.value) : "none"));
+                throw new SyntaxError("No parse at " + pos);
+            }
+            if (!this.recovering)
+                this.recovering = 5 /* Distance */;
+        }
+        if (this.recovering && stopped) {
+            let finished = this.stoppedAt != null && stopped[0].pos > this.stoppedAt ? stopped[0]
+                : this.runRecovery(stopped, stoppedTokens, newStacks);
+            if (finished)
+                return this.stackToTree(finished.forceAll());
+        }
+        if (this.recovering) {
+            let maxRemaining = this.recovering == 1 ? 1 : this.recovering * 3 /* MaxRemainingPerStep */;
+            if (newStacks.length > maxRemaining) {
+                newStacks.sort((a, b) => b.score - a.score);
+                while (newStacks.length > maxRemaining)
+                    newStacks.pop();
+            }
+            if (newStacks.some(s => s.reducePos > pos))
+                this.recovering--;
+        }
+        else if (newStacks.length > 1) {
+            // Prune stacks that are in the same state, or that have been
+            // running without splitting for a while, to avoid getting stuck
+            // with multiple successful stacks running endlessly on.
+            outer: for (let i = 0; i < newStacks.length - 1; i++) {
+                let stack = newStacks[i];
+                for (let j = i + 1; j < newStacks.length; j++) {
+                    let other = newStacks[j];
+                    if (stack.sameState(other) ||
+                        stack.buffer.length > 500 /* MinBufferLengthPrune */ && other.buffer.length > 500 /* MinBufferLengthPrune */) {
+                        if (((stack.score - other.score) || (stack.buffer.length - other.buffer.length)) > 0) {
+                            newStacks.splice(j--, 1);
+                        }
+                        else {
+                            newStacks.splice(i--, 1);
+                            continue outer;
+                        }
+                    }
+                }
+            }
+        }
+        this.minStackPos = newStacks[0].pos;
+        for (let i = 1; i < newStacks.length; i++)
+            if (newStacks[i].pos < this.minStackPos)
+                this.minStackPos = newStacks[i].pos;
+        return null;
+    }
+    stopAt(pos) {
+        if (this.stoppedAt != null && this.stoppedAt < pos)
+            throw new RangeError("Can't move stoppedAt forward");
+        this.stoppedAt = pos;
+    }
+    // Returns an updated version of the given stack, or null if the
+    // stack can't advance normally. When `split` and `stacks` are
+    // given, stacks split off by ambiguous operations will be pushed to
+    // `split`, or added to `stacks` if they move `pos` forward.
+    advanceStack(stack, stacks, split) {
+        let start = stack.pos, { parser } = this;
+        let base = verbose$1 ? this.stackID(stack) + " -> " : "";
+        if (this.stoppedAt != null && start > this.stoppedAt)
+            return stack.forceReduce() ? stack : null;
+        if (this.fragments) {
+            let strictCx = stack.curContext && stack.curContext.tracker.strict, cxHash = strictCx ? stack.curContext.hash : 0;
+            for (let cached = this.fragments.nodeAt(start); cached;) {
+                let match = this.parser.nodeSet.types[cached.type.id] == cached.type ? parser.getGoto(stack.state, cached.type.id) : -1;
+                if (match > -1 && cached.length && (!strictCx || (cached.prop(NodeProp.contextHash) || 0) == cxHash)) {
+                    stack.useNode(cached, match);
+                    if (verbose$1)
+                        console.log(base + this.stackID(stack) + ` (via reuse of ${parser.getName(cached.type.id)})`);
+                    return true;
+                }
+                if (!(cached instanceof Tree) || cached.children.length == 0 || cached.positions[0] > 0)
+                    break;
+                let inner = cached.children[0];
+                if (inner instanceof Tree && cached.positions[0] == 0)
+                    cached = inner;
+                else
+                    break;
+            }
+        }
+        let defaultReduce = parser.stateSlot(stack.state, 4 /* DefaultReduce */);
+        if (defaultReduce > 0) {
+            stack.reduce(defaultReduce);
+            if (verbose$1)
+                console.log(base + this.stackID(stack) + ` (via always-reduce ${parser.getName(defaultReduce & 65535 /* ValueMask */)})`);
+            return true;
+        }
+        if (stack.stack.length >= 15000 /* CutDepth */) {
+            while (stack.stack.length > 9000 /* CutTo */ && stack.forceReduce()) { }
+        }
+        let actions = this.tokens.getActions(stack);
+        for (let i = 0; i < actions.length;) {
+            let action = actions[i++], term = actions[i++], end = actions[i++];
+            let last = i == actions.length || !split;
+            let localStack = last ? stack : stack.split();
+            localStack.apply(action, term, end);
+            if (verbose$1)
+                console.log(base + this.stackID(localStack) + ` (via ${(action & 65536 /* ReduceFlag */) == 0 ? "shift"
+                    : `reduce of ${parser.getName(action & 65535 /* ValueMask */)}`} for ${parser.getName(term)} @ ${start}${localStack == stack ? "" : ", split"})`);
+            if (last)
+                return true;
+            else if (localStack.pos > start)
+                stacks.push(localStack);
+            else
+                split.push(localStack);
+        }
+        return false;
+    }
+    // Advance a given stack forward as far as it will go. Returns the
+    // (possibly updated) stack if it got stuck, or null if it moved
+    // forward and was given to `pushStackDedup`.
+    advanceFully(stack, newStacks) {
+        let pos = stack.pos;
+        for (;;) {
+            if (!this.advanceStack(stack, null, null))
+                return false;
+            if (stack.pos > pos) {
+                pushStackDedup$1(stack, newStacks);
+                return true;
+            }
+        }
+    }
+    runRecovery(stacks, tokens, newStacks) {
+        let finished = null, restarted = false;
+        for (let i = 0; i < stacks.length; i++) {
+            let stack = stacks[i], token = tokens[i << 1], tokenEnd = tokens[(i << 1) + 1];
+            let base = verbose$1 ? this.stackID(stack) + " -> " : "";
+            if (stack.deadEnd) {
+                if (restarted)
+                    continue;
+                restarted = true;
+                stack.restart();
+                if (verbose$1)
+                    console.log(base + this.stackID(stack) + " (restarted)");
+                let done = this.advanceFully(stack, newStacks);
+                if (done)
+                    continue;
+            }
+            let force = stack.split(), forceBase = base;
+            for (let j = 0; force.forceReduce() && j < 10 /* ForceReduceLimit */; j++) {
+                if (verbose$1)
+                    console.log(forceBase + this.stackID(force) + " (via force-reduce)");
+                let done = this.advanceFully(force, newStacks);
+                if (done)
+                    break;
+                if (verbose$1)
+                    forceBase = this.stackID(force) + " -> ";
+            }
+            for (let insert of stack.recoverByInsert(token)) {
+                if (verbose$1)
+                    console.log(base + this.stackID(insert) + " (via recover-insert)");
+                this.advanceFully(insert, newStacks);
+            }
+            if (this.stream.end > stack.pos) {
+                if (tokenEnd == stack.pos) {
+                    tokenEnd++;
+                    token = 0 /* Err */;
+                }
+                stack.recoverByDelete(token, tokenEnd);
+                if (verbose$1)
+                    console.log(base + this.stackID(stack) + ` (via recover-delete ${this.parser.getName(token)})`);
+                pushStackDedup$1(stack, newStacks);
+            }
+            else if (!finished || finished.score < stack.score) {
+                finished = stack;
+            }
+        }
+        return finished;
+    }
+    // Convert the stack's buffer to a syntax tree.
+    stackToTree(stack) {
+        stack.close();
+        return Tree.build({ buffer: StackBufferCursor$1.create(stack),
+            nodeSet: this.parser.nodeSet,
+            topID: this.topTerm,
+            maxBufferLength: this.parser.bufferLength,
+            reused: this.reused,
+            start: this.ranges[0].from,
+            length: stack.pos - this.ranges[0].from,
+            minRepeatType: this.parser.minRepeatTerm });
+    }
+    stackID(stack) {
+        let id = (stackIDs$1 || (stackIDs$1 = new WeakMap)).get(stack);
+        if (!id)
+            stackIDs$1.set(stack, id = String.fromCodePoint(this.nextStackID++));
+        return id + stack;
+    }
+}
+function pushStackDedup$1(stack, newStacks) {
+    for (let i = 0; i < newStacks.length; i++) {
+        let other = newStacks[i];
+        if (other.pos == stack.pos && other.sameState(stack)) {
+            if (newStacks[i].score < stack.score)
+                newStacks[i] = stack;
+            return;
+        }
+    }
+    newStacks.push(stack);
+}
+class Dialect$1 {
+    constructor(source, flags, disabled) {
+        this.source = source;
+        this.flags = flags;
+        this.disabled = disabled;
+    }
+    allows(term) { return !this.disabled || this.disabled[term] == 0; }
+}
+/// A parser holds the parse tables for a given grammar, as generated
+/// by `lezer-generator`.
+class LRParser$1 extends Parser {
+    /// @internal
+    constructor(spec) {
+        super();
+        /// @internal
+        this.wrappers = [];
+        if (spec.version != 14 /* Version */)
+            throw new RangeError(`Parser version (${spec.version}) doesn't match runtime version (${14 /* Version */})`);
+        let nodeNames = spec.nodeNames.split(" ");
+        this.minRepeatTerm = nodeNames.length;
+        for (let i = 0; i < spec.repeatNodeCount; i++)
+            nodeNames.push("");
+        let topTerms = Object.keys(spec.topRules).map(r => spec.topRules[r][1]);
+        let nodeProps = [];
+        for (let i = 0; i < nodeNames.length; i++)
+            nodeProps.push([]);
+        function setProp(nodeID, prop, value) {
+            nodeProps[nodeID].push([prop, prop.deserialize(String(value))]);
+        }
+        if (spec.nodeProps)
+            for (let propSpec of spec.nodeProps) {
+                let prop = propSpec[0];
+                if (typeof prop == "string")
+                    prop = NodeProp[prop];
+                for (let i = 1; i < propSpec.length;) {
+                    let next = propSpec[i++];
+                    if (next >= 0) {
+                        setProp(next, prop, propSpec[i++]);
+                    }
+                    else {
+                        let value = propSpec[i + -next];
+                        for (let j = -next; j > 0; j--)
+                            setProp(propSpec[i++], prop, value);
+                        i++;
+                    }
+                }
+            }
+        this.nodeSet = new NodeSet(nodeNames.map((name, i) => NodeType.define({
+            name: i >= this.minRepeatTerm ? undefined : name,
+            id: i,
+            props: nodeProps[i],
+            top: topTerms.indexOf(i) > -1,
+            error: i == 0,
+            skipped: spec.skippedNodes && spec.skippedNodes.indexOf(i) > -1
+        })));
+        if (spec.propSources)
+            this.nodeSet = this.nodeSet.extend(...spec.propSources);
+        this.strict = false;
+        this.bufferLength = DefaultBufferLength;
+        let tokenArray = decodeArray$1(spec.tokenData);
+        this.context = spec.context;
+        this.specialized = new Uint16Array(spec.specialized ? spec.specialized.length : 0);
+        this.specializers = [];
+        if (spec.specialized)
+            for (let i = 0; i < spec.specialized.length; i++) {
+                this.specialized[i] = spec.specialized[i].term;
+                this.specializers[i] = spec.specialized[i].get;
+            }
+        this.states = decodeArray$1(spec.states, Uint32Array);
+        this.data = decodeArray$1(spec.stateData);
+        this.goto = decodeArray$1(spec.goto);
+        this.maxTerm = spec.maxTerm;
+        this.tokenizers = spec.tokenizers.map(value => typeof value == "number" ? new TokenGroup$1(tokenArray, value) : value);
+        this.topRules = spec.topRules;
+        this.dialects = spec.dialects || {};
+        this.dynamicPrecedences = spec.dynamicPrecedences || null;
+        this.tokenPrecTable = spec.tokenPrec;
+        this.termNames = spec.termNames || null;
+        this.maxNode = this.nodeSet.types.length - 1;
+        this.dialect = this.parseDialect();
+        this.top = this.topRules[Object.keys(this.topRules)[0]];
+    }
+    createParse(input, fragments, ranges) {
+        let parse = new Parse$1(this, input, fragments, ranges);
+        for (let w of this.wrappers)
+            parse = w(parse, input, fragments, ranges);
+        return parse;
+    }
+    /// Get a goto table entry @internal
+    getGoto(state, term, loose = false) {
+        let table = this.goto;
+        if (term >= table[0])
+            return -1;
+        for (let pos = table[term + 1];;) {
+            let groupTag = table[pos++], last = groupTag & 1;
+            let target = table[pos++];
+            if (last && loose)
+                return target;
+            for (let end = pos + (groupTag >> 1); pos < end; pos++)
+                if (table[pos] == state)
+                    return target;
+            if (last)
+                return -1;
+        }
+    }
+    /// Check if this state has an action for a given terminal @internal
+    hasAction(state, terminal) {
+        let data = this.data;
+        for (let set = 0; set < 2; set++) {
+            for (let i = this.stateSlot(state, set ? 2 /* Skip */ : 1 /* Actions */), next;; i += 3) {
+                if ((next = data[i]) == 65535 /* End */) {
+                    if (data[i + 1] == 1 /* Next */)
+                        next = data[i = pair$1(data, i + 2)];
+                    else if (data[i + 1] == 2 /* Other */)
+                        return pair$1(data, i + 2);
+                    else
+                        break;
+                }
+                if (next == terminal || next == 0 /* Err */)
+                    return pair$1(data, i + 1);
+            }
+        }
+        return 0;
+    }
+    /// @internal
+    stateSlot(state, slot) {
+        return this.states[(state * 6 /* Size */) + slot];
+    }
+    /// @internal
+    stateFlag(state, flag) {
+        return (this.stateSlot(state, 0 /* Flags */) & flag) > 0;
+    }
+    /// @internal
+    validAction(state, action) {
+        if (action == this.stateSlot(state, 4 /* DefaultReduce */))
+            return true;
+        for (let i = this.stateSlot(state, 1 /* Actions */);; i += 3) {
+            if (this.data[i] == 65535 /* End */) {
+                if (this.data[i + 1] == 1 /* Next */)
+                    i = pair$1(this.data, i + 2);
+                else
+                    return false;
+            }
+            if (action == pair$1(this.data, i + 1))
+                return true;
+        }
+    }
+    /// Get the states that can follow this one through shift actions or
+    /// goto jumps. @internal
+    nextStates(state) {
+        let result = [];
+        for (let i = this.stateSlot(state, 1 /* Actions */);; i += 3) {
+            if (this.data[i] == 65535 /* End */) {
+                if (this.data[i + 1] == 1 /* Next */)
+                    i = pair$1(this.data, i + 2);
+                else
+                    break;
+            }
+            if ((this.data[i + 2] & (65536 /* ReduceFlag */ >> 16)) == 0) {
+                let value = this.data[i + 1];
+                if (!result.some((v, i) => (i & 1) && v == value))
+                    result.push(this.data[i], value);
+            }
+        }
+        return result;
+    }
+    /// @internal
+    overrides(token, prev) {
+        let iPrev = findOffset$1(this.data, this.tokenPrecTable, prev);
+        return iPrev < 0 || findOffset$1(this.data, this.tokenPrecTable, token) < iPrev;
+    }
+    /// Configure the parser. Returns a new parser instance that has the
+    /// given settings modified. Settings not provided in `config` are
+    /// kept from the original parser.
+    configure(config) {
+        // Hideous reflection-based kludge to make it easy to create a
+        // slightly modified copy of a parser.
+        let copy = Object.assign(Object.create(LRParser$1.prototype), this);
+        if (config.props)
+            copy.nodeSet = this.nodeSet.extend(...config.props);
+        if (config.top) {
+            let info = this.topRules[config.top];
+            if (!info)
+                throw new RangeError(`Invalid top rule name ${config.top}`);
+            copy.top = info;
+        }
+        if (config.tokenizers)
+            copy.tokenizers = this.tokenizers.map(t => {
+                let found = config.tokenizers.find(r => r.from == t);
+                return found ? found.to : t;
+            });
+        if (config.contextTracker)
+            copy.context = config.contextTracker;
+        if (config.dialect)
+            copy.dialect = this.parseDialect(config.dialect);
+        if (config.strict != null)
+            copy.strict = config.strict;
+        if (config.wrap)
+            copy.wrappers = copy.wrappers.concat(config.wrap);
+        if (config.bufferLength != null)
+            copy.bufferLength = config.bufferLength;
+        return copy;
+    }
+    /// Tells you whether any [parse wrappers](#lr.ParserConfig.wrap)
+    /// are registered for this parser.
+    hasWrappers() {
+        return this.wrappers.length > 0;
+    }
+    /// Returns the name associated with a given term. This will only
+    /// work for all terms when the parser was generated with the
+    /// `--names` option. By default, only the names of tagged terms are
+    /// stored.
+    getName(term) {
+        return this.termNames ? this.termNames[term] : String(term <= this.maxNode && this.nodeSet.types[term].name || term);
+    }
+    /// The eof term id is always allocated directly after the node
+    /// types. @internal
+    get eofTerm() { return this.maxNode + 1; }
+    /// The type of top node produced by the parser.
+    get topNode() { return this.nodeSet.types[this.top[1]]; }
+    /// @internal
+    dynamicPrecedence(term) {
+        let prec = this.dynamicPrecedences;
+        return prec == null ? 0 : prec[term] || 0;
+    }
+    /// @internal
+    parseDialect(dialect) {
+        let values = Object.keys(this.dialects), flags = values.map(() => false);
+        if (dialect)
+            for (let part of dialect.split(" ")) {
+                let id = values.indexOf(part);
+                if (id >= 0)
+                    flags[id] = true;
+            }
+        let disabled = null;
+        for (let i = 0; i < values.length; i++)
+            if (!flags[i]) {
+                for (let j = this.dialects[values[i]], id; (id = this.data[j++]) != 65535 /* End */;)
+                    (disabled || (disabled = new Uint8Array(this.maxTerm + 1)))[id] = 1;
+            }
+        return new Dialect$1(dialect, flags, disabled);
+    }
+    /// (used by the output of the parser generator) @internal
+    static deserialize(spec) {
+        return new LRParser$1(spec);
+    }
+}
+function pair$1(data, off) { return data[off] | (data[off + 1] << 16); }
+function findOffset$1(data, start, term) {
+    for (let i = start, next; (next = data[i]) != 65535 /* End */; i++)
+        if (next == term)
+            return i - start;
+    return -1;
+}
+function findFinished$1(stacks) {
+    let best = null;
+    for (let stack of stacks) {
+        let stopped = stack.p.stoppedAt;
+        if ((stack.pos == stack.p.stream.end || stopped != null && stack.pos > stopped) &&
+            stack.p.parser.stateFlag(stack.state, 2 /* Accepting */) &&
+            (!best || best.score < stack.score))
+            best = stack;
+    }
+    return best;
+}
+
 // This file was generated by lezer-generator. You probably shouldn't edit it.
 const whitespace = 34,
   LineComment = 1,
@@ -27119,7 +33415,7 @@ function dialect(spec, kws, types, builtin) {
     return dialect;
 }
 function tokensFor(d) {
-    return new ExternalTokenizer(input => {
+    return new ExternalTokenizer$1(input => {
         var _a;
         let { next } = input;
         input.advance();
@@ -27266,7 +33562,7 @@ function tokensFor(d) {
 const tokens = /*@__PURE__*/tokensFor(defaults);
 
 // This file was generated by lezer-generator. You probably shouldn't edit it.
-const parser$1 = /*@__PURE__*/LRParser.deserialize({
+const parser$1 = /*@__PURE__*/LRParser$1.deserialize({
   version: 14,
   states: "%dQ]QQOOO#kQRO'#DQO#rQQO'#CuO%RQQO'#CvO%YQQO'#CwO%aQQO'#CxOOQQ'#DQ'#DQOOQQ'#C{'#C{O&lQRO'#CyOOQQ'#Ct'#CtOOQQ'#Cz'#CzQ]QQOOQOQQOOO&vQQO,59aO'RQQO,59aO'WQQO'#DQOOQQ,59b,59bO'eQQO,59bOOQQ,59c,59cO'lQQO,59cOOQQ,59d,59dO'sQQO,59dOOQQ-E6y-E6yOOQQ,59`,59`OOQQ-E6x-E6xOOQQ'#C|'#C|OOQQ1G.{1G.{O&vQQO1G.{OOQQ1G.|1G.|OOQQ1G.}1G.}OOQQ1G/O1G/OP'zQQO'#C{POQQ-E6z-E6zOOQQ7+$g7+$g",
   stateData: "(R~OrOSPOSQOS~ORUOSUOTUOUUOVROXSOZTO]XO^QO_UO`UOaPObPOcPOdUOeUOfUO~O^]ORtXStXTtXUtXVtXXtXZtX]tX_tX`tXatXbtXctXdtXetXftX~OqtX~P!dOa^Ob^Oc^O~ORUOSUOTUOUUOVROXSOZTO^QO_UO`UOa_Ob_Oc_OdUOeUOfUO~OW`O~P#}OYbO~P#}O[dO~P#}ORUOSUOTUOUUOVROXSOZTO^QO_UO`UOaPObPOcPOdUOeUOfUO~O]gOqmX~P%hOaiObiOciO~O^kO~OWtXYtX[tX~P!dOWlO~P#}OYmO~P#}O[nO~P#}O]gO~P#}O",
@@ -27473,6 +33769,1593 @@ const PostgreSQL = /*@__PURE__*/SQLDialect.define({
     keywords: SQLKeywords + "a abort abs absent access according ada admin aggregate alias also always analyse analyze array_agg array_max_cardinality asensitive assert assignment asymmetric atomic attach attribute attributes avg backward base64 begin_frame begin_partition bernoulli bit_length blocked bom c cache called cardinality catalog_name ceil ceiling chain char_length character_length character_set_catalog character_set_name character_set_schema characteristics characters checkpoint class class_origin cluster coalesce cobol collation_catalog collation_name collation_schema collect column_name columns command_function command_function_code comment comments committed concurrently condition_number configuration conflict connection_name constant constraint_catalog constraint_name constraint_schema contains content control conversion convert copy corr cost covar_pop covar_samp csv cume_dist current_catalog current_row current_schema cursor_name database datalink datatype datetime_interval_code datetime_interval_precision db debug defaults defined definer degree delimiter delimiters dense_rank depends derived detach detail dictionary disable discard dispatch dlnewcopy dlpreviouscopy dlurlcomplete dlurlcompleteonly dlurlcompletewrite dlurlpath dlurlpathonly dlurlpathwrite dlurlscheme dlurlserver dlvalue document dump dynamic_function dynamic_function_code element elsif empty enable encoding encrypted end_frame end_partition endexec enforced enum errcode error event every exclude excluding exclusive exp explain expression extension extract family file filter final first_value flag floor following force foreach fortran forward frame_row freeze fs functions fusion g generated granted greatest groups handler header hex hierarchy hint id ignore ilike immediately immutable implementation implicit import include including increment indent index indexes info inherit inherits inline insensitive instance instantiable instead integrity intersection invoker isnull k key_member key_type label lag last_value lead leakproof least length library like_regex link listen ln load location lock locked log logged lower m mapping matched materialized max max_cardinality maxvalue member merge message message_length message_octet_length message_text min minvalue mod mode more move multiset mumps name namespace nfc nfd nfkc nfkd nil normalize normalized nothing notice notify notnull nowait nth_value ntile nullable nullif nulls number occurrences_regex octet_length octets off offset oids operator options ordering others over overlay overriding owned owner p parallel parameter_mode parameter_name parameter_ordinal_position parameter_specific_catalog parameter_specific_name parameter_specific_schema parser partition pascal passing passthrough password percent percent_rank percentile_cont percentile_disc perform period permission pg_context pg_datatype_name pg_exception_context pg_exception_detail pg_exception_hint placing plans pli policy portion position position_regex power precedes preceding prepared print_strict_params procedural procedures program publication query quote raise range rank reassign recheck recovery refresh regr_avgx regr_avgy regr_count regr_intercept regr_r2 regr_slope regr_sxx regr_sxy regr_syy reindex rename repeatable replace replica requiring reset respect restart restore result_oid returned_cardinality returned_length returned_octet_length returned_sqlstate returning reverse routine_catalog routine_name routine_schema routines row_count row_number rowtype rule scale schema_name schemas scope scope_catalog scope_name scope_schema security selective self sensitive sequence sequences serializable server server_name setof share show simple skip slice snapshot source specific_name sqlcode sqlerror sqrt stable stacked standalone statement statistics stddev_pop stddev_samp stdin stdout storage strict strip structure style subclass_origin submultiset subscription substring substring_regex succeeds sum symmetric sysid system system_time t table_name tables tablesample tablespace temp template ties token top_level_count transaction_active transactions_committed transactions_rolled_back transform transforms translate translate_regex trigger_catalog trigger_name trigger_schema trim trim_array truncate trusted type types uescape unbounded uncommitted unencrypted unlink unlisten unlogged unnamed untyped upper uri use_column use_variable user_defined_type_catalog user_defined_type_code user_defined_type_name user_defined_type_schema vacuum valid validate validator value_of var_pop var_samp varbinary variable_conflict variadic verbose version versioning views volatile warning whitespace width_bucket window within wrapper xmlagg xmlattributes xmlbinary xmlcast xmlcomment xmlconcat xmldeclaration xmldocument xmlelement xmlexists xmlforest xmliterate xmlnamespaces xmlparse xmlpi xmlquery xmlroot xmlschema xmlserialize xmltable xmltext xmlvalidate yes",
     types: SQLTypes + "bigint int8 bigserial serial8 varbit bool box bytea cidr circle precision float8 inet int4 json jsonb line lseg macaddr macaddr8 money numeric pg_lsn point polygon float4 int2 smallserial serial2 serial serial4 text timetz timestamptz tsquery tsvector txid_snapshot uuid xml"
 });
+
+/// A parse stack. These are used internally by the parser to track
+/// parsing progress. They also provide some properties and methods
+/// that external code such as a tokenizer can use to get information
+/// about the parse state.
+class Stack {
+    /// @internal
+    constructor(
+    /// The parse that this stack is part of @internal
+    p, 
+    /// Holds state, input pos, buffer index triplets for all but the
+    /// top state @internal
+    stack, 
+    /// The current parse state @internal
+    state, 
+    // The position at which the next reduce should take place. This
+    // can be less than `this.pos` when skipped expressions have been
+    // added to the stack (which should be moved outside of the next
+    // reduction)
+    /// @internal
+    reducePos, 
+    /// The input position up to which this stack has parsed.
+    pos, 
+    /// The dynamic score of the stack, including dynamic precedence
+    /// and error-recovery penalties
+    /// @internal
+    score, 
+    // The output buffer. Holds (type, start, end, size) quads
+    // representing nodes created by the parser, where `size` is
+    // amount of buffer array entries covered by this node.
+    /// @internal
+    buffer, 
+    // The base offset of the buffer. When stacks are split, the split
+    // instance shared the buffer history with its parent up to
+    // `bufferBase`, which is the absolute offset (including the
+    // offset of previous splits) into the buffer at which this stack
+    // starts writing.
+    /// @internal
+    bufferBase, 
+    /// @internal
+    curContext, 
+    /// @internal
+    lookAhead = 0, 
+    // A parent stack from which this was split off, if any. This is
+    // set up so that it always points to a stack that has some
+    // additional buffer content, never to a stack with an equal
+    // `bufferBase`.
+    /// @internal
+    parent) {
+        this.p = p;
+        this.stack = stack;
+        this.state = state;
+        this.reducePos = reducePos;
+        this.pos = pos;
+        this.score = score;
+        this.buffer = buffer;
+        this.bufferBase = bufferBase;
+        this.curContext = curContext;
+        this.lookAhead = lookAhead;
+        this.parent = parent;
+    }
+    /// @internal
+    toString() {
+        return `[${this.stack.filter((_, i) => i % 3 == 0).concat(this.state)}]@${this.pos}${this.score ? "!" + this.score : ""}`;
+    }
+    // Start an empty stack
+    /// @internal
+    static start(p, state, pos = 0) {
+        let cx = p.parser.context;
+        return new Stack(p, [], state, pos, pos, 0, [], 0, cx ? new StackContext(cx, cx.start) : null, 0, null);
+    }
+    /// The stack's current [context](#lr.ContextTracker) value, if
+    /// any. Its type will depend on the context tracker's type
+    /// parameter, or it will be `null` if there is no context
+    /// tracker.
+    get context() { return this.curContext ? this.curContext.context : null; }
+    // Push a state onto the stack, tracking its start position as well
+    // as the buffer base at that point.
+    /// @internal
+    pushState(state, start) {
+        this.stack.push(this.state, start, this.bufferBase + this.buffer.length);
+        this.state = state;
+    }
+    // Apply a reduce action
+    /// @internal
+    reduce(action) {
+        let depth = action >> 19 /* ReduceDepthShift */, type = action & 65535 /* ValueMask */;
+        let { parser } = this.p;
+        let dPrec = parser.dynamicPrecedence(type);
+        if (dPrec)
+            this.score += dPrec;
+        if (depth == 0) {
+            this.pushState(parser.getGoto(this.state, type, true), this.reducePos);
+            // Zero-depth reductions are a special case—they add stuff to
+            // the stack without popping anything off.
+            if (type < parser.minRepeatTerm)
+                this.storeNode(type, this.reducePos, this.reducePos, 4, true);
+            this.reduceContext(type, this.reducePos);
+            return;
+        }
+        // Find the base index into `this.stack`, content after which will
+        // be dropped. Note that with `StayFlag` reductions we need to
+        // consume two extra frames (the dummy parent node for the skipped
+        // expression and the state that we'll be staying in, which should
+        // be moved to `this.state`).
+        let base = this.stack.length - ((depth - 1) * 3) - (action & 262144 /* StayFlag */ ? 6 : 0);
+        let start = this.stack[base - 2];
+        let bufferBase = this.stack[base - 1], count = this.bufferBase + this.buffer.length - bufferBase;
+        // Store normal terms or `R -> R R` repeat reductions
+        if (type < parser.minRepeatTerm || (action & 131072 /* RepeatFlag */)) {
+            let pos = parser.stateFlag(this.state, 1 /* Skipped */) ? this.pos : this.reducePos;
+            this.storeNode(type, start, pos, count + 4, true);
+        }
+        if (action & 262144 /* StayFlag */) {
+            this.state = this.stack[base];
+        }
+        else {
+            let baseStateID = this.stack[base - 3];
+            this.state = parser.getGoto(baseStateID, type, true);
+        }
+        while (this.stack.length > base)
+            this.stack.pop();
+        this.reduceContext(type, start);
+    }
+    // Shift a value into the buffer
+    /// @internal
+    storeNode(term, start, end, size = 4, isReduce = false) {
+        if (term == 0 /* Err */ &&
+            (!this.stack.length || this.stack[this.stack.length - 1] < this.buffer.length + this.bufferBase)) {
+            // Try to omit/merge adjacent error nodes
+            let cur = this, top = this.buffer.length;
+            if (top == 0 && cur.parent) {
+                top = cur.bufferBase - cur.parent.bufferBase;
+                cur = cur.parent;
+            }
+            if (top > 0 && cur.buffer[top - 4] == 0 /* Err */ && cur.buffer[top - 1] > -1) {
+                if (start == end)
+                    return;
+                if (cur.buffer[top - 2] >= start) {
+                    cur.buffer[top - 2] = end;
+                    return;
+                }
+            }
+        }
+        if (!isReduce || this.pos == end) { // Simple case, just append
+            this.buffer.push(term, start, end, size);
+        }
+        else { // There may be skipped nodes that have to be moved forward
+            let index = this.buffer.length;
+            if (index > 0 && this.buffer[index - 4] != 0 /* Err */)
+                while (index > 0 && this.buffer[index - 2] > end) {
+                    // Move this record forward
+                    this.buffer[index] = this.buffer[index - 4];
+                    this.buffer[index + 1] = this.buffer[index - 3];
+                    this.buffer[index + 2] = this.buffer[index - 2];
+                    this.buffer[index + 3] = this.buffer[index - 1];
+                    index -= 4;
+                    if (size > 4)
+                        size -= 4;
+                }
+            this.buffer[index] = term;
+            this.buffer[index + 1] = start;
+            this.buffer[index + 2] = end;
+            this.buffer[index + 3] = size;
+        }
+    }
+    // Apply a shift action
+    /// @internal
+    shift(action, next, nextEnd) {
+        let start = this.pos;
+        if (action & 131072 /* GotoFlag */) {
+            this.pushState(action & 65535 /* ValueMask */, this.pos);
+        }
+        else if ((action & 262144 /* StayFlag */) == 0) { // Regular shift
+            let nextState = action, { parser } = this.p;
+            if (nextEnd > this.pos || next <= parser.maxNode) {
+                this.pos = nextEnd;
+                if (!parser.stateFlag(nextState, 1 /* Skipped */))
+                    this.reducePos = nextEnd;
+            }
+            this.pushState(nextState, start);
+            this.shiftContext(next, start);
+            if (next <= parser.maxNode)
+                this.buffer.push(next, start, nextEnd, 4);
+        }
+        else { // Shift-and-stay, which means this is a skipped token
+            this.pos = nextEnd;
+            this.shiftContext(next, start);
+            if (next <= this.p.parser.maxNode)
+                this.buffer.push(next, start, nextEnd, 4);
+        }
+    }
+    // Apply an action
+    /// @internal
+    apply(action, next, nextEnd) {
+        if (action & 65536 /* ReduceFlag */)
+            this.reduce(action);
+        else
+            this.shift(action, next, nextEnd);
+    }
+    // Add a prebuilt (reused) node into the buffer.
+    /// @internal
+    useNode(value, next) {
+        let index = this.p.reused.length - 1;
+        if (index < 0 || this.p.reused[index] != value) {
+            this.p.reused.push(value);
+            index++;
+        }
+        let start = this.pos;
+        this.reducePos = this.pos = start + value.length;
+        this.pushState(next, start);
+        this.buffer.push(index, start, this.reducePos, -1 /* size == -1 means this is a reused value */);
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.reuse(this.curContext.context, value, this, this.p.stream.reset(this.pos - value.length)));
+    }
+    // Split the stack. Due to the buffer sharing and the fact
+    // that `this.stack` tends to stay quite shallow, this isn't very
+    // expensive.
+    /// @internal
+    split() {
+        let parent = this;
+        let off = parent.buffer.length;
+        // Because the top of the buffer (after this.pos) may be mutated
+        // to reorder reductions and skipped tokens, and shared buffers
+        // should be immutable, this copies any outstanding skipped tokens
+        // to the new buffer, and puts the base pointer before them.
+        while (off > 0 && parent.buffer[off - 2] > parent.reducePos)
+            off -= 4;
+        let buffer = parent.buffer.slice(off), base = parent.bufferBase + off;
+        // Make sure parent points to an actual parent with content, if there is such a parent.
+        while (parent && base == parent.bufferBase)
+            parent = parent.parent;
+        return new Stack(this.p, this.stack.slice(), this.state, this.reducePos, this.pos, this.score, buffer, base, this.curContext, this.lookAhead, parent);
+    }
+    // Try to recover from an error by 'deleting' (ignoring) one token.
+    /// @internal
+    recoverByDelete(next, nextEnd) {
+        let isNode = next <= this.p.parser.maxNode;
+        if (isNode)
+            this.storeNode(next, this.pos, nextEnd, 4);
+        this.storeNode(0 /* Err */, this.pos, nextEnd, isNode ? 8 : 4);
+        this.pos = this.reducePos = nextEnd;
+        this.score -= 190 /* Delete */;
+    }
+    /// Check if the given term would be able to be shifted (optionally
+    /// after some reductions) on this stack. This can be useful for
+    /// external tokenizers that want to make sure they only provide a
+    /// given token when it applies.
+    canShift(term) {
+        for (let sim = new SimulatedStack(this);;) {
+            let action = this.p.parser.stateSlot(sim.state, 4 /* DefaultReduce */) || this.p.parser.hasAction(sim.state, term);
+            if ((action & 65536 /* ReduceFlag */) == 0)
+                return true;
+            if (action == 0)
+                return false;
+            sim.reduce(action);
+        }
+    }
+    // Apply up to Recover.MaxNext recovery actions that conceptually
+    // inserts some missing token or rule.
+    /// @internal
+    recoverByInsert(next) {
+        if (this.stack.length >= 300 /* MaxInsertStackDepth */)
+            return [];
+        let nextStates = this.p.parser.nextStates(this.state);
+        if (nextStates.length > 4 /* MaxNext */ << 1 || this.stack.length >= 120 /* DampenInsertStackDepth */) {
+            let best = [];
+            for (let i = 0, s; i < nextStates.length; i += 2) {
+                if ((s = nextStates[i + 1]) != this.state && this.p.parser.hasAction(s, next))
+                    best.push(nextStates[i], s);
+            }
+            if (this.stack.length < 120 /* DampenInsertStackDepth */)
+                for (let i = 0; best.length < 4 /* MaxNext */ << 1 && i < nextStates.length; i += 2) {
+                    let s = nextStates[i + 1];
+                    if (!best.some((v, i) => (i & 1) && v == s))
+                        best.push(nextStates[i], s);
+                }
+            nextStates = best;
+        }
+        let result = [];
+        for (let i = 0; i < nextStates.length && result.length < 4 /* MaxNext */; i += 2) {
+            let s = nextStates[i + 1];
+            if (s == this.state)
+                continue;
+            let stack = this.split();
+            stack.pushState(s, this.pos);
+            stack.storeNode(0 /* Err */, stack.pos, stack.pos, 4, true);
+            stack.shiftContext(nextStates[i], this.pos);
+            stack.score -= 200 /* Insert */;
+            result.push(stack);
+        }
+        return result;
+    }
+    // Force a reduce, if possible. Return false if that can't
+    // be done.
+    /// @internal
+    forceReduce() {
+        let reduce = this.p.parser.stateSlot(this.state, 5 /* ForcedReduce */);
+        if ((reduce & 65536 /* ReduceFlag */) == 0)
+            return false;
+        let { parser } = this.p;
+        if (!parser.validAction(this.state, reduce)) {
+            let depth = reduce >> 19 /* ReduceDepthShift */, term = reduce & 65535 /* ValueMask */;
+            let target = this.stack.length - depth * 3;
+            if (target < 0 || parser.getGoto(this.stack[target], term, false) < 0)
+                return false;
+            this.storeNode(0 /* Err */, this.reducePos, this.reducePos, 4, true);
+            this.score -= 100 /* Reduce */;
+        }
+        this.reducePos = this.pos;
+        this.reduce(reduce);
+        return true;
+    }
+    /// @internal
+    forceAll() {
+        while (!this.p.parser.stateFlag(this.state, 2 /* Accepting */)) {
+            if (!this.forceReduce()) {
+                this.storeNode(0 /* Err */, this.pos, this.pos, 4, true);
+                break;
+            }
+        }
+        return this;
+    }
+    /// Check whether this state has no further actions (assumed to be a direct descendant of the
+    /// top state, since any other states must be able to continue
+    /// somehow). @internal
+    get deadEnd() {
+        if (this.stack.length != 3)
+            return false;
+        let { parser } = this.p;
+        return parser.data[parser.stateSlot(this.state, 1 /* Actions */)] == 65535 /* End */ &&
+            !parser.stateSlot(this.state, 4 /* DefaultReduce */);
+    }
+    /// Restart the stack (put it back in its start state). Only safe
+    /// when this.stack.length == 3 (state is directly below the top
+    /// state). @internal
+    restart() {
+        this.state = this.stack[0];
+        this.stack.length = 0;
+    }
+    /// @internal
+    sameState(other) {
+        if (this.state != other.state || this.stack.length != other.stack.length)
+            return false;
+        for (let i = 0; i < this.stack.length; i += 3)
+            if (this.stack[i] != other.stack[i])
+                return false;
+        return true;
+    }
+    /// Get the parser used by this stack.
+    get parser() { return this.p.parser; }
+    /// Test whether a given dialect (by numeric ID, as exported from
+    /// the terms file) is enabled.
+    dialectEnabled(dialectID) { return this.p.parser.dialect.flags[dialectID]; }
+    shiftContext(term, start) {
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.shift(this.curContext.context, term, this, this.p.stream.reset(start)));
+    }
+    reduceContext(term, start) {
+        if (this.curContext)
+            this.updateContext(this.curContext.tracker.reduce(this.curContext.context, term, this, this.p.stream.reset(start)));
+    }
+    /// @internal
+    emitContext() {
+        let last = this.buffer.length - 1;
+        if (last < 0 || this.buffer[last] != -3)
+            this.buffer.push(this.curContext.hash, this.reducePos, this.reducePos, -3);
+    }
+    /// @internal
+    emitLookAhead() {
+        let last = this.buffer.length - 1;
+        if (last < 0 || this.buffer[last] != -4)
+            this.buffer.push(this.lookAhead, this.reducePos, this.reducePos, -4);
+    }
+    updateContext(context) {
+        if (context != this.curContext.context) {
+            let newCx = new StackContext(this.curContext.tracker, context);
+            if (newCx.hash != this.curContext.hash)
+                this.emitContext();
+            this.curContext = newCx;
+        }
+    }
+    /// @internal
+    setLookAhead(lookAhead) {
+        if (lookAhead > this.lookAhead) {
+            this.emitLookAhead();
+            this.lookAhead = lookAhead;
+        }
+    }
+    /// @internal
+    close() {
+        if (this.curContext && this.curContext.tracker.strict)
+            this.emitContext();
+        if (this.lookAhead > 0)
+            this.emitLookAhead();
+    }
+}
+class StackContext {
+    constructor(tracker, context) {
+        this.tracker = tracker;
+        this.context = context;
+        this.hash = tracker.strict ? tracker.hash(context) : 0;
+    }
+}
+var Recover;
+(function (Recover) {
+    Recover[Recover["Insert"] = 200] = "Insert";
+    Recover[Recover["Delete"] = 190] = "Delete";
+    Recover[Recover["Reduce"] = 100] = "Reduce";
+    Recover[Recover["MaxNext"] = 4] = "MaxNext";
+    Recover[Recover["MaxInsertStackDepth"] = 300] = "MaxInsertStackDepth";
+    Recover[Recover["DampenInsertStackDepth"] = 120] = "DampenInsertStackDepth";
+})(Recover || (Recover = {}));
+// Used to cheaply run some reductions to scan ahead without mutating
+// an entire stack
+class SimulatedStack {
+    constructor(start) {
+        this.start = start;
+        this.state = start.state;
+        this.stack = start.stack;
+        this.base = this.stack.length;
+    }
+    reduce(action) {
+        let term = action & 65535 /* ValueMask */, depth = action >> 19 /* ReduceDepthShift */;
+        if (depth == 0) {
+            if (this.stack == this.start.stack)
+                this.stack = this.stack.slice();
+            this.stack.push(this.state, 0, 0);
+            this.base += 3;
+        }
+        else {
+            this.base -= (depth - 1) * 3;
+        }
+        let goto = this.start.p.parser.getGoto(this.stack[this.base - 3], term, true);
+        this.state = goto;
+    }
+}
+// This is given to `Tree.build` to build a buffer, and encapsulates
+// the parent-stack-walking necessary to read the nodes.
+class StackBufferCursor {
+    constructor(stack, pos, index) {
+        this.stack = stack;
+        this.pos = pos;
+        this.index = index;
+        this.buffer = stack.buffer;
+        if (this.index == 0)
+            this.maybeNext();
+    }
+    static create(stack, pos = stack.bufferBase + stack.buffer.length) {
+        return new StackBufferCursor(stack, pos, pos - stack.bufferBase);
+    }
+    maybeNext() {
+        let next = this.stack.parent;
+        if (next != null) {
+            this.index = this.stack.bufferBase - next.bufferBase;
+            this.stack = next;
+            this.buffer = next.buffer;
+        }
+    }
+    get id() { return this.buffer[this.index - 4]; }
+    get start() { return this.buffer[this.index - 3]; }
+    get end() { return this.buffer[this.index - 2]; }
+    get size() { return this.buffer[this.index - 1]; }
+    next() {
+        this.index -= 4;
+        this.pos -= 4;
+        if (this.index == 0)
+            this.maybeNext();
+    }
+    fork() {
+        return new StackBufferCursor(this.stack, this.pos, this.index);
+    }
+}
+
+class CachedToken {
+    constructor() {
+        this.start = -1;
+        this.value = -1;
+        this.end = -1;
+        this.extended = -1;
+        this.lookAhead = 0;
+        this.mask = 0;
+        this.context = 0;
+    }
+}
+const nullToken = new CachedToken;
+/// [Tokenizers](#lr.ExternalTokenizer) interact with the input
+/// through this interface. It presents the input as a stream of
+/// characters, tracking lookahead and hiding the complexity of
+/// [ranges](#common.Parser.parse^ranges) from tokenizer code.
+class InputStream {
+    /// @internal
+    constructor(
+    /// @internal
+    input, 
+    /// @internal
+    ranges) {
+        this.input = input;
+        this.ranges = ranges;
+        /// @internal
+        this.chunk = "";
+        /// @internal
+        this.chunkOff = 0;
+        /// Backup chunk
+        this.chunk2 = "";
+        this.chunk2Pos = 0;
+        /// The character code of the next code unit in the input, or -1
+        /// when the stream is at the end of the input.
+        this.next = -1;
+        /// @internal
+        this.token = nullToken;
+        this.rangeIndex = 0;
+        this.pos = this.chunkPos = ranges[0].from;
+        this.range = ranges[0];
+        this.end = ranges[ranges.length - 1].to;
+        this.readNext();
+    }
+    resolveOffset(offset, assoc) {
+        let range = this.range, index = this.rangeIndex;
+        let pos = this.pos + offset;
+        while (pos < range.from) {
+            if (!index)
+                return null;
+            let next = this.ranges[--index];
+            pos -= range.from - next.to;
+            range = next;
+        }
+        while (assoc < 0 ? pos > range.to : pos >= range.to) {
+            if (index == this.ranges.length - 1)
+                return null;
+            let next = this.ranges[++index];
+            pos += next.from - range.to;
+            range = next;
+        }
+        return pos;
+    }
+    /// Look at a code unit near the stream position. `.peek(0)` equals
+    /// `.next`, `.peek(-1)` gives you the previous character, and so
+    /// on.
+    ///
+    /// Note that looking around during tokenizing creates dependencies
+    /// on potentially far-away content, which may reduce the
+    /// effectiveness incremental parsing—when looking forward—or even
+    /// cause invalid reparses when looking backward more than 25 code
+    /// units, since the library does not track lookbehind.
+    peek(offset) {
+        let idx = this.chunkOff + offset, pos, result;
+        if (idx >= 0 && idx < this.chunk.length) {
+            pos = this.pos + offset;
+            result = this.chunk.charCodeAt(idx);
+        }
+        else {
+            let resolved = this.resolveOffset(offset, 1);
+            if (resolved == null)
+                return -1;
+            pos = resolved;
+            if (pos >= this.chunk2Pos && pos < this.chunk2Pos + this.chunk2.length) {
+                result = this.chunk2.charCodeAt(pos - this.chunk2Pos);
+            }
+            else {
+                let i = this.rangeIndex, range = this.range;
+                while (range.to <= pos)
+                    range = this.ranges[++i];
+                this.chunk2 = this.input.chunk(this.chunk2Pos = pos);
+                if (pos + this.chunk2.length > range.to)
+                    this.chunk2 = this.chunk2.slice(0, range.to - pos);
+                result = this.chunk2.charCodeAt(0);
+            }
+        }
+        if (pos >= this.token.lookAhead)
+            this.token.lookAhead = pos + 1;
+        return result;
+    }
+    /// Accept a token. By default, the end of the token is set to the
+    /// current stream position, but you can pass an offset (relative to
+    /// the stream position) to change that.
+    acceptToken(token, endOffset = 0) {
+        let end = endOffset ? this.resolveOffset(endOffset, -1) : this.pos;
+        if (end == null || end < this.token.start)
+            throw new RangeError("Token end out of bounds");
+        this.token.value = token;
+        this.token.end = end;
+    }
+    getChunk() {
+        if (this.pos >= this.chunk2Pos && this.pos < this.chunk2Pos + this.chunk2.length) {
+            let { chunk, chunkPos } = this;
+            this.chunk = this.chunk2;
+            this.chunkPos = this.chunk2Pos;
+            this.chunk2 = chunk;
+            this.chunk2Pos = chunkPos;
+            this.chunkOff = this.pos - this.chunkPos;
+        }
+        else {
+            this.chunk2 = this.chunk;
+            this.chunk2Pos = this.chunkPos;
+            let nextChunk = this.input.chunk(this.pos);
+            let end = this.pos + nextChunk.length;
+            this.chunk = end > this.range.to ? nextChunk.slice(0, this.range.to - this.pos) : nextChunk;
+            this.chunkPos = this.pos;
+            this.chunkOff = 0;
+        }
+    }
+    readNext() {
+        if (this.chunkOff >= this.chunk.length) {
+            this.getChunk();
+            if (this.chunkOff == this.chunk.length)
+                return this.next = -1;
+        }
+        return this.next = this.chunk.charCodeAt(this.chunkOff);
+    }
+    /// Move the stream forward N (defaults to 1) code units. Returns
+    /// the new value of [`next`](#lr.InputStream.next).
+    advance(n = 1) {
+        this.chunkOff += n;
+        while (this.pos + n >= this.range.to) {
+            if (this.rangeIndex == this.ranges.length - 1)
+                return this.setDone();
+            n -= this.range.to - this.pos;
+            this.range = this.ranges[++this.rangeIndex];
+            this.pos = this.range.from;
+        }
+        this.pos += n;
+        if (this.pos >= this.token.lookAhead)
+            this.token.lookAhead = this.pos + 1;
+        return this.readNext();
+    }
+    setDone() {
+        this.pos = this.chunkPos = this.end;
+        this.range = this.ranges[this.rangeIndex = this.ranges.length - 1];
+        this.chunk = "";
+        return this.next = -1;
+    }
+    /// @internal
+    reset(pos, token) {
+        if (token) {
+            this.token = token;
+            token.start = pos;
+            token.lookAhead = pos + 1;
+            token.value = token.extended = -1;
+        }
+        else {
+            this.token = nullToken;
+        }
+        if (this.pos != pos) {
+            this.pos = pos;
+            if (pos == this.end) {
+                this.setDone();
+                return this;
+            }
+            while (pos < this.range.from)
+                this.range = this.ranges[--this.rangeIndex];
+            while (pos >= this.range.to)
+                this.range = this.ranges[++this.rangeIndex];
+            if (pos >= this.chunkPos && pos < this.chunkPos + this.chunk.length) {
+                this.chunkOff = pos - this.chunkPos;
+            }
+            else {
+                this.chunk = "";
+                this.chunkOff = 0;
+            }
+            this.readNext();
+        }
+        return this;
+    }
+    /// @internal
+    read(from, to) {
+        if (from >= this.chunkPos && to <= this.chunkPos + this.chunk.length)
+            return this.chunk.slice(from - this.chunkPos, to - this.chunkPos);
+        if (from >= this.chunk2Pos && to <= this.chunk2Pos + this.chunk2.length)
+            return this.chunk2.slice(from - this.chunk2Pos, to - this.chunk2Pos);
+        if (from >= this.range.from && to <= this.range.to)
+            return this.input.read(from, to);
+        let result = "";
+        for (let r of this.ranges) {
+            if (r.from >= to)
+                break;
+            if (r.to > from)
+                result += this.input.read(Math.max(r.from, from), Math.min(r.to, to));
+        }
+        return result;
+    }
+}
+/// @internal
+class TokenGroup {
+    constructor(data, id) {
+        this.data = data;
+        this.id = id;
+    }
+    token(input, stack) { readToken(this.data, input, stack, this.id); }
+}
+TokenGroup.prototype.contextual = TokenGroup.prototype.fallback = TokenGroup.prototype.extend = false;
+/// `@external tokens` declarations in the grammar should resolve to
+/// an instance of this class.
+class ExternalTokenizer {
+    /// Create a tokenizer. The first argument is the function that,
+    /// given an input stream, scans for the types of tokens it
+    /// recognizes at the stream's position, and calls
+    /// [`acceptToken`](#lr.InputStream.acceptToken) when it finds
+    /// one.
+    constructor(
+    /// @internal
+    token, options = {}) {
+        this.token = token;
+        this.contextual = !!options.contextual;
+        this.fallback = !!options.fallback;
+        this.extend = !!options.extend;
+    }
+}
+// Tokenizer data is stored a big uint16 array containing, for each
+// state:
+//
+//  - A group bitmask, indicating what token groups are reachable from
+//    this state, so that paths that can only lead to tokens not in
+//    any of the current groups can be cut off early.
+//
+//  - The position of the end of the state's sequence of accepting
+//    tokens
+//
+//  - The number of outgoing edges for the state
+//
+//  - The accepting tokens, as (token id, group mask) pairs
+//
+//  - The outgoing edges, as (start character, end character, state
+//    index) triples, with end character being exclusive
+//
+// This function interprets that data, running through a stream as
+// long as new states with the a matching group mask can be reached,
+// and updating `token` when it matches a token.
+function readToken(data, input, stack, group) {
+    let state = 0, groupMask = 1 << group, { parser } = stack.p, { dialect } = parser;
+    scan: for (;;) {
+        if ((groupMask & data[state]) == 0)
+            break;
+        let accEnd = data[state + 1];
+        // Check whether this state can lead to a token in the current group
+        // Accept tokens in this state, possibly overwriting
+        // lower-precedence / shorter tokens
+        for (let i = state + 3; i < accEnd; i += 2)
+            if ((data[i + 1] & groupMask) > 0) {
+                let term = data[i];
+                if (dialect.allows(term) &&
+                    (input.token.value == -1 || input.token.value == term || parser.overrides(term, input.token.value))) {
+                    input.acceptToken(term);
+                    break;
+                }
+            }
+        // Do a binary search on the state's edges
+        for (let next = input.next, low = 0, high = data[state + 2]; low < high;) {
+            let mid = (low + high) >> 1;
+            let index = accEnd + mid + (mid << 1);
+            let from = data[index], to = data[index + 1];
+            if (next < from)
+                high = mid;
+            else if (next >= to)
+                low = mid + 1;
+            else {
+                state = data[index + 2];
+                input.advance();
+                continue scan;
+            }
+        }
+        break;
+    }
+}
+
+// See lezer-generator/src/encode.ts for comments about the encoding
+// used here
+function decodeArray(input, Type = Uint16Array) {
+    if (typeof input != "string")
+        return input;
+    let array = null;
+    for (let pos = 0, out = 0; pos < input.length;) {
+        let value = 0;
+        for (;;) {
+            let next = input.charCodeAt(pos++), stop = false;
+            if (next == 126 /* BigValCode */) {
+                value = 65535 /* BigVal */;
+                break;
+            }
+            if (next >= 92 /* Gap2 */)
+                next--;
+            if (next >= 34 /* Gap1 */)
+                next--;
+            let digit = next - 32 /* Start */;
+            if (digit >= 46 /* Base */) {
+                digit -= 46 /* Base */;
+                stop = true;
+            }
+            value += digit;
+            if (stop)
+                break;
+            value *= 46 /* Base */;
+        }
+        if (array)
+            array[out++] = value;
+        else
+            array = new Type(value);
+    }
+    return array;
+}
+
+// Environment variable used to control console output
+const verbose = typeof process != "undefined" && process.env && /\bparse\b/.test(process.env.LOG);
+let stackIDs = null;
+var Safety;
+(function (Safety) {
+    Safety[Safety["Margin"] = 25] = "Margin";
+})(Safety || (Safety = {}));
+function cutAt(tree, pos, side) {
+    let cursor = tree.cursor(IterMode.IncludeAnonymous);
+    cursor.moveTo(pos);
+    for (;;) {
+        if (!(side < 0 ? cursor.childBefore(pos) : cursor.childAfter(pos)))
+            for (;;) {
+                if ((side < 0 ? cursor.to < pos : cursor.from > pos) && !cursor.type.isError)
+                    return side < 0 ? Math.max(0, Math.min(cursor.to - 1, pos - 25 /* Margin */))
+                        : Math.min(tree.length, Math.max(cursor.from + 1, pos + 25 /* Margin */));
+                if (side < 0 ? cursor.prevSibling() : cursor.nextSibling())
+                    break;
+                if (!cursor.parent())
+                    return side < 0 ? 0 : tree.length;
+            }
+    }
+}
+class FragmentCursor {
+    constructor(fragments, nodeSet) {
+        this.fragments = fragments;
+        this.nodeSet = nodeSet;
+        this.i = 0;
+        this.fragment = null;
+        this.safeFrom = -1;
+        this.safeTo = -1;
+        this.trees = [];
+        this.start = [];
+        this.index = [];
+        this.nextFragment();
+    }
+    nextFragment() {
+        let fr = this.fragment = this.i == this.fragments.length ? null : this.fragments[this.i++];
+        if (fr) {
+            this.safeFrom = fr.openStart ? cutAt(fr.tree, fr.from + fr.offset, 1) - fr.offset : fr.from;
+            this.safeTo = fr.openEnd ? cutAt(fr.tree, fr.to + fr.offset, -1) - fr.offset : fr.to;
+            while (this.trees.length) {
+                this.trees.pop();
+                this.start.pop();
+                this.index.pop();
+            }
+            this.trees.push(fr.tree);
+            this.start.push(-fr.offset);
+            this.index.push(0);
+            this.nextStart = this.safeFrom;
+        }
+        else {
+            this.nextStart = 1e9;
+        }
+    }
+    // `pos` must be >= any previously given `pos` for this cursor
+    nodeAt(pos) {
+        if (pos < this.nextStart)
+            return null;
+        while (this.fragment && this.safeTo <= pos)
+            this.nextFragment();
+        if (!this.fragment)
+            return null;
+        for (;;) {
+            let last = this.trees.length - 1;
+            if (last < 0) { // End of tree
+                this.nextFragment();
+                return null;
+            }
+            let top = this.trees[last], index = this.index[last];
+            if (index == top.children.length) {
+                this.trees.pop();
+                this.start.pop();
+                this.index.pop();
+                continue;
+            }
+            let next = top.children[index];
+            let start = this.start[last] + top.positions[index];
+            if (start > pos) {
+                this.nextStart = start;
+                return null;
+            }
+            if (next instanceof Tree) {
+                if (start == pos) {
+                    if (start < this.safeFrom)
+                        return null;
+                    let end = start + next.length;
+                    if (end <= this.safeTo) {
+                        let lookAhead = next.prop(NodeProp.lookAhead);
+                        if (!lookAhead || end + lookAhead < this.fragment.to)
+                            return next;
+                    }
+                }
+                this.index[last]++;
+                if (start + next.length >= Math.max(this.safeFrom, pos)) { // Enter this node
+                    this.trees.push(next);
+                    this.start.push(start);
+                    this.index.push(0);
+                }
+            }
+            else {
+                this.index[last]++;
+                this.nextStart = start + next.length;
+            }
+        }
+    }
+}
+class TokenCache {
+    constructor(parser, stream) {
+        this.stream = stream;
+        this.tokens = [];
+        this.mainToken = null;
+        this.actions = [];
+        this.tokens = parser.tokenizers.map(_ => new CachedToken);
+    }
+    getActions(stack) {
+        let actionIndex = 0;
+        let main = null;
+        let { parser } = stack.p, { tokenizers } = parser;
+        let mask = parser.stateSlot(stack.state, 3 /* TokenizerMask */);
+        let context = stack.curContext ? stack.curContext.hash : 0;
+        let lookAhead = 0;
+        for (let i = 0; i < tokenizers.length; i++) {
+            if (((1 << i) & mask) == 0)
+                continue;
+            let tokenizer = tokenizers[i], token = this.tokens[i];
+            if (main && !tokenizer.fallback)
+                continue;
+            if (tokenizer.contextual || token.start != stack.pos || token.mask != mask || token.context != context) {
+                this.updateCachedToken(token, tokenizer, stack);
+                token.mask = mask;
+                token.context = context;
+            }
+            if (token.lookAhead > token.end + 25 /* Margin */)
+                lookAhead = Math.max(token.lookAhead, lookAhead);
+            if (token.value != 0 /* Err */) {
+                let startIndex = actionIndex;
+                if (token.extended > -1)
+                    actionIndex = this.addActions(stack, token.extended, token.end, actionIndex);
+                actionIndex = this.addActions(stack, token.value, token.end, actionIndex);
+                if (!tokenizer.extend) {
+                    main = token;
+                    if (actionIndex > startIndex)
+                        break;
+                }
+            }
+        }
+        while (this.actions.length > actionIndex)
+            this.actions.pop();
+        if (lookAhead)
+            stack.setLookAhead(lookAhead);
+        if (!main && stack.pos == this.stream.end) {
+            main = new CachedToken;
+            main.value = stack.p.parser.eofTerm;
+            main.start = main.end = stack.pos;
+            actionIndex = this.addActions(stack, main.value, main.end, actionIndex);
+        }
+        this.mainToken = main;
+        return this.actions;
+    }
+    getMainToken(stack) {
+        if (this.mainToken)
+            return this.mainToken;
+        let main = new CachedToken, { pos, p } = stack;
+        main.start = pos;
+        main.end = Math.min(pos + 1, p.stream.end);
+        main.value = pos == p.stream.end ? p.parser.eofTerm : 0 /* Err */;
+        return main;
+    }
+    updateCachedToken(token, tokenizer, stack) {
+        tokenizer.token(this.stream.reset(stack.pos, token), stack);
+        if (token.value > -1) {
+            let { parser } = stack.p;
+            for (let i = 0; i < parser.specialized.length; i++)
+                if (parser.specialized[i] == token.value) {
+                    let result = parser.specializers[i](this.stream.read(token.start, token.end), stack);
+                    if (result >= 0 && stack.p.parser.dialect.allows(result >> 1)) {
+                        if ((result & 1) == 0 /* Specialize */)
+                            token.value = result >> 1;
+                        else
+                            token.extended = result >> 1;
+                        break;
+                    }
+                }
+        }
+        else {
+            token.value = 0 /* Err */;
+            token.end = Math.min(stack.p.stream.end, stack.pos + 1);
+        }
+    }
+    putAction(action, token, end, index) {
+        // Don't add duplicate actions
+        for (let i = 0; i < index; i += 3)
+            if (this.actions[i] == action)
+                return index;
+        this.actions[index++] = action;
+        this.actions[index++] = token;
+        this.actions[index++] = end;
+        return index;
+    }
+    addActions(stack, token, end, index) {
+        let { state } = stack, { parser } = stack.p, { data } = parser;
+        for (let set = 0; set < 2; set++) {
+            for (let i = parser.stateSlot(state, set ? 2 /* Skip */ : 1 /* Actions */);; i += 3) {
+                if (data[i] == 65535 /* End */) {
+                    if (data[i + 1] == 1 /* Next */) {
+                        i = pair(data, i + 2);
+                    }
+                    else {
+                        if (index == 0 && data[i + 1] == 2 /* Other */)
+                            index = this.putAction(pair(data, i + 2), token, end, index);
+                        break;
+                    }
+                }
+                if (data[i] == token)
+                    index = this.putAction(pair(data, i + 1), token, end, index);
+            }
+        }
+        return index;
+    }
+}
+var Rec;
+(function (Rec) {
+    Rec[Rec["Distance"] = 5] = "Distance";
+    Rec[Rec["MaxRemainingPerStep"] = 3] = "MaxRemainingPerStep";
+    // When two stacks have been running independently long enough to
+    // add this many elements to their buffers, prune one.
+    Rec[Rec["MinBufferLengthPrune"] = 500] = "MinBufferLengthPrune";
+    Rec[Rec["ForceReduceLimit"] = 10] = "ForceReduceLimit";
+    // Once a stack reaches this depth (in .stack.length) force-reduce
+    // it back to CutTo to avoid creating trees that overflow the stack
+    // on recursive traversal.
+    Rec[Rec["CutDepth"] = 15000] = "CutDepth";
+    Rec[Rec["CutTo"] = 9000] = "CutTo";
+})(Rec || (Rec = {}));
+class Parse {
+    constructor(parser, input, fragments, ranges) {
+        this.parser = parser;
+        this.input = input;
+        this.ranges = ranges;
+        this.recovering = 0;
+        this.nextStackID = 0x2654; // ♔, ♕, ♖, ♗, ♘, ♙, ♠, ♡, ♢, ♣, ♤, ♥, ♦, ♧
+        this.minStackPos = 0;
+        this.reused = [];
+        this.stoppedAt = null;
+        this.stream = new InputStream(input, ranges);
+        this.tokens = new TokenCache(parser, this.stream);
+        this.topTerm = parser.top[1];
+        let { from } = ranges[0];
+        this.stacks = [Stack.start(this, parser.top[0], from)];
+        this.fragments = fragments.length && this.stream.end - from > parser.bufferLength * 4
+            ? new FragmentCursor(fragments, parser.nodeSet) : null;
+    }
+    get parsedPos() {
+        return this.minStackPos;
+    }
+    // Move the parser forward. This will process all parse stacks at
+    // `this.pos` and try to advance them to a further position. If no
+    // stack for such a position is found, it'll start error-recovery.
+    //
+    // When the parse is finished, this will return a syntax tree. When
+    // not, it returns `null`.
+    advance() {
+        let stacks = this.stacks, pos = this.minStackPos;
+        // This will hold stacks beyond `pos`.
+        let newStacks = this.stacks = [];
+        let stopped, stoppedTokens;
+        // Keep advancing any stacks at `pos` until they either move
+        // forward or can't be advanced. Gather stacks that can't be
+        // advanced further in `stopped`.
+        for (let i = 0; i < stacks.length; i++) {
+            let stack = stacks[i];
+            for (;;) {
+                this.tokens.mainToken = null;
+                if (stack.pos > pos) {
+                    newStacks.push(stack);
+                }
+                else if (this.advanceStack(stack, newStacks, stacks)) {
+                    continue;
+                }
+                else {
+                    if (!stopped) {
+                        stopped = [];
+                        stoppedTokens = [];
+                    }
+                    stopped.push(stack);
+                    let tok = this.tokens.getMainToken(stack);
+                    stoppedTokens.push(tok.value, tok.end);
+                }
+                break;
+            }
+        }
+        if (!newStacks.length) {
+            let finished = stopped && findFinished(stopped);
+            if (finished)
+                return this.stackToTree(finished);
+            if (this.parser.strict) {
+                if (verbose && stopped)
+                    console.log("Stuck with token " + (this.tokens.mainToken ? this.parser.getName(this.tokens.mainToken.value) : "none"));
+                throw new SyntaxError("No parse at " + pos);
+            }
+            if (!this.recovering)
+                this.recovering = 5 /* Distance */;
+        }
+        if (this.recovering && stopped) {
+            let finished = this.stoppedAt != null && stopped[0].pos > this.stoppedAt ? stopped[0]
+                : this.runRecovery(stopped, stoppedTokens, newStacks);
+            if (finished)
+                return this.stackToTree(finished.forceAll());
+        }
+        if (this.recovering) {
+            let maxRemaining = this.recovering == 1 ? 1 : this.recovering * 3 /* MaxRemainingPerStep */;
+            if (newStacks.length > maxRemaining) {
+                newStacks.sort((a, b) => b.score - a.score);
+                while (newStacks.length > maxRemaining)
+                    newStacks.pop();
+            }
+            if (newStacks.some(s => s.reducePos > pos))
+                this.recovering--;
+        }
+        else if (newStacks.length > 1) {
+            // Prune stacks that are in the same state, or that have been
+            // running without splitting for a while, to avoid getting stuck
+            // with multiple successful stacks running endlessly on.
+            outer: for (let i = 0; i < newStacks.length - 1; i++) {
+                let stack = newStacks[i];
+                for (let j = i + 1; j < newStacks.length; j++) {
+                    let other = newStacks[j];
+                    if (stack.sameState(other) ||
+                        stack.buffer.length > 500 /* MinBufferLengthPrune */ && other.buffer.length > 500 /* MinBufferLengthPrune */) {
+                        if (((stack.score - other.score) || (stack.buffer.length - other.buffer.length)) > 0) {
+                            newStacks.splice(j--, 1);
+                        }
+                        else {
+                            newStacks.splice(i--, 1);
+                            continue outer;
+                        }
+                    }
+                }
+            }
+        }
+        this.minStackPos = newStacks[0].pos;
+        for (let i = 1; i < newStacks.length; i++)
+            if (newStacks[i].pos < this.minStackPos)
+                this.minStackPos = newStacks[i].pos;
+        return null;
+    }
+    stopAt(pos) {
+        if (this.stoppedAt != null && this.stoppedAt < pos)
+            throw new RangeError("Can't move stoppedAt forward");
+        this.stoppedAt = pos;
+    }
+    // Returns an updated version of the given stack, or null if the
+    // stack can't advance normally. When `split` and `stacks` are
+    // given, stacks split off by ambiguous operations will be pushed to
+    // `split`, or added to `stacks` if they move `pos` forward.
+    advanceStack(stack, stacks, split) {
+        let start = stack.pos, { parser } = this;
+        let base = verbose ? this.stackID(stack) + " -> " : "";
+        if (this.stoppedAt != null && start > this.stoppedAt)
+            return stack.forceReduce() ? stack : null;
+        if (this.fragments) {
+            let strictCx = stack.curContext && stack.curContext.tracker.strict, cxHash = strictCx ? stack.curContext.hash : 0;
+            for (let cached = this.fragments.nodeAt(start); cached;) {
+                let match = this.parser.nodeSet.types[cached.type.id] == cached.type ? parser.getGoto(stack.state, cached.type.id) : -1;
+                if (match > -1 && cached.length && (!strictCx || (cached.prop(NodeProp.contextHash) || 0) == cxHash)) {
+                    stack.useNode(cached, match);
+                    if (verbose)
+                        console.log(base + this.stackID(stack) + ` (via reuse of ${parser.getName(cached.type.id)})`);
+                    return true;
+                }
+                if (!(cached instanceof Tree) || cached.children.length == 0 || cached.positions[0] > 0)
+                    break;
+                let inner = cached.children[0];
+                if (inner instanceof Tree && cached.positions[0] == 0)
+                    cached = inner;
+                else
+                    break;
+            }
+        }
+        let defaultReduce = parser.stateSlot(stack.state, 4 /* DefaultReduce */);
+        if (defaultReduce > 0) {
+            stack.reduce(defaultReduce);
+            if (verbose)
+                console.log(base + this.stackID(stack) + ` (via always-reduce ${parser.getName(defaultReduce & 65535 /* ValueMask */)})`);
+            return true;
+        }
+        if (stack.stack.length >= 15000 /* CutDepth */) {
+            while (stack.stack.length > 9000 /* CutTo */ && stack.forceReduce()) { }
+        }
+        let actions = this.tokens.getActions(stack);
+        for (let i = 0; i < actions.length;) {
+            let action = actions[i++], term = actions[i++], end = actions[i++];
+            let last = i == actions.length || !split;
+            let localStack = last ? stack : stack.split();
+            localStack.apply(action, term, end);
+            if (verbose)
+                console.log(base + this.stackID(localStack) + ` (via ${(action & 65536 /* ReduceFlag */) == 0 ? "shift"
+                    : `reduce of ${parser.getName(action & 65535 /* ValueMask */)}`} for ${parser.getName(term)} @ ${start}${localStack == stack ? "" : ", split"})`);
+            if (last)
+                return true;
+            else if (localStack.pos > start)
+                stacks.push(localStack);
+            else
+                split.push(localStack);
+        }
+        return false;
+    }
+    // Advance a given stack forward as far as it will go. Returns the
+    // (possibly updated) stack if it got stuck, or null if it moved
+    // forward and was given to `pushStackDedup`.
+    advanceFully(stack, newStacks) {
+        let pos = stack.pos;
+        for (;;) {
+            if (!this.advanceStack(stack, null, null))
+                return false;
+            if (stack.pos > pos) {
+                pushStackDedup(stack, newStacks);
+                return true;
+            }
+        }
+    }
+    runRecovery(stacks, tokens, newStacks) {
+        let finished = null, restarted = false;
+        for (let i = 0; i < stacks.length; i++) {
+            let stack = stacks[i], token = tokens[i << 1], tokenEnd = tokens[(i << 1) + 1];
+            let base = verbose ? this.stackID(stack) + " -> " : "";
+            if (stack.deadEnd) {
+                if (restarted)
+                    continue;
+                restarted = true;
+                stack.restart();
+                if (verbose)
+                    console.log(base + this.stackID(stack) + " (restarted)");
+                let done = this.advanceFully(stack, newStacks);
+                if (done)
+                    continue;
+            }
+            let force = stack.split(), forceBase = base;
+            for (let j = 0; force.forceReduce() && j < 10 /* ForceReduceLimit */; j++) {
+                if (verbose)
+                    console.log(forceBase + this.stackID(force) + " (via force-reduce)");
+                let done = this.advanceFully(force, newStacks);
+                if (done)
+                    break;
+                if (verbose)
+                    forceBase = this.stackID(force) + " -> ";
+            }
+            for (let insert of stack.recoverByInsert(token)) {
+                if (verbose)
+                    console.log(base + this.stackID(insert) + " (via recover-insert)");
+                this.advanceFully(insert, newStacks);
+            }
+            if (this.stream.end > stack.pos) {
+                if (tokenEnd == stack.pos) {
+                    tokenEnd++;
+                    token = 0 /* Err */;
+                }
+                stack.recoverByDelete(token, tokenEnd);
+                if (verbose)
+                    console.log(base + this.stackID(stack) + ` (via recover-delete ${this.parser.getName(token)})`);
+                pushStackDedup(stack, newStacks);
+            }
+            else if (!finished || finished.score < stack.score) {
+                finished = stack;
+            }
+        }
+        return finished;
+    }
+    // Convert the stack's buffer to a syntax tree.
+    stackToTree(stack) {
+        stack.close();
+        return Tree.build({ buffer: StackBufferCursor.create(stack),
+            nodeSet: this.parser.nodeSet,
+            topID: this.topTerm,
+            maxBufferLength: this.parser.bufferLength,
+            reused: this.reused,
+            start: this.ranges[0].from,
+            length: stack.pos - this.ranges[0].from,
+            minRepeatType: this.parser.minRepeatTerm });
+    }
+    stackID(stack) {
+        let id = (stackIDs || (stackIDs = new WeakMap)).get(stack);
+        if (!id)
+            stackIDs.set(stack, id = String.fromCodePoint(this.nextStackID++));
+        return id + stack;
+    }
+}
+function pushStackDedup(stack, newStacks) {
+    for (let i = 0; i < newStacks.length; i++) {
+        let other = newStacks[i];
+        if (other.pos == stack.pos && other.sameState(stack)) {
+            if (newStacks[i].score < stack.score)
+                newStacks[i] = stack;
+            return;
+        }
+    }
+    newStacks.push(stack);
+}
+class Dialect {
+    constructor(source, flags, disabled) {
+        this.source = source;
+        this.flags = flags;
+        this.disabled = disabled;
+    }
+    allows(term) { return !this.disabled || this.disabled[term] == 0; }
+}
+const id = x => x;
+/// Context trackers are used to track stateful context (such as
+/// indentation in the Python grammar, or parent elements in the XML
+/// grammar) needed by external tokenizers. You declare them in a
+/// grammar file as `@context exportName from "module"`.
+///
+/// Context values should be immutable, and can be updated (replaced)
+/// on shift or reduce actions.
+///
+/// The export used in a `@context` declaration should be of this
+/// type.
+class ContextTracker {
+    /// Define a context tracker.
+    constructor(spec) {
+        this.start = spec.start;
+        this.shift = spec.shift || id;
+        this.reduce = spec.reduce || id;
+        this.reuse = spec.reuse || id;
+        this.hash = spec.hash || (() => 0);
+        this.strict = spec.strict !== false;
+    }
+}
+/// A parser holds the parse tables for a given grammar, as generated
+/// by `lezer-generator`.
+class LRParser extends Parser {
+    /// @internal
+    constructor(spec) {
+        super();
+        /// @internal
+        this.wrappers = [];
+        if (spec.version != 14 /* Version */)
+            throw new RangeError(`Parser version (${spec.version}) doesn't match runtime version (${14 /* Version */})`);
+        let nodeNames = spec.nodeNames.split(" ");
+        this.minRepeatTerm = nodeNames.length;
+        for (let i = 0; i < spec.repeatNodeCount; i++)
+            nodeNames.push("");
+        let topTerms = Object.keys(spec.topRules).map(r => spec.topRules[r][1]);
+        let nodeProps = [];
+        for (let i = 0; i < nodeNames.length; i++)
+            nodeProps.push([]);
+        function setProp(nodeID, prop, value) {
+            nodeProps[nodeID].push([prop, prop.deserialize(String(value))]);
+        }
+        if (spec.nodeProps)
+            for (let propSpec of spec.nodeProps) {
+                let prop = propSpec[0];
+                if (typeof prop == "string")
+                    prop = NodeProp[prop];
+                for (let i = 1; i < propSpec.length;) {
+                    let next = propSpec[i++];
+                    if (next >= 0) {
+                        setProp(next, prop, propSpec[i++]);
+                    }
+                    else {
+                        let value = propSpec[i + -next];
+                        for (let j = -next; j > 0; j--)
+                            setProp(propSpec[i++], prop, value);
+                        i++;
+                    }
+                }
+            }
+        this.nodeSet = new NodeSet(nodeNames.map((name, i) => NodeType.define({
+            name: i >= this.minRepeatTerm ? undefined : name,
+            id: i,
+            props: nodeProps[i],
+            top: topTerms.indexOf(i) > -1,
+            error: i == 0,
+            skipped: spec.skippedNodes && spec.skippedNodes.indexOf(i) > -1
+        })));
+        if (spec.propSources)
+            this.nodeSet = this.nodeSet.extend(...spec.propSources);
+        this.strict = false;
+        this.bufferLength = DefaultBufferLength;
+        let tokenArray = decodeArray(spec.tokenData);
+        this.context = spec.context;
+        this.specialized = new Uint16Array(spec.specialized ? spec.specialized.length : 0);
+        this.specializers = [];
+        if (spec.specialized)
+            for (let i = 0; i < spec.specialized.length; i++) {
+                this.specialized[i] = spec.specialized[i].term;
+                this.specializers[i] = spec.specialized[i].get;
+            }
+        this.states = decodeArray(spec.states, Uint32Array);
+        this.data = decodeArray(spec.stateData);
+        this.goto = decodeArray(spec.goto);
+        this.maxTerm = spec.maxTerm;
+        this.tokenizers = spec.tokenizers.map(value => typeof value == "number" ? new TokenGroup(tokenArray, value) : value);
+        this.topRules = spec.topRules;
+        this.dialects = spec.dialects || {};
+        this.dynamicPrecedences = spec.dynamicPrecedences || null;
+        this.tokenPrecTable = spec.tokenPrec;
+        this.termNames = spec.termNames || null;
+        this.maxNode = this.nodeSet.types.length - 1;
+        this.dialect = this.parseDialect();
+        this.top = this.topRules[Object.keys(this.topRules)[0]];
+    }
+    createParse(input, fragments, ranges) {
+        let parse = new Parse(this, input, fragments, ranges);
+        for (let w of this.wrappers)
+            parse = w(parse, input, fragments, ranges);
+        return parse;
+    }
+    /// Get a goto table entry @internal
+    getGoto(state, term, loose = false) {
+        let table = this.goto;
+        if (term >= table[0])
+            return -1;
+        for (let pos = table[term + 1];;) {
+            let groupTag = table[pos++], last = groupTag & 1;
+            let target = table[pos++];
+            if (last && loose)
+                return target;
+            for (let end = pos + (groupTag >> 1); pos < end; pos++)
+                if (table[pos] == state)
+                    return target;
+            if (last)
+                return -1;
+        }
+    }
+    /// Check if this state has an action for a given terminal @internal
+    hasAction(state, terminal) {
+        let data = this.data;
+        for (let set = 0; set < 2; set++) {
+            for (let i = this.stateSlot(state, set ? 2 /* Skip */ : 1 /* Actions */), next;; i += 3) {
+                if ((next = data[i]) == 65535 /* End */) {
+                    if (data[i + 1] == 1 /* Next */)
+                        next = data[i = pair(data, i + 2)];
+                    else if (data[i + 1] == 2 /* Other */)
+                        return pair(data, i + 2);
+                    else
+                        break;
+                }
+                if (next == terminal || next == 0 /* Err */)
+                    return pair(data, i + 1);
+            }
+        }
+        return 0;
+    }
+    /// @internal
+    stateSlot(state, slot) {
+        return this.states[(state * 6 /* Size */) + slot];
+    }
+    /// @internal
+    stateFlag(state, flag) {
+        return (this.stateSlot(state, 0 /* Flags */) & flag) > 0;
+    }
+    /// @internal
+    validAction(state, action) {
+        if (action == this.stateSlot(state, 4 /* DefaultReduce */))
+            return true;
+        for (let i = this.stateSlot(state, 1 /* Actions */);; i += 3) {
+            if (this.data[i] == 65535 /* End */) {
+                if (this.data[i + 1] == 1 /* Next */)
+                    i = pair(this.data, i + 2);
+                else
+                    return false;
+            }
+            if (action == pair(this.data, i + 1))
+                return true;
+        }
+    }
+    /// Get the states that can follow this one through shift actions or
+    /// goto jumps. @internal
+    nextStates(state) {
+        let result = [];
+        for (let i = this.stateSlot(state, 1 /* Actions */);; i += 3) {
+            if (this.data[i] == 65535 /* End */) {
+                if (this.data[i + 1] == 1 /* Next */)
+                    i = pair(this.data, i + 2);
+                else
+                    break;
+            }
+            if ((this.data[i + 2] & (65536 /* ReduceFlag */ >> 16)) == 0) {
+                let value = this.data[i + 1];
+                if (!result.some((v, i) => (i & 1) && v == value))
+                    result.push(this.data[i], value);
+            }
+        }
+        return result;
+    }
+    /// @internal
+    overrides(token, prev) {
+        let iPrev = findOffset(this.data, this.tokenPrecTable, prev);
+        return iPrev < 0 || findOffset(this.data, this.tokenPrecTable, token) < iPrev;
+    }
+    /// Configure the parser. Returns a new parser instance that has the
+    /// given settings modified. Settings not provided in `config` are
+    /// kept from the original parser.
+    configure(config) {
+        // Hideous reflection-based kludge to make it easy to create a
+        // slightly modified copy of a parser.
+        let copy = Object.assign(Object.create(LRParser.prototype), this);
+        if (config.props)
+            copy.nodeSet = this.nodeSet.extend(...config.props);
+        if (config.top) {
+            let info = this.topRules[config.top];
+            if (!info)
+                throw new RangeError(`Invalid top rule name ${config.top}`);
+            copy.top = info;
+        }
+        if (config.tokenizers)
+            copy.tokenizers = this.tokenizers.map(t => {
+                let found = config.tokenizers.find(r => r.from == t);
+                return found ? found.to : t;
+            });
+        if (config.contextTracker)
+            copy.context = config.contextTracker;
+        if (config.dialect)
+            copy.dialect = this.parseDialect(config.dialect);
+        if (config.strict != null)
+            copy.strict = config.strict;
+        if (config.wrap)
+            copy.wrappers = copy.wrappers.concat(config.wrap);
+        if (config.bufferLength != null)
+            copy.bufferLength = config.bufferLength;
+        return copy;
+    }
+    /// Tells you whether any [parse wrappers](#lr.ParserConfig.wrap)
+    /// are registered for this parser.
+    hasWrappers() {
+        return this.wrappers.length > 0;
+    }
+    /// Returns the name associated with a given term. This will only
+    /// work for all terms when the parser was generated with the
+    /// `--names` option. By default, only the names of tagged terms are
+    /// stored.
+    getName(term) {
+        return this.termNames ? this.termNames[term] : String(term <= this.maxNode && this.nodeSet.types[term].name || term);
+    }
+    /// The eof term id is always allocated directly after the node
+    /// types. @internal
+    get eofTerm() { return this.maxNode + 1; }
+    /// The type of top node produced by the parser.
+    get topNode() { return this.nodeSet.types[this.top[1]]; }
+    /// @internal
+    dynamicPrecedence(term) {
+        let prec = this.dynamicPrecedences;
+        return prec == null ? 0 : prec[term] || 0;
+    }
+    /// @internal
+    parseDialect(dialect) {
+        let values = Object.keys(this.dialects), flags = values.map(() => false);
+        if (dialect)
+            for (let part of dialect.split(" ")) {
+                let id = values.indexOf(part);
+                if (id >= 0)
+                    flags[id] = true;
+            }
+        let disabled = null;
+        for (let i = 0; i < values.length; i++)
+            if (!flags[i]) {
+                for (let j = this.dialects[values[i]], id; (id = this.data[j++]) != 65535 /* End */;)
+                    (disabled || (disabled = new Uint8Array(this.maxTerm + 1)))[id] = 1;
+            }
+        return new Dialect(dialect, flags, disabled);
+    }
+    /// (used by the output of the parser generator) @internal
+    static deserialize(spec) {
+        return new LRParser(spec);
+    }
+}
+function pair(data, off) { return data[off] | (data[off + 1] << 16); }
+function findOffset(data, start, term) {
+    for (let i = start, next; (next = data[i]) != 65535 /* End */; i++)
+        if (next == term)
+            return i - start;
+    return -1;
+}
+function findFinished(stacks) {
+    let best = null;
+    for (let stack of stacks) {
+        let stopped = stack.p.stoppedAt;
+        if ((stack.pos == stack.p.stream.end || stopped != null && stack.pos > stopped) &&
+            stack.p.parser.stateFlag(stack.state, 2 /* Accepting */) &&
+            (!best || best.score < stack.score))
+            best = stack;
+    }
+    return best;
+}
 
 // This file was generated by lezer-generator. You probably shouldn't edit it.
 const printKeyword = 1,
