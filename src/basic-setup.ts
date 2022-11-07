@@ -48,7 +48,11 @@ import {
 import { tags } from "@lezer/highlight"
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete"
 import * as autocomplete from "@codemirror/autocomplete"
-import { highlightSelectionMatches, searchKeymap } from "@codemirror/search"
+import {
+    highlightSelectionMatches,
+    searchKeymap,
+    selectNextOccurrence,
+} from "@codemirror/search"
 import { completionKeymap } from "@codemirror/autocomplete"
 import { TreeCursor, NodeProp, parseMixed } from "@lezer/common"
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown"
@@ -99,6 +103,7 @@ export {
     highlightSelectionMatches,
     closeBracketsKeymap,
     searchKeymap,
+    selectNextOccurrence,
     foldKeymap,
     completionKeymap,
     Decoration,
