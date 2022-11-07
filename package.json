@@ -1,6 +1,6 @@
 {
     "name": "@plutojl/codemirror-pluto-setup",
-    "version": "0.28.0",
+    "version": "0.28.1",
     "description": "Example configuration for the CodeMirror code editor - as used by Pluto.jl",
     "scripts": {
         "bundle": "rollup -c"
@@ -34,33 +34,32 @@
         "tabWidth": 4
     },
     "dependencies": {
-        "@codemirror/autocomplete": "^0.20.0",
-        "@codemirror/collab": "^0.20.0",
-        "@codemirror/commands": "^0.20.0",
-        "@codemirror/lang-css": "^0.20.0",
-        "@codemirror/lang-html": "^0.20.0",
-        "@codemirror/lang-javascript": "^0.20.0",
-        "@codemirror/lang-markdown": "^0.20.0",
-        "@codemirror/lang-python": "^0.20.0",
-        "@codemirror/lang-sql": "^0.20.0",
-        "@codemirror/language": "^0.20.1",
-        "@codemirror/lint": "^0.20.2",
-        "@codemirror/search": "^0.20.1",
-        "@codemirror/state": "^0.20.0",
-        "@codemirror/view": "^0.20.4",
-        "@lezer/common": "^0.16.0",
-        "@lezer/markdown": "^0.16.0",
-        "@lezer/highlight": "fonsp/highlight#9ab6f55f34fe30f71c1d08b0fdf18794b02d0dc3",
-        "@plutojl/lang-julia": "^0.9.0",
-        "rollup-plugin-typescript2": "^0.31.2",
-        "tslib": "^2.3.1",
-        "typescript": "^4.6.4"
+        "@codemirror/autocomplete": "^6.3.0",
+        "@codemirror/collab": "^6.0.0",
+        "@codemirror/commands": "^6.1.2",
+        "@codemirror/lang-css": "^6.0.1",
+        "@codemirror/lang-html": "^6.1.3",
+        "@codemirror/lang-javascript": "^6.1.1",
+        "@codemirror/lang-markdown": "^6.0.4",
+        "@codemirror/lang-python": "^6.0.4",
+        "@codemirror/lang-sql": "^6.3.2",
+        "@codemirror/language": "^6.3.0",
+        "@codemirror/lint": "^6.0.0",
+        "@codemirror/search": "^6.2.2",
+        "@codemirror/state": "^6.1.2",
+        "@codemirror/view": "^6.4.0",
+        "@lezer/common": "^1.0.1",
+        "@lezer/highlight": "^1.1.2",
+        "@lezer/markdown": "^1.0.2",
+        "@plutojl/lang-julia": "^0.10.0"
     },
     "devDependencies": {
-        "@rollup/plugin-node-resolve": "^13.0.0",
-        "@rollup/plugin-typescript": "^8.2.1",
-        "rollup": "^2.48.0",
-        "rollup-plugin-dts": "^4.2.0"
+        "@rollup/plugin-node-resolve": "^15.0.1",
+        "@rollup/plugin-typescript": "^9.0.2",
+        "rollup": "^3.2.5",
+        "rollup-plugin-dts": "^5.0.0",
+        "tslib": "^2.4.1",
+        "typescript": "^4.8.4"
     },
     "repository": {
         "type": "git",
