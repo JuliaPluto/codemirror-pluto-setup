@@ -153,7 +153,16 @@
   resolved "https://registry.yarnpkg.com/@codemirror/state/-/state-6.1.2.tgz#182d46eabcc17c95508984d6add5a5a641dcd517"
   integrity sha512-Mxff85Hp5va+zuj+H748KbubXjrinX/k28lj43H14T2D0+4kuvEFIEIO7hCEcvBT8ubZyIelt9yGOjj2MWOEQA==
 
-"@codemirror/view@^6.0.0", "@codemirror/view@^6.2.2", "@codemirror/view@^6.4.0", "@codemirror/view@^6.4.1":
+"@codemirror/view@6.4.0":
+  version "6.4.0"
+  resolved "https://registry.yarnpkg.com/@codemirror/view/-/view-6.4.0.tgz#f8c213ab6dfec56048b372d2c378213428e2b4e5"
+  integrity sha512-Kv32b6Tn7QVwFbj/EDswTLSocjk5kgggF6zzBFAL4o4hZ/vmtFD155+EjH1pVlbfoDyVC2M6SedPsMrwYscgNg==
+  dependencies:
+    "@codemirror/state" "^6.0.0"
+    style-mod "^4.0.0"
+    w3c-keyname "^2.2.4"
+
+"@codemirror/view@^6.0.0", "@codemirror/view@^6.2.2", "@codemirror/view@^6.4.1":
   version "6.4.1"
   resolved "https://registry.yarnpkg.com/@codemirror/view/-/view-6.4.1.tgz#7526bd473b8e5e5f7bade834121864b8f7d2649f"
   integrity sha512-QdBpD6E5HYx6YFXXhqwrRyQ83w7CxWZnchM4QpWBVkkmV7/oJT8N+yz2KAi2iRaLObc/aOf7C2RCQTO2yswF8A==
