@@ -1659,17 +1659,19 @@ class FacetProvider {
                 return 0;
             },
             reconfigure: (state, oldState) => {
-                let newVal = getter(state);
-                let oldAddr = oldState.config.address[id];
+                let newVal, oldAddr = oldState.config.address[id];
                 if (oldAddr != null) {
                     let oldVal = getAddr(oldState, oldAddr);
                     if (this.dependencies.every(dep => {
                         return dep instanceof Facet ? oldState.facet(dep) === state.facet(dep) :
                             dep instanceof StateField ? oldState.field(dep, false) == state.field(dep, false) : true;
-                    }) || (multi ? compareArray(newVal, oldVal, compare) : compare(newVal, oldVal))) {
+                    }) || (multi ? compareArray(newVal = getter(state), oldVal, compare) : compare(newVal = getter(state), oldVal))) {
                         state.values[idx] = oldVal;
                         return 0;
                     }
+                }
+                else {
+                    newVal = getter(state);
                 }
                 state.values[idx] = newVal;
                 return 1 /* SlotStatus.Changed */;
@@ -2804,6 +2806,18 @@ class EditorState {
     /**
     Find the values for a given language data field, provided by the
     the [`languageData`](https://codemirror.net/6/docs/ref/#state.EditorState^languageData) facet.
+    
+    Examples of language data fields are...
+    
+    - [`"commentTokens"`](https://codemirror.net/6/docs/ref/#commands.CommentTokens) for specifying
+      comment syntax.
+    - [`"autocomplete"`](https://codemirror.net/6/docs/ref/#autocomplete.autocompletion^config.override)
+      for providing language-specific completion sources.
+    - [`"wordChars"`](https://codemirror.net/6/docs/ref/#state.EditorState.charCategorizer) for adding
+      characters that should be considered part of words in this
+      language.
+    - [`"closeBrackets"`](https://codemirror.net/6/docs/ref/#autocomplete.CloseBracketConfig) controls
+      bracket closing behavior.
     */
     languageDataAt(name, pos, side = -1) {
         let values = [];
@@ -3308,7 +3322,7 @@ class RangeSet {
     */
     static eq(oldSets, newSets, from = 0, to) {
         if (to == null)
-            to = 1000000000 /* C.Far */;
+            to = 1000000000 /* C.Far */ - 1;
         let a = oldSets.filter(set => !set.isEmpty && newSets.indexOf(set) < 0);
         let b = newSets.filter(set => !set.isEmpty && oldSets.indexOf(set) < 0);
         if (a.length != b.length)
@@ -12122,9 +12136,9 @@ handlers.beforeinput = (view, event) => {
 
 const wrappingWhiteSpace = ["pre-wrap", "normal", "pre-line", "break-spaces"];
 class HeightOracle {
-    constructor() {
+    constructor(lineWrapping) {
+        this.lineWrapping = lineWrapping;
         this.doc = Text.empty;
-        this.lineWrapping = false;
         this.heightSamples = {};
         this.lineHeight = 14;
         this.charWidth = 7;
@@ -12863,7 +12877,6 @@ class ViewState {
         this.contentDOMHeight = 0;
         this.editorHeight = 0;
         this.editorWidth = 0;
-        this.heightOracle = new HeightOracle;
         // See VP.MaxDOMHeight
         this.scaler = IdScaler;
         this.scrollTarget = null;
@@ -12883,6 +12896,8 @@ class ViewState {
         // boundary and, if so, reset it to make sure it is positioned in
         // the right place.
         this.mustEnforceCursorAssoc = false;
+        let guessWrapping = state.facet(contentAttributes).some(v => typeof v != "function" && v.class == "cm-lineWrapping");
+        this.heightOracle = new HeightOracle(guessWrapping);
         this.stateDeco = state.facet(decorations).filter(d => typeof d != "function");
         this.heightMap = HeightMap.empty().applyChanges(this.stateDeco, Text.empty, this.heightOracle.setDoc(state.doc), [new ChangedRange(0, 0, 0, state.doc.length)]);
         this.viewport = this.getViewport(0, null);
@@ -13001,9 +13016,7 @@ class ViewState {
             oracle.heightChanged = false;
             for (let vp of this.viewports) {
                 let heights = vp.from == this.viewport.from ? lineHeights : view.docView.measureVisibleLineHeights(vp);
-                this.heightMap = refresh
-                    ? HeightMap.empty().applyChanges(this.stateDeco, Text.empty, this.heightOracle, [new ChangedRange(0, 0, 0, view.state.doc.length)])
-                    : this.heightMap.updateHeight(oracle, 0, refresh, new MeasuredHeights(vp.from, heights));
+                this.heightMap = (refresh ? HeightMap.empty().applyChanges(this.stateDeco, Text.empty, this.heightOracle, [new ChangedRange(0, 0, 0, view.state.doc.length)]) : this.heightMap).updateHeight(oracle, 0, refresh, new MeasuredHeights(vp.from, heights));
             }
             if (oracle.heightChanged)
                 result |= 2 /* UpdateFlag.Height */;
@@ -13569,7 +13582,11 @@ class DOMChange {
         this.bounds = null;
         this.text = "";
         let { impreciseHead: iHead, impreciseAnchor: iAnchor } = view.docView;
-        if (start > -1 && !view.state.readOnly && (this.bounds = view.docView.domBoundsAround(start, end, 0))) {
+        if (view.state.readOnly && start > -1) {
+            // Ignore changes when the editor is read-only
+            this.newSel = null;
+        }
+        else if (start > -1 && (this.bounds = view.docView.domBoundsAround(start, end, 0))) {
             let selPoints = iHead || iAnchor ? [] : selectionPoints(view);
             let reader = new DOMReader(selPoints, view.state);
             reader.readRange(this.bounds.startDOM, this.bounds.endDOM);
@@ -15356,7 +15373,7 @@ function runHandlers(map, event, view, scope) {
     if (scopeObj) {
         if (runFor(scopeObj[prefix + modifiers(name, event, !isChar)]))
             return true;
-        if (isChar && (event.shiftKey || event.altKey || event.metaKey || charCode > 127) &&
+        if (isChar && (event.altKey || event.metaKey || event.ctrlKey) &&
             (baseName = base[event.keyCode]) && baseName != name) {
             if (runFor(scopeObj[prefix + modifiers(baseName, event, true)]))
                 return true;
@@ -16235,7 +16252,7 @@ const tooltipPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
             dom.classList.toggle("cm-tooltip-above", above);
             dom.classList.toggle("cm-tooltip-below", !above);
             if (tView.positioned)
-                tView.positioned();
+                tView.positioned(measured.space);
         }
     }
     maybeMeasure() {
@@ -18294,8 +18311,10 @@ class LanguageDescription {
 Facet that defines a way to provide a function that computes the
 appropriate indentation depth, as a column number (see
 [`indentString`](https://codemirror.net/6/docs/ref/#language.indentString)), at the start of a given
-line, or `null` to indicate no appropriate indentation could be
-determined.
+line. A return value of `null` indicates no indentation can be
+determined, and the line should inherit the indentation of the one
+above it. A return value of `undefined` defers to the next indent
+service.
 */
 const indentService = /*@__PURE__*/Facet.define();
 /**
@@ -18353,7 +18372,7 @@ function getIndentation(context, pos) {
         context = new IndentContext(context);
     for (let service of context.state.facet(indentService)) {
         let result = service(context, pos);
-        if (result != null)
+        if (result !== undefined)
             return result;
     }
     let tree = syntaxTree(context.state);
@@ -18689,7 +18708,7 @@ function syntaxFolding(state, start, end) {
     let tree = syntaxTree(state);
     if (tree.length < end)
         return null;
-    let inner = tree.resolveInner(end);
+    let inner = tree.resolveInner(end, 1);
     let found = null;
     for (let cur = inner; cur; cur = cur.parent) {
         if (cur.to <= end || cur.from > end)
@@ -19566,7 +19585,7 @@ function applyCompletion(view, option) {
     const apply = option.completion.apply || option.completion.label;
     let result = option.source;
     if (typeof apply == "string")
-        view.dispatch(insertCompletionText(view.state, apply, result.from, result.to));
+        view.dispatch(Object.assign(Object.assign({}, insertCompletionText(view.state, apply, result.from, result.to)), { annotations: pickedCompletion.of(option.completion) }));
     else
         apply(view, option.completion, result.from, result.to);
 }
@@ -19801,6 +19820,7 @@ class CompletionTooltip {
             write: (pos) => this.positionInfo(pos),
             key: this
         };
+        this.space = null;
         let cState = view.state.field(stateField);
         let { options, selected } = cState.open;
         let config = view.state.facet(completionConfig);
@@ -19826,10 +19846,17 @@ class CompletionTooltip {
     }
     mount() { this.updateSel(); }
     update(update) {
-        if (update.state.field(this.stateField) != update.startState.field(this.stateField))
+        var _a, _b, _c;
+        let cState = update.state.field(this.stateField);
+        let prevState = update.startState.field(this.stateField);
+        if (cState != prevState) {
             this.updateSel();
+            if (((_a = cState.open) === null || _a === void 0 ? void 0 : _a.disabled) != ((_b = prevState.open) === null || _b === void 0 ? void 0 : _b.disabled))
+                this.dom.classList.toggle("cm-tooltip-autocomplete-disabled", !!((_c = cState.open) === null || _c === void 0 ? void 0 : _c.disabled));
+        }
     }
-    positioned() {
+    positioned(space) {
+        this.space = space;
         if (this.info)
             this.view.requestMeasure(this.placeInfo);
     }
@@ -19896,27 +19923,32 @@ class CompletionTooltip {
         let sel = this.dom.querySelector("[aria-selected]");
         if (!sel || !this.info)
             return null;
-        let win = this.dom.ownerDocument.defaultView || window;
         let listRect = this.dom.getBoundingClientRect();
         let infoRect = this.info.getBoundingClientRect();
         let selRect = sel.getBoundingClientRect();
-        if (selRect.top > Math.min(win.innerHeight, listRect.bottom) - 10 || selRect.bottom < Math.max(0, listRect.top) + 10)
+        let space = this.space;
+        if (!space) {
+            let win = this.dom.ownerDocument.defaultView || window;
+            space = { left: 0, top: 0, right: win.innerWidth, bottom: win.innerHeight };
+        }
+        if (selRect.top > Math.min(space.bottom, listRect.bottom) - 10 ||
+            selRect.bottom < Math.max(space.top, listRect.top) + 10)
             return null;
         let rtl = this.view.textDirection == Direction.RTL, left = rtl, narrow = false, maxWidth;
         let top = "", bottom = "";
-        let spaceLeft = listRect.left, spaceRight = win.innerWidth - listRect.right;
+        let spaceLeft = listRect.left - space.left, spaceRight = space.right - listRect.right;
         if (left && spaceLeft < Math.min(infoRect.width, spaceRight))
             left = false;
         else if (!left && spaceRight < Math.min(infoRect.width, spaceLeft))
             left = true;
         if (infoRect.width <= (left ? spaceLeft : spaceRight)) {
-            top = (Math.max(0, Math.min(selRect.top, win.innerHeight - infoRect.height)) - listRect.top) + "px";
+            top = (Math.max(space.top, Math.min(selRect.top, space.bottom - infoRect.height)) - listRect.top) + "px";
             maxWidth = Math.min(400 /* Info.Width */, left ? spaceLeft : spaceRight) + "px";
         }
         else {
             narrow = true;
-            maxWidth = Math.min(400 /* Info.Width */, (rtl ? listRect.right : win.innerWidth - listRect.left) - 30 /* Info.Margin */) + "px";
-            let spaceBelow = win.innerHeight - listRect.bottom;
+            maxWidth = Math.min(400 /* Info.Width */, (rtl ? listRect.right : space.right - listRect.left) - 30 /* Info.Margin */) + "px";
+            let spaceBelow = space.bottom - listRect.bottom;
             if (spaceBelow >= infoRect.height || spaceBelow > listRect.top) // Below the completion
                 top = (selRect.bottom - listRect.top) + "px";
             else // Above it
@@ -20025,21 +20057,24 @@ function sortOptions(active, state) {
     return result;
 }
 class CompletionDialog {
-    constructor(options, attrs, tooltip, timestamp, selected) {
+    constructor(options, attrs, tooltip, timestamp, selected, disabled) {
         this.options = options;
         this.attrs = attrs;
         this.tooltip = tooltip;
         this.timestamp = timestamp;
         this.selected = selected;
+        this.disabled = disabled;
     }
     setSelected(selected, id) {
         return selected == this.selected || selected >= this.options.length ? this
-            : new CompletionDialog(this.options, makeAttrs(id, selected), this.tooltip, this.timestamp, selected);
+            : new CompletionDialog(this.options, makeAttrs(id, selected), this.tooltip, this.timestamp, selected, this.disabled);
     }
     static build(active, state, id, prev, conf) {
         let options = sortOptions(active, state);
-        if (!options.length)
-            return null;
+        if (!options.length) {
+            return prev && active.some(a => a.state == 1 /* State.Pending */) ?
+                new CompletionDialog(prev.options, prev.attrs, prev.tooltip, prev.timestamp, prev.selected, true) : null;
+        }
         let selected = state.facet(completionConfig).selectOnOpen ? 0 : -1;
         if (prev && prev.selected != selected && prev.selected != -1) {
             let selectedValue = prev.options[prev.selected].completion;
@@ -20053,10 +20088,10 @@ class CompletionDialog {
             pos: active.reduce((a, b) => b.hasResult() ? Math.min(a, b.from) : a, 1e8),
             create: completionTooltip(completionState),
             above: conf.aboveCursor,
-        }, prev ? prev.timestamp : Date.now(), selected);
+        }, prev ? prev.timestamp : Date.now(), selected, false);
     }
     map(changes) {
-        return new CompletionDialog(this.options, this.attrs, Object.assign(Object.assign({}, this.tooltip), { pos: changes.mapPos(this.tooltip.pos) }), this.timestamp, this.selected);
+        return new CompletionDialog(this.options, this.attrs, Object.assign(Object.assign({}, this.tooltip), { pos: changes.mapPos(this.tooltip.pos) }), this.timestamp, this.selected, this.disabled);
     }
 }
 class CompletionState {
@@ -20079,9 +20114,12 @@ class CompletionState {
         });
         if (active.length == this.active.length && active.every((a, i) => a == this.active[i]))
             active = this.active;
-        let open = tr.selection || active.some(a => a.hasResult() && tr.changes.touchesRange(a.from, a.to)) ||
-            !sameResults(active, this.active) ? CompletionDialog.build(active, state, this.id, this.open, conf)
-            : this.open && tr.docChanged ? this.open.map(tr.changes) : this.open;
+        let open = this.open;
+        if (tr.selection || active.some(a => a.hasResult() && tr.changes.touchesRange(a.from, a.to)) ||
+            !sameResults(active, this.active))
+            open = CompletionDialog.build(active, state, this.id, this.open, conf);
+        else if (open && tr.docChanged)
+            open = open.map(tr.changes);
         if (!open && active.every(a => a.state != 1 /* State.Pending */) && active.some(a => a.hasResult()))
             active = active.map(a => a.hasResult() ? new ActiveSource(a.source, 0 /* State.Inactive */) : a);
         for (let effect of tr.effects)
@@ -20221,7 +20259,7 @@ backward by the given amount.
 function moveCompletionSelection(forward, by = "option") {
     return (view) => {
         let cState = view.state.field(completionState, false);
-        if (!cState || !cState.open ||
+        if (!cState || !cState.open || cState.open.disabled ||
             Date.now() - cState.open.timestamp < view.state.facet(completionConfig).interactionDelay)
             return false;
         let step = 1, tooltip;
@@ -20246,7 +20284,8 @@ const acceptCompletion = (view) => {
     if (view.state.readOnly || !cState || !cState.open || cState.open.selected < 0 ||
         Date.now() - cState.open.timestamp < view.state.facet(completionConfig).interactionDelay)
         return false;
-    applyCompletion(view, cState.open.options[cState.open.selected]);
+    if (!cState.open.disabled)
+        applyCompletion(view, cState.open.options[cState.open.selected]);
     return true;
 };
 /**
@@ -20451,9 +20490,15 @@ const baseTheme$2 = /*@__PURE__*/EditorView.baseTheme({
         background: "#17c",
         color: "white",
     },
+    "&light .cm-tooltip-autocomplete-disabled ul li[aria-selected]": {
+        background: "#777",
+    },
     "&dark .cm-tooltip-autocomplete ul li[aria-selected]": {
         background: "#347",
         color: "white",
+    },
+    "&dark .cm-tooltip-autocomplete-disabled ul li[aria-selected]": {
+        background: "#444",
     },
     ".cm-completionListIncompleteTop:before, .cm-completionListIncompleteBottom:after": {
         content: '"···"',
@@ -21163,7 +21208,7 @@ Returns the available completions as an array.
 function currentCompletions(state) {
     var _a;
     let open = (_a = state.field(completionState, false)) === null || _a === void 0 ? void 0 : _a.open;
-    if (!open)
+    if (!open || open.disabled)
         return [];
     let completions = completionArrayCache.get(open.options);
     if (!completions)
@@ -21176,7 +21221,7 @@ Return the currently selected completion, if any.
 function selectedCompletion(state) {
     var _a;
     let open = (_a = state.field(completionState, false)) === null || _a === void 0 ? void 0 : _a.open;
-    return open && open.selected >= 0 ? open.options[open.selected].completion : null;
+    return open && !open.disabled && open.selected >= 0 ? open.options[open.selected].completion : null;
 }
 /**
 Returns the currently selected position in the active completion
@@ -21185,7 +21230,7 @@ list, or null if no completions are active.
 function selectedCompletionIndex(state) {
     var _a;
     let open = (_a = state.field(completionState, false)) === null || _a === void 0 ? void 0 : _a.open;
-    return open && open.selected >= 0 ? open.selected : null;
+    return open && !open.disabled && open.selected >= 0 ? open.selected : null;
 }
 /**
 Create an effect that can be attached to a transaction to change
@@ -23822,14 +23867,14 @@ class SearchPanel {
                 crelt("br"),
                 this.replaceField,
                 button("replace", () => replaceNext(view), [phrase(view, "replace")]),
-                button("replaceAll", () => replaceAll(view), [phrase(view, "replace all")]),
-                crelt("button", {
-                    name: "close",
-                    onclick: () => closeSearchPanel(view),
-                    "aria-label": phrase(view, "close"),
-                    type: "button"
-                }, ["×"])
-            ]
+                button("replaceAll", () => replaceAll(view), [phrase(view, "replace all")])
+            ],
+            crelt("button", {
+                name: "close",
+                onclick: () => closeSearchPanel(view),
+                "aria-label": phrase(view, "close"),
+                type: "button"
+            }, ["×"])
         ]);
     }
     commit() {
@@ -27468,6 +27513,15 @@ const htmlLanguage = /*@__PURE__*/LRLanguage.define({
         ],
         wrap: /*@__PURE__*/configureNesting([
             { tag: "script",
+                attrs: attrs => attrs.type == "text/typescript" || attrs.lang == "ts",
+                parser: typescriptLanguage.parser },
+            { tag: "script",
+                attrs: attrs => attrs.type == "text/jsx",
+                parser: jsxLanguage.parser },
+            { tag: "script",
+                attrs: attrs => attrs.type == "text/typescript-jsx",
+                parser: tsxLanguage.parser },
+            { tag: "script",
                 attrs(attrs) {
                     return !attrs.type || /^(?:text|application)\/(?:x-)?(?:java|ecma)script$|^module$|^$/i.test(attrs.type);
                 },
@@ -27725,9 +27779,8 @@ const insertNewlineContinueMarkup = ({ state, dispatch }) => {
             }
             else { // Move this line down
                 let insert = "";
-                for (let i = 0, pos = 0, e = context.length - 2; i <= e; i++) {
-                    insert += context[i].blank(i < e ? context[i + 1].from - pos : null, i < e);
-                    pos = context[i].to;
+                for (let i = 0, e = context.length - 2; i <= e; i++) {
+                    insert += context[i].blank(i < e ? context[i + 1].from - insert.length : null, i < e);
                 }
                 insert += state.lineBreak;
                 return { range: EditorSelection.cursor(pos + insert.length), changes: { from: line.from, insert } };
@@ -27745,19 +27798,19 @@ const insertNewlineContinueMarkup = ({ state, dispatch }) => {
         let changes = [];
         if (inner.node.name == "OrderedList")
             renumberList(inner.item, doc, changes);
-        let insert = state.lineBreak;
         let continued = inner.item && inner.item.from < line.from;
+        let insert = "";
         // If not dedented
         if (!continued || /^[\s\d.)\-+*>]*/.exec(line.text)[0].length >= inner.to) {
-            for (let i = 0, pos = 0, e = context.length - 1; i <= e; i++) {
+            for (let i = 0, e = context.length - 1; i <= e; i++) {
                 insert += i == e && !continued ? context[i].marker(doc, 1)
-                    : context[i].blank(i < e ? context[i + 1].from - pos : null);
-                pos = context[i].to;
+                    : context[i].blank(i < e ? context[i + 1].from - insert.length : null);
             }
         }
         let from = pos;
         while (from > line.from && /\s/.test(line.text.charAt(from - line.from - 1)))
             from--;
+        insert = state.lineBreak + insert;
         changes.push({ from, to: pos, insert });
         return { range: EditorSelection.cursor(from + insert.length), changes };
     });
@@ -28003,7 +28056,7 @@ const defaults = {
     spaceAfterDashes: false,
     slashComments: false,
     doubleQuotedStrings: false,
-    doubleDollarStrings: false,
+    doubleDollarQuotedStrings: false,
     unquotedBitLiterals: false,
     treatBitsAsBytes: false,
     charSetCasts: false,
@@ -28030,7 +28083,7 @@ function tokensFor(d) {
                 input.advance();
             input.acceptToken(whitespace);
         }
-        else if (next == 36 /* Ch.Dollar */ && input.next == 36 /* Ch.Dollar */ && d.doubleDollarStrings) {
+        else if (next == 36 /* Ch.Dollar */ && input.next == 36 /* Ch.Dollar */ && d.doubleDollarQuotedStrings) {
             readDoubleDollarLiteral(input);
             input.acceptToken(String$1);
         }
