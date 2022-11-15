@@ -1,6 +1,6 @@
 {
     "name": "@plutojl/codemirror-pluto-setup",
-    "version": "0.28.1",
+    "version": "0.28.2",
     "description": "Example configuration for the CodeMirror code editor - as used by Pluto.jl",
     "scripts": {
         "bundle": "rollup -c"
