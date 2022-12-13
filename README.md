@@ -7,16 +7,27 @@
 
 This is why we have this repository to manage our dependencies and to export a single `.es.js` and `.d.ts` file.
 
+# Setup
+
+You need:
+
+```
+➜  codemirror-pluto-setup git:(main) ✗ node --version
+v19.1.0
+➜  codemirror-pluto-setup git:(main) ✗ yarn --version
+3.2.4
+```
+
 # How to update
 
-1. `npm install`
+1. `yarn install`
 1. Change the `basic-setup.ts` file.
-1. `npm run bundle`
+1. `yarn run bundle`
 
 # How to release and update pluto
 
-1. `npm run bundle`
-2. Change the `package.json` patch version number +1 (`npm version patch`)
+1. `yarn run bundle`
+2. Change the `package.json` patch version number +1
 3. git commit etc
 4. Go here: https://github.com/JuliaPluto/codemirror-pluto-setup/releases/new
 5. For tag name, type in the new version number (without `v`) and select "create new tag on publish"
