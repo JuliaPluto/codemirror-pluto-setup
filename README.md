@@ -18,10 +18,17 @@ v19.1.0
 3.2.4
 ```
 
-# How to update
+# How to change what is included in the bundle
 
 1. `yarn install`
 1. Change the `basic-setup.ts` file.
+1. `yarn run bundle`
+
+# How to update packages
+
+1. `yarn plugin import interactive-tools`
+1. `yarn upgrade-interactive`
+1. `yarn dedupe`
 1. `yarn run bundle`
 
 # How to release and update pluto
