@@ -476,7 +476,7 @@ declare class EditorSelection {
     /**
     Create a selection range.
     */
-    static range(anchor: number, head: number, goalColumn?: number): SelectionRange;
+    static range(anchor: number, head: number, goalColumn?: number, bidiLevel?: number): SelectionRange;
 }
 
 declare type FacetConfig<Input, Output> = {
@@ -3802,6 +3802,13 @@ interface HistoryConfig {
     apart and still be grouped together. Defaults to 500.
     */
     newGroupDelay?: number;
+    /**
+    By default, when close enough together in time, changes are
+    joined into an existing undo event if they touch any of the
+    changed ranges from that event. You can pass a custom predicate
+    here to influence that logic.
+    */
+    joinToEvent?: (tr: Transaction, isAdjacent: boolean) => boolean;
 }
 /**
 Create a history extension with the given configuration.
@@ -3896,6 +3903,11 @@ interface CompletionConfig {
     completions above the cursor when possible.
     */
     aboveCursor?: boolean;
+    /**
+    When given, this may return an additional CSS class to add to
+    the completion dialog element.
+    */
+    tooltipClass?: (state: EditorState) => string;
     /**
     This can be used to add additional CSS classes to completion
     options.
@@ -4627,7 +4639,7 @@ interface TagSpec {
 }
 
 declare type NestedLang = {
-    tag: "script" | "style" | "textarea";
+    tag: string;
     attrs?: (attrs: {
         [attr: string]: string;
     }) => boolean;
@@ -4673,10 +4685,10 @@ declare function html(config?: {
     */
     extraGlobalAttributes?: Record<string, null | readonly string[]>;
     /**
-    Register additional languages to parse the content of script,
-    style, or textarea tags. If given, `attrs` should be a function
-    that, given an object representing the tag's attributes, returns
-    `true` if this language applies.
+    Register additional languages to parse the content of specific
+    tags. If given, `attrs` should be a function that, given an
+    object representing the tag's attributes, returns `true` if this
+    language applies.
     */
     nestedLanguages?: NestedLang[];
     /**

@@ -1511,10 +1511,11 @@ class EditorSelection {
     /**
     Create a selection range.
     */
-    static range(anchor, head, goalColumn) {
-        let goal = (goalColumn !== null && goalColumn !== void 0 ? goalColumn : 33554431 /* RangeFlag.NoGoalColumn */) << 5 /* RangeFlag.GoalColumnOffset */;
-        return head < anchor ? SelectionRange.create(head, anchor, 16 /* RangeFlag.Inverted */ | goal | 8 /* RangeFlag.AssocAfter */)
-            : SelectionRange.create(anchor, head, goal | (head > anchor ? 4 /* RangeFlag.AssocBefore */ : 0));
+    static range(anchor, head, goalColumn, bidiLevel) {
+        let flags = ((goalColumn !== null && goalColumn !== void 0 ? goalColumn : 33554431 /* RangeFlag.NoGoalColumn */) << 5 /* RangeFlag.GoalColumnOffset */) |
+            (bidiLevel == null ? 3 : Math.min(2, bidiLevel));
+        return head < anchor ? SelectionRange.create(head, anchor, 16 /* RangeFlag.Inverted */ | 8 /* RangeFlag.AssocAfter */ | flags)
+            : SelectionRange.create(anchor, head, (head > anchor ? 4 /* RangeFlag.AssocBefore */ : 0) | flags);
     }
     /**
     @internal
@@ -9446,7 +9447,9 @@ class LineDecoration extends Decoration {
         super(-200000000 /* Side.Line */, -200000000 /* Side.Line */, null, spec);
     }
     eq(other) {
-        return other instanceof LineDecoration && attrsEq(this.spec.attributes, other.spec.attributes);
+        return other instanceof LineDecoration &&
+            this.spec.class == other.spec.class &&
+            attrsEq(this.spec.attributes, other.spec.attributes);
     }
     range(from, to = from) {
         if (to != from)
@@ -11197,7 +11200,8 @@ function domPosAtCoords(parent, x, y) {
                 closestRect = rect;
                 closestX = dx;
                 closestY = dy;
-                closestOverlap = !dx || (dx > 0 ? i < rects.length - 1 : i > 0);
+                let side = dy ? (y < rect.top ? -1 : 1) : dx ? (x < rect.left ? -1 : 1) : 0;
+                closestOverlap = !side || (side > 0 ? i < rects.length - 1 : i > 0);
             }
             if (dx == 0) {
                 if (y > rect.bottom && (!aboveRect || aboveRect.bottom < rect.bottom)) {
@@ -13421,7 +13425,7 @@ function buildTheme(main, spec, scopes) {
     });
 }
 const baseTheme$1$2 = /*@__PURE__*/buildTheme("." + baseThemeID, {
-    "&.cm-editor": {
+    "&": {
         position: "relative !important",
         boxSizing: "border-box",
         "&.cm-focused": {
@@ -13705,7 +13709,7 @@ function applyDOMChange(view, domChange) {
                 insert: Text.of(domChange.text.slice(diff.from, diff.toB).split(LineBreakPlaceholder)) };
         }
     }
-    else if (newSel && (!view.hasFocus || !view.state.facet(editable) || newSel.main.eq(sel))) {
+    else if (newSel && (!view.hasFocus && view.state.facet(editable) || newSel.main.eq(sel))) {
         newSel = null;
     }
     if (!change && !newSel)
@@ -14769,6 +14773,8 @@ class EditorView {
         if (this.measureScheduled < 0)
             this.measureScheduled = this.win.requestAnimationFrame(() => this.measure());
         if (request) {
+            if (this.measureRequests.indexOf(request) > -1)
+                return;
             if (request.key != null)
                 for (let i = 0; i < this.measureRequests.length; i++) {
                     if (this.measureRequests[i].key === request.key) {
@@ -15452,6 +15458,8 @@ function runHandlers(map, event, view, scope) {
         if (runFor(scopeObj[prefix + modifiers(name, event, !isChar)]))
             return true;
         if (isChar && (event.altKey || event.metaKey || event.ctrlKey) &&
+            // Ctrl-Alt may be used for AltGr on Windows
+            !(browser.windows && event.ctrlKey && event.altKey) &&
             (baseName = base[event.keyCode]) && baseName != name) {
             if (runFor(scopeObj[prefix + modifiers(baseName, event, true)]))
                 return true;
@@ -15746,7 +15754,7 @@ function drawSelection(config = {}) {
     ];
 }
 function configChanged(update) {
-    return update.startState.facet(selectionConfig) != update.startState.facet(selectionConfig);
+    return update.startState.facet(selectionConfig) != update.state.facet(selectionConfig);
 }
 const cursorLayer = /*@__PURE__*/layer({
     above: true,
@@ -15765,7 +15773,7 @@ const cursorLayer = /*@__PURE__*/layer({
         return cursors;
     },
     update(update, dom) {
-        if (update.transactions.some(tr => tr.scrollIntoView))
+        if (update.transactions.some(tr => tr.selection))
             dom.style.animationName = dom.style.animationName == "cm-blink" ? "cm-blink2" : "cm-blink";
         let confChange = configChanged(update);
         if (confChange)
@@ -16894,15 +16902,14 @@ class UpdateContext {
     constructor(gutter, viewport, height) {
         this.gutter = gutter;
         this.height = height;
-        this.localMarkers = [];
         this.i = 0;
         this.cursor = RangeSet.iter(gutter.markers, viewport.from);
     }
     line(view, line, extraMarkers) {
-        if (this.localMarkers.length)
-            this.localMarkers = [];
-        advanceCursor(this.cursor, this.localMarkers, line.from);
-        let localMarkers = extraMarkers.length ? this.localMarkers.concat(extraMarkers) : this.localMarkers;
+        let localMarkers = [];
+        advanceCursor(this.cursor, localMarkers, line.from);
+        if (extraMarkers.length)
+            localMarkers = localMarkers.concat(extraMarkers);
         let forLine = this.gutter.config.lineMarker(view, line, localMarkers);
         if (forLine)
             localMarkers.unshift(forLine);
@@ -16940,7 +16947,17 @@ class SingleGutterView {
         this.dom.className = "cm-gutter" + (this.config.class ? " " + this.config.class : "");
         for (let prop in config.domEventHandlers) {
             this.dom.addEventListener(prop, (event) => {
-                let line = view.lineBlockAtHeight(event.clientY - view.documentTop);
+                let target = event.target, y;
+                if (target != this.dom && this.dom.contains(target)) {
+                    while (target.parentNode != this.dom)
+                        target = target.parentNode;
+                    let rect = target.getBoundingClientRect();
+                    y = (rect.top + rect.bottom) / 2;
+                }
+                else {
+                    y = event.clientY;
+                }
+                let line = view.lineBlockAtHeight(y - view.documentTop);
                 if (config.domEventHandlers[prop](view, line, event))
                     event.preventDefault();
             });
@@ -19345,7 +19362,7 @@ A default highlight style (works well with light themes).
 */
 const defaultHighlightStyle = /*@__PURE__*/HighlightStyle.define([
     { tag: tags$1.meta,
-        color: "#7a757a" },
+        color: "#404740" },
     { tag: tags$1.link,
         textDecoration: "underline" },
     { tag: tags$1.heading,
@@ -19444,6 +19461,15 @@ highlighting style is used to indicate this.
 function bracketMatching(config = {}) {
     return [bracketMatchingConfig.of(config), bracketMatchingUnique];
 }
+/**
+When larger syntax nodes, such as HTML tags, are marked as
+opening/closing, it can be a bit messy to treat the whole node as
+a matchable bracket. This node prop allows you to define, for such
+a node, a ‘handle’—the part of the node that is highlighted, and
+that the cursor must be on to activate highlighting in the first
+place.
+*/
+const bracketMatchingHandle = /*@__PURE__*/new NodeProp();
 function matchingNodes(node, dir, brackets) {
     let byProp = node.prop(dir < 0 ? NodeProp.openedBy : NodeProp.closedBy);
     if (byProp)
@@ -19454,6 +19480,10 @@ function matchingNodes(node, dir, brackets) {
             return [brackets[index + dir]];
     }
     return null;
+}
+function findHandle(node) {
+    let hasHandle = node.type.prop(bracketMatchingHandle);
+    return hasHandle ? hasHandle(node.node) : node;
 }
 /**
 Find the matching bracket for the token at `pos`, scanning
@@ -19466,30 +19496,36 @@ function matchBrackets(state, pos, dir, config = {}) {
     let tree = syntaxTree(state), node = tree.resolveInner(pos, dir);
     for (let cur = node; cur; cur = cur.parent) {
         let matches = matchingNodes(cur.type, dir, brackets);
-        if (matches && cur.from < cur.to)
-            return matchMarkedBrackets(state, pos, dir, cur, matches, brackets);
+        if (matches && cur.from < cur.to) {
+            let handle = findHandle(cur);
+            if (handle && (dir > 0 ? pos >= handle.from && pos < handle.to : pos > handle.from && pos <= handle.to))
+                return matchMarkedBrackets(state, pos, dir, cur, handle, matches, brackets);
+        }
     }
     return matchPlainBrackets(state, pos, dir, tree, node.type, maxScanDistance, brackets);
 }
-function matchMarkedBrackets(_state, _pos, dir, token, matching, brackets) {
-    let parent = token.parent, firstToken = { from: token.from, to: token.to };
+function matchMarkedBrackets(_state, _pos, dir, token, handle, matching, brackets) {
+    let parent = token.parent, firstToken = { from: handle.from, to: handle.to };
     let depth = 0, cursor = parent === null || parent === void 0 ? void 0 : parent.cursor();
     if (cursor && (dir < 0 ? cursor.childBefore(token.from) : cursor.childAfter(token.to)))
         do {
             if (dir < 0 ? cursor.to <= token.from : cursor.from >= token.to) {
                 if (depth == 0 && matching.indexOf(cursor.type.name) > -1 && cursor.from < cursor.to) {
-                    return { start: firstToken, end: { from: cursor.from, to: cursor.to }, matched: true };
+                    let endHandle = findHandle(cursor);
+                    return { start: firstToken, end: endHandle ? { from: endHandle.from, to: endHandle.to } : undefined, matched: true };
                 }
                 else if (matchingNodes(cursor.type, dir, brackets)) {
                     depth++;
                 }
                 else if (matchingNodes(cursor.type, -dir, brackets)) {
-                    if (depth == 0)
+                    if (depth == 0) {
+                        let endHandle = findHandle(cursor);
                         return {
                             start: firstToken,
-                            end: cursor.from == cursor.to ? undefined : { from: cursor.from, to: cursor.to },
+                            end: endHandle && endHandle.from < endHandle.to ? { from: endHandle.from, to: endHandle.to } : undefined,
                             matched: false
                         };
+                    }
                     depth--;
                 }
             }
@@ -19904,6 +19940,7 @@ const completionConfig = /*@__PURE__*/Facet.define({
             closeOnBlur: true,
             maxRenderedOptions: 100,
             defaultKeymap: true,
+            tooltipClass: () => "",
             optionClass: () => "",
             aboveCursor: false,
             icons: true,
@@ -19914,6 +19951,7 @@ const completionConfig = /*@__PURE__*/Facet.define({
             defaultKeymap: (a, b) => a && b,
             closeOnBlur: (a, b) => a && b,
             icons: (a, b) => a && b,
+            tooltipClass: (a, b) => c => joinClass(a(c), b(c)),
             optionClass: (a, b) => c => joinClass(a(c), b(c)),
             addToOptions: (a, b) => a.concat(b)
         });
@@ -19992,14 +20030,17 @@ class CompletionTooltip {
             key: this
         };
         this.space = null;
+        this.currentClass = "";
         let cState = view.state.field(stateField);
         let { options, selected } = cState.open;
         let config = view.state.facet(completionConfig);
         this.optionContent = optionContent(config);
         this.optionClass = config.optionClass;
+        this.tooltipClass = config.tooltipClass;
         this.range = rangeAroundSelected(options.length, selected, config.maxRenderedOptions);
         this.dom = document.createElement("div");
         this.dom.className = "cm-tooltip-autocomplete";
+        this.updateTooltipClass(view.state);
         this.dom.addEventListener("mousedown", (e) => {
             for (let dom = e.target, match; dom && dom != this.dom; dom = dom.parentNode) {
                 if (dom.nodeName == "LI" && (match = /-(\d+)$/.exec(dom.id)) && +match[1] < options.length) {
@@ -20020,10 +20061,23 @@ class CompletionTooltip {
         var _a, _b, _c;
         let cState = update.state.field(this.stateField);
         let prevState = update.startState.field(this.stateField);
+        this.updateTooltipClass(update.state);
         if (cState != prevState) {
             this.updateSel();
             if (((_a = cState.open) === null || _a === void 0 ? void 0 : _a.disabled) != ((_b = prevState.open) === null || _b === void 0 ? void 0 : _b.disabled))
                 this.dom.classList.toggle("cm-tooltip-autocomplete-disabled", !!((_c = cState.open) === null || _c === void 0 ? void 0 : _c.disabled));
+        }
+    }
+    updateTooltipClass(state) {
+        let cls = this.tooltipClass(state);
+        if (cls != this.currentClass) {
+            for (let c of this.currentClass.split(" "))
+                if (c)
+                    this.dom.classList.remove(c);
+            for (let c of cls.split(" "))
+                if (c)
+                    this.dom.classList.add(c);
+            this.currentClass = cls;
         }
     }
     positioned(space) {
@@ -20286,13 +20340,13 @@ class CompletionState {
         if (active.length == this.active.length && active.every((a, i) => a == this.active[i]))
             active = this.active;
         let open = this.open;
+        if (open && tr.docChanged)
+            open = open.map(tr.changes);
         if (tr.selection || active.some(a => a.hasResult() && tr.changes.touchesRange(a.from, a.to)) ||
             !sameResults(active, this.active))
-            open = CompletionDialog.build(active, state, this.id, this.open, conf);
+            open = CompletionDialog.build(active, state, this.id, open, conf);
         else if (open && open.disabled && !active.some(a => a.state == 1 /* State.Pending */))
             open = null;
-        else if (open && tr.docChanged)
-            open = open.map(tr.changes);
         if (!open && active.every(a => a.state != 1 /* State.Pending */) && active.some(a => a.hasResult()))
             active = active.map(a => a.hasResult() ? new ActiveSource(a.source, 0 /* State.Inactive */) : a);
         for (let effect of tr.effects)
@@ -21766,8 +21820,13 @@ const historyConfig = /*@__PURE__*/Facet.define({
     combine(configs) {
         return combineConfig(configs, {
             minDepth: 100,
-            newGroupDelay: 500
-        }, { minDepth: Math.max, newGroupDelay: Math.min });
+            newGroupDelay: 500,
+            joinToEvent: (_t, isAdjacent) => isAdjacent,
+        }, {
+            minDepth: Math.max,
+            newGroupDelay: Math.min,
+            joinToEvent: (a, b) => (tr, adj) => a(tr, adj) || b(tr, adj)
+        });
     }
 });
 function changeEnd(changes) {
@@ -21800,7 +21859,7 @@ const historyField_ = /*@__PURE__*/StateField.define({
         let event = HistEvent.fromTransaction(tr);
         let time = tr.annotation(Transaction.time), userEvent = tr.annotation(Transaction.userEvent);
         if (event)
-            state = state.addChanges(event, time, userEvent, config.newGroupDelay, config.minDepth);
+            state = state.addChanges(event, time, userEvent, config, tr);
         else if (tr.selection)
             state = state.addSelection(tr.startState.selection, time, userEvent, config.newGroupDelay);
         if (isolate == "full" || isolate == "after")
@@ -22012,19 +22071,19 @@ class HistoryState {
     isolate() {
         return this.prevTime ? new HistoryState(this.done, this.undone) : this;
     }
-    addChanges(event, time, userEvent, newGroupDelay, maxLen) {
+    addChanges(event, time, userEvent, config, tr) {
         let done = this.done, lastEvent = done[done.length - 1];
         if (lastEvent && lastEvent.changes && !lastEvent.changes.empty && event.changes &&
             (!userEvent || joinableUserEvent.test(userEvent)) &&
             ((!lastEvent.selectionsAfter.length &&
-                time - this.prevTime < newGroupDelay &&
-                isAdjacent(lastEvent.changes, event.changes)) ||
+                time - this.prevTime < config.newGroupDelay &&
+                config.joinToEvent(tr, isAdjacent(lastEvent.changes, event.changes))) ||
                 // For compose (but not compose.start) events, always join with previous event
                 userEvent == "input.type.compose")) {
-            done = updateBranch(done, done.length - 1, maxLen, new HistEvent(event.changes.compose(lastEvent.changes), conc(event.effects, lastEvent.effects), lastEvent.mapped, lastEvent.startSelection, none$1));
+            done = updateBranch(done, done.length - 1, config.minDepth, new HistEvent(event.changes.compose(lastEvent.changes), conc(event.effects, lastEvent.effects), lastEvent.mapped, lastEvent.startSelection, none$1));
         }
         else {
-            done = updateBranch(done, done.length, maxLen, event);
+            done = updateBranch(done, done.length, config.minDepth, event);
         }
         return new HistoryState(done, none$1, time, userEvent);
     }
@@ -22273,7 +22332,7 @@ const cursorMatchingBracket = ({ state, dispatch }) => toMatchingBracket(state, 
 function extendSel(view, how) {
     let selection = updateSel(view.state.selection, range => {
         let head = how(range);
-        return EditorSelection.range(range.anchor, head.head, head.goalColumn);
+        return EditorSelection.range(range.anchor, head.head, head.goalColumn, head.bidiLevel || undefined);
     });
     if (selection.eq(view.state.selection))
         return false;
@@ -26158,6 +26217,7 @@ const scriptText = 54,
   StyleText = 30,
   TextareaText = 33,
   OpenTag = 35,
+  CloseTag = 36,
   Dialect_noMatch = 0;
 
 /* Hand-written tokenizers for HTML. */
@@ -26381,9 +26441,9 @@ const parser$5 = LRParser.deserialize({
   tokenPrec: 487
 });
 
-function getAttrs(element, input) {
+function getAttrs(openTag, input) {
   let attrs = Object.create(null);
-  for (let att of element.firstChild.getChildren(Attribute)) {
+  for (let att of openTag.getChildren(Attribute)) {
     let name = att.getChild(AttributeName), value = att.getChild(AttributeValue) || att.getChild(UnquotedAttributeValue);
     if (name) attrs[input.read(name.from, name.to)] =
       !value ? "" : value.type.id == AttributeValue ? input.read(value.from + 1, value.to - 1) : input.read(value.from, value.to);
@@ -26391,17 +26451,22 @@ function getAttrs(element, input) {
   return attrs
 }
 
+function findTagName(openTag, input) {
+  let tagNameNode = openTag.getChild(TagName);
+  return tagNameNode ? input.read(tagNameNode.from, tagNameNode.to) : " "
+}
+
 function maybeNest(node, input, tags) {
   let attrs;
   for (let tag of tags) {
-    if (!tag.attrs || tag.attrs(attrs || (attrs = getAttrs(node.node.parent, input))))
+    if (!tag.attrs || tag.attrs(attrs || (attrs = getAttrs(node.node.parent.firstChild, input))))
       return {parser: tag.parser}
   }
   return null
 }
 
 // tags?: {
-//   tag: "script" | "style" | "textarea",
+//   tag: string,
 //   attrs?: ({[attr: string]: string}) => boolean,
 //   parser: Parser
 // }[]
@@ -26412,10 +26477,9 @@ function maybeNest(node, input, tags) {
 // }[]
  
 function configureNesting(tags = [], attributes = []) {
-  let script = [], style = [], textarea = [];
+  let script = [], style = [], textarea = [], other = [];
   for (let tag of tags) {
-    let array = tag.tag == "script" ? script : tag.tag == "style" ? style : tag.tag == "textarea" ? textarea : null;
-    if (!array) throw new RangeError("Only script, style, and textarea tags can host nested parsers")
+    let array = tag.tag == "script" ? script : tag.tag == "style" ? style : tag.tag == "textarea" ? textarea : other;
     array.push(tag);
   }
   let attrs = attributes.length ? Object.create(null) : null;
@@ -26427,18 +26491,22 @@ function configureNesting(tags = [], attributes = []) {
     if (id == StyleText) return maybeNest(node, input, style)
     if (id == TextareaText) return maybeNest(node, input, textarea)
 
+    if (id == OpenTag && other.length) {
+      let n = node.node, tagName = findTagName(n, input), attrs;
+      for (let tag of other) {
+        if (tag.tag == tagName && (!tag.attrs || tag.attrs(attrs || (attrs = getAttrs(n, input))))) {
+          let close = n.parent.lastChild;
+          return {parser: tag.parser, overlay: [{from: node.to, to: close.type.id == CloseTag ? close.from : n.parent.to}]}
+        }
+      }
+    }
+
     if (attrs && id == Attribute) {
       let n = node.node, nameNode;
       if (nameNode = n.firstChild) {
         let matches = attrs[input.read(nameNode.from, nameNode.to)];
         if (matches) for (let attr of matches) {
-          if (attr.tagName) {
-            if (!tagName) {
-              let tagNameNode = n.parent.getChild(TagName);
-              tagName = tagNameNode ? input.read(tagNameNode.from, tagNameNode.to) : " ";
-            }
-            if (attrTagName != tagName) continue
-          }
+          if (attr.tagName && attr.tagName != findTagName(n.parent, input)) continue
           let value = n.lastChild;
           if (value.type.id == AttributeValue)
             return {parser: attr.parser, overlay: [{from: value.from + 1, to: value.to - 1}]}
@@ -27511,7 +27579,6 @@ const GlobalAttrs = {
     tabindex: null,
     title: null,
     translate: ["yes", "no"],
-    onclick: null,
     rel: ["stylesheet", "alternate", "author", "bookmark", "help", "license", "next", "nofollow", "noreferrer", "prefetch", "prev", "search", "tag"],
     role: /*@__PURE__*/"alert application article banner button cell checkbox complementary contentinfo dialog document feed figure form grid gridcell heading img list listbox listitem main navigation region row rowgroup search switch tab table tabpanel textbox timer".split(" "),
     "aria-activedescendant": null,
@@ -27549,6 +27616,11 @@ const GlobalAttrs = {
     "aria-valuenow": null,
     "aria-valuetext": null
 };
+const eventAttributes = /*@__PURE__*/("beforeunload copy cut dragstart dragover dragleave dragenter dragend " +
+    "drag paste focus blur change click load mousedown mouseenter mouseleave " +
+    "mouseup keydown keyup resize scroll unload").split(" ").map(n => "on" + n);
+for (let a of eventAttributes)
+    GlobalAttrs[a] = null;
 class Schema {
     constructor(extraTags, extraAttrs) {
         this.tags = Object.assign(Object.assign({}, Tags), extraTags);
@@ -27716,10 +27788,7 @@ const defaultNesting = [
 const defaultAttrs = /*@__PURE__*/[
     { name: "style",
         parser: /*@__PURE__*/cssLanguage.parser.configure({ top: "Styles" }) }
-].concat(/*@__PURE__*/("beforeunload copy cut dragstart dragover dragleave dragenter dragend " +
-    "drag paste focus blur change click load mousedown mouseenter mouseleave " +
-    "mouseup keydown keyup resize scroll unload").split(" ")
-    .map(event => ({ name: "on" + event, parser: javascriptLanguage.parser })));
+].concat(/*@__PURE__*/eventAttributes.map(name => ({ name, parser: javascriptLanguage.parser })));
 /**
 A language provider based on the [Lezer HTML
 parser](https://github.com/lezer-parser/html), extended with the
@@ -27762,6 +27831,9 @@ const htmlLanguage = /*@__PURE__*/LRLanguage.define({
                         return null;
                     return { from: first.to, to: last.name == "CloseTag" ? last.from : node.to };
                 }
+            }),
+            /*@__PURE__*/bracketMatchingHandle.add({
+                "OpenTag CloseTag": node => node.getChild("TagName")
             })
         ],
         wrap: /*@__PURE__*/configureNesting(defaultNesting, defaultAttrs)
@@ -29011,7 +29083,6 @@ function getScope(doc, node) {
     let cached = cache.get(node);
     if (cached)
         return cached;
-    console.log("get scope for", node.name);
     let completions = [], top = true;
     function def(node, type) {
         let name = doc.sliceString(node.from, node.to);
@@ -29021,7 +29092,7 @@ function getScope(doc, node) {
         if (node.name) {
             let gather = gatherCompletions[node.name];
             if (gather && gather(node, def, top) || !top && ScopeNodes.has(node.name))
-                return console.log("bail for", node.name), false;
+                return false;
             top = false;
         }
         else if (node.to - node.from > 8192) {
