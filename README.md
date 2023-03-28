@@ -33,6 +33,8 @@ v19.1.0
 
 # How to release and update pluto
 
+This package is not on NPM, but we use jsdelivr.com to get the source file directly from a git tag.
+
 1. `yarn run bundle`
 2. Change the `package.json` patch version number +1
 3. git commit etc
