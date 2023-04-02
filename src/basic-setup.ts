@@ -63,6 +63,7 @@ import { css, cssLanguage } from "@codemirror/lang-css"
 import { sql, PostgreSQL } from "@codemirror/lang-sql"
 import { python, pythonLanguage } from "@codemirror/lang-python"
 import { collab } from "@codemirror/collab"
+import { linter, setDiagnostics, Diagnostic } from "@codemirror/lint"
 
 export { css, cssLanguage }
 
@@ -130,4 +131,8 @@ export {
     // Collaboration
     collab,
     Annotation,
+    // Linter
+    linter,
+    setDiagnostics,
+    Diagnostic,
 }
