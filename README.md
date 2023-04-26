@@ -18,6 +18,8 @@ v19.1.0
 3.2.4
 ```
 
+(Fons: you need to do `brew install corepack`, `corepack enable` every time you reboot your computer for some reason.)
+
 # How to change what is included in the bundle
 
 1. `yarn install`
