@@ -3210,6 +3210,143 @@ declare function rectangularSelection(options?: {
     */
     eventFilter?: (event: MouseEvent) => boolean;
 }): Extension;
+
+/**
+Creates an extension that configures tooltip behavior.
+*/
+declare function tooltips(config?: {
+    /**
+    By default, tooltips use `"fixed"`
+    [positioning](https://developer.mozilla.org/en-US/docs/Web/CSS/position),
+    which has the advantage that tooltips don't get cut off by
+    scrollable parent elements. However, CSS rules like `contain:
+    layout` can break fixed positioning in child nodes, which can be
+    worked about by using `"absolute"` here.
+    
+    On iOS, which at the time of writing still doesn't properly
+    support fixed positioning, the library always uses absolute
+    positioning.
+    */
+    position?: "fixed" | "absolute";
+    /**
+    The element to put the tooltips into. By default, they are put
+    in the editor (`cm-editor`) element, and that is usually what
+    you want. But in some layouts that can lead to positioning
+    issues, and you need to use a different parent to work around
+    those.
+    */
+    parent?: HTMLElement;
+    /**
+    By default, when figuring out whether there is room for a
+    tooltip at a given position, the extension considers the entire
+    space between 0,0 and `innerWidth`,`innerHeight` to be available
+    for showing tooltips. You can provide a function here that
+    returns an alternative rectangle.
+    */
+    tooltipSpace?: (view: EditorView) => Rect;
+}): Extension;
+/**
+Describes a tooltip. Values of this type, when provided through
+the [`showTooltip`](https://codemirror.net/6/docs/ref/#view.showTooltip) facet, control the
+individual tooltips on the editor.
+*/
+interface Tooltip {
+    /**
+    The document position at which to show the tooltip.
+    */
+    pos: number;
+    /**
+    The end of the range annotated by this tooltip, if different
+    from `pos`.
+    */
+    end?: number;
+    /**
+    A constructor function that creates the tooltip's [DOM
+    representation](https://codemirror.net/6/docs/ref/#view.TooltipView).
+    */
+    create(view: EditorView): TooltipView;
+    /**
+    Whether the tooltip should be shown above or below the target
+    position. Not guaranteed to be respected for hover tooltips
+    since all hover tooltips for the same range are always
+    positioned together. Defaults to false.
+    */
+    above?: boolean;
+    /**
+    Whether the `above` option should be honored when there isn't
+    enough space on that side to show the tooltip inside the
+    viewport. Defaults to false.
+    */
+    strictSide?: boolean;
+    /**
+    When set to true, show a triangle connecting the tooltip element
+    to position `pos`.
+    */
+    arrow?: boolean;
+}
+/**
+Describes the way a tooltip is displayed.
+*/
+interface TooltipView {
+    /**
+    The DOM element to position over the editor.
+    */
+    dom: HTMLElement;
+    /**
+    Adjust the position of the tooltip relative to its anchor
+    position. A positive `x` value will move the tooltip
+    horizontally along with the text direction (so right in
+    left-to-right context, left in right-to-left). A positive `y`
+    will move the tooltip up when it is above its anchor, and down
+    otherwise.
+    */
+    offset?: {
+        x: number;
+        y: number;
+    };
+    /**
+    By default, a tooltip's screen position will be based on the
+    text position of its `pos` property. This method can be provided
+    to make the tooltip view itself responsible for finding its
+    screen position.
+    */
+    getCoords?: (pos: number) => Rect;
+    /**
+    By default, tooltips are moved when they overlap with other
+    tooltips. Set this to `true` to disable that behavior for this
+    tooltip.
+    */
+    overlap?: boolean;
+    /**
+    Called after the tooltip is added to the DOM for the first time.
+    */
+    mount?(view: EditorView): void;
+    /**
+    Update the DOM element for a change in the view's state.
+    */
+    update?(update: ViewUpdate): void;
+    /**
+    Called when the tooltip is removed from the editor or the editor
+    is destroyed.
+    */
+    destroy?(): void;
+    /**
+    Called when the tooltip has been (re)positioned. The argument is
+    the [space](https://codemirror.net/6/docs/ref/#view.tooltips^config.tooltipSpace) available to the
+    tooltip.
+    */
+    positioned?(space: Rect): void;
+    /**
+    By default, the library will restrict the size of tooltips so
+    that they don't stick out of the available space. Set this to
+    false to disable that.
+    */
+    resize?: boolean;
+}
+/**
+Facet to which an extension can add a value to show a tooltip.
+*/
+declare const showTooltip: Facet<Tooltip | null, readonly (Tooltip | null)[]>;
 declare type Handlers$1 = {
     [event: string]: (view: EditorView, line: BlockInfo, event: Event) => boolean;
 };
@@ -5389,6 +5526,26 @@ Python language support.
 */
 declare function python(): LanguageSupport;
 
+/**
+An update is a set of changes and effects.
+*/
+interface Update {
+    /**
+    The changes made by this update.
+    */
+    changes: ChangeSet;
+    /**
+    The effects in this update. There'll only ever be effects here
+    when you configure your collab extension with a
+    [`sharedEffects`](https://codemirror.net/6/docs/ref/#collab.collab^config.sharedEffects) option.
+    */
+    effects?: readonly StateEffect<any>[];
+    /**
+    The [ID](https://codemirror.net/6/docs/ref/#collab.collab^config.clientID) of the client who
+    created this update.
+    */
+    clientID: string;
+}
 declare type CollabConfig = {
     /**
     The starting document version. Defaults to 0.
@@ -5413,5 +5570,32 @@ declare type CollabConfig = {
 Create an instance of the collaborative editing plugin.
 */
 declare function collab(config?: CollabConfig): Extension;
+/**
+Create a transaction that represents a set of new updates received
+from the authority. Applying this transaction moves the state
+forward to adjust to the authority's view of the document.
+*/
+declare function receiveUpdates(state: EditorState, updates: readonly Update[]): Transaction;
+/**
+Returns the set of locally made updates that still have to be sent
+to the authority. The returned objects will also have an `origin`
+property that points at the transaction that created them. This
+may be useful if you want to send along metadata like timestamps.
+(But note that the updates may have been mapped in the meantime,
+whereas the transaction is just the original transaction that
+created them.)
+*/
+declare function sendableUpdates(state: EditorState): readonly (Update & {
+    origin: Transaction;
+})[];
+/**
+Get the version up to which the collab plugin has synced with the
+central authority.
+*/
+declare function getSyncedVersion(state: EditorState): number;
+/**
+Get this editor's collaborative editing client ID.
+*/
+declare function getClientID(state: EditorState): string;
 
-export { Annotation, Compartment, Decoration, Diagnostic, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, NodeProp, PostgreSQL, SelectionRange, StateEffect, StateField, Text, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, index_d as autocomplete, bracketMatching, closeBrackets, closeBracketsKeymap, collab, combineConfig, completionKeymap, css, cssLanguage, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, javascript, javascriptLanguage, julia as julia_andrey, keymap, lineNumbers, linter, markdown, markdownLanguage, parseCode, parseMixed, placeholder, python, pythonLanguage, rectangularSelection, searchKeymap, selectNextOccurrence, setDiagnostics, sql, syntaxHighlighting, syntaxTree, syntaxTreeAvailable, tags };
+export { Annotation, ChangeSet, Compartment, Decoration, Diagnostic, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, NodeProp, PostgreSQL, SelectionRange, StateEffect, StateField, Text, Tooltip, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, index_d as autocomplete, bracketMatching, closeBrackets, closeBracketsKeymap, collab, combineConfig, completionKeymap, css, cssLanguage, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, getClientID, getSyncedVersion, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, javascript, javascriptLanguage, julia as julia_andrey, keymap, lineNumbers, linter, markdown, markdownLanguage, parseCode, parseMixed, placeholder, python, pythonLanguage, receiveUpdates, rectangularSelection, searchKeymap, selectNextOccurrence, sendableUpdates, setDiagnostics, showTooltip, sql, syntaxHighlighting, syntaxTree, syntaxTreeAvailable, tags, tooltips };

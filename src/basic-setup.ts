@@ -8,6 +8,7 @@ import {
     StateEffect,
     Transaction,
     Text,
+    ChangeSet,
     combineConfig,
     Annotation,
 } from "@codemirror/state"
@@ -25,6 +26,9 @@ import {
     WidgetType,
     lineNumbers,
     rectangularSelection,
+    tooltips,
+    showTooltip,
+    Tooltip,
 } from "@codemirror/view"
 import {
     defaultKeymap,
@@ -62,7 +66,7 @@ import { javascript, javascriptLanguage } from "@codemirror/lang-javascript"
 import { css, cssLanguage } from "@codemirror/lang-css"
 import { sql, PostgreSQL } from "@codemirror/lang-sql"
 import { python, pythonLanguage } from "@codemirror/lang-python"
-import { collab } from "@codemirror/collab"
+import { collab, receiveUpdates, sendableUpdates, getSyncedVersion, getClientID } from "@codemirror/collab"
 import { linter, setDiagnostics, Diagnostic } from "@codemirror/lint"
 
 export { css, cssLanguage }
@@ -72,6 +76,7 @@ export {
     StateField,
     StateEffect,
     Transaction,
+    ChangeSet,
     indentUnit,
     EditorState,
     EditorSelection,
@@ -113,8 +118,12 @@ export {
     WidgetType,
     TreeCursor,
     Text,
+    Annotation,
     combineConfig,
     NodeProp,
+    Tooltip,
+    tooltips,
+    showTooltip,
     // Syntax Highlighting magic
     markdown,
     markdownLanguage,
@@ -130,7 +139,10 @@ export {
     pythonLanguage,
     // Collaboration
     collab,
-    Annotation,
+    receiveUpdates,
+    sendableUpdates,
+    getSyncedVersion,
+    getClientID,
     // Linter
     linter,
     setDiagnostics,
