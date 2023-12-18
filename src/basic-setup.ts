@@ -34,6 +34,8 @@ import {
     defaultKeymap,
     indentMore,
     indentLess,
+    moveLineUp,
+    moveLineDown,
     historyKeymap,
     history,
 } from "@codemirror/commands"
@@ -91,6 +93,8 @@ export {
     defaultKeymap,
     indentMore,
     indentLess,
+    moveLineUp,
+    moveLineDown,
     tags,
     HighlightStyle,
     syntaxHighlighting,
