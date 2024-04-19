@@ -29,6 +29,7 @@ import {
     tooltips,
     showTooltip,
     Tooltip,
+    MatchDecorator,
 } from "@codemirror/view"
 import {
     defaultKeymap,
@@ -52,14 +53,13 @@ import {
     syntaxHighlighting,
 } from "@codemirror/language"
 import { tags } from "@lezer/highlight"
-import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete"
+import { closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete"
 import * as autocomplete from "@codemirror/autocomplete"
 import {
     highlightSelectionMatches,
     searchKeymap,
     selectNextOccurrence,
 } from "@codemirror/search"
-import { completionKeymap } from "@codemirror/autocomplete"
 import { TreeCursor, NodeProp, parseMixed } from "@lezer/common"
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown"
 import { parseCode } from "@lezer/markdown"
@@ -128,6 +128,7 @@ export {
     Tooltip,
     tooltips,
     showTooltip,
+    MatchDecorator,
     // Syntax Highlighting magic
     markdown,
     markdownLanguage,

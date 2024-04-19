@@ -4499,6 +4499,74 @@ to show when the editor is empty.
 declare function placeholder(content: string | HTMLElement): Extension;
 
 /**
+Helper class used to make it easier to maintain decorations on
+visible code that matches a given regular expression. To be used
+in a [view plugin](https://codemirror.net/6/docs/ref/#view.ViewPlugin). Instances of this object
+represent a matching configuration.
+*/
+declare class MatchDecorator {
+    private regexp;
+    private addMatch;
+    private boundary;
+    private maxLength;
+    /**
+    Create a decorator.
+    */
+    constructor(config: {
+        /**
+        The regular expression to match against the content. Will only
+        be matched inside lines (not across them). Should have its 'g'
+        flag set.
+        */
+        regexp: RegExp;
+        /**
+        The decoration to apply to matches, either directly or as a
+        function of the match.
+        */
+        decoration?: Decoration | ((match: RegExpExecArray, view: EditorView, pos: number) => Decoration | null);
+        /**
+        Customize the way decorations are added for matches. This
+        function, when given, will be called for matches and should
+        call `add` to create decorations for them. Note that the
+        decorations should appear *in* the given range, and the
+        function should have no side effects beyond calling `add`.
+        
+        The `decoration` option is ignored when `decorate` is
+        provided.
+        */
+        decorate?: (add: (from: number, to: number, decoration: Decoration) => void, from: number, to: number, match: RegExpExecArray, view: EditorView) => void;
+        /**
+        By default, changed lines are re-matched entirely. You can
+        provide a boundary expression, which should match single
+        character strings that can never occur in `regexp`, to reduce
+        the amount of re-matching.
+        */
+        boundary?: RegExp;
+        /**
+        Matching happens by line, by default, but when lines are
+        folded or very long lines are only partially drawn, the
+        decorator may avoid matching part of them for speed. This
+        controls how much additional invisible content it should
+        include in its matches. Defaults to 1000.
+        */
+        maxLength?: number;
+    });
+    /**
+    Compute the full set of decorations for matches in the given
+    view's viewport. You'll want to call this when initializing your
+    plugin.
+    */
+    createDeco(view: EditorView): RangeSet<Decoration>;
+    /**
+    Update a set of decorations for a view update. `deco` _must_ be
+    the set of decorations produced by _this_ `MatchDecorator` for
+    the view state before the update.
+    */
+    updateDeco(update: ViewUpdate, deco: DecorationSet): DecorationSet;
+    private updateRange;
+}
+
+/**
 Create an extension that enables rectangular selections. By
 default, it will react to left mouse drag with the Alt key held
 down. When such a selection occurs, the text within the rectangle
@@ -7023,4 +7091,4 @@ Get this editor's collaborative editing client ID.
 */
 declare function getClientID(state: EditorState): string;
 
-export { Annotation, ChangeSet, Compartment, Decoration, Diagnostic, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, NodeProp, PostgreSQL, SelectionRange, StateEffect, StateField, Text, Tooltip, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, index_d as autocomplete, bracketMatching, closeBrackets, closeBracketsKeymap, collab, combineConfig, completionKeymap, css, cssLanguage, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, getClientID, getSyncedVersion, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, javascript, javascriptLanguage, julia as julia_andrey, keymap, lineNumbers, linter, markdown, markdownLanguage, moveLineDown, moveLineUp, parseCode, parseMixed, placeholder, python, pythonLanguage, receiveUpdates, rectangularSelection, searchKeymap, selectNextOccurrence, sendableUpdates, setDiagnostics, showTooltip, sql, syntaxHighlighting, syntaxTree, syntaxTreeAvailable, tags, tooltips };
+export { Annotation, ChangeSet, Compartment, Decoration, Diagnostic, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, MatchDecorator, NodeProp, PostgreSQL, SelectionRange, StateEffect, StateField, Text, Tooltip, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, index_d as autocomplete, bracketMatching, closeBrackets, closeBracketsKeymap, collab, combineConfig, completionKeymap, css, cssLanguage, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, getClientID, getSyncedVersion, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, javascript, javascriptLanguage, julia as julia_andrey, keymap, lineNumbers, linter, markdown, markdownLanguage, moveLineDown, moveLineUp, parseCode, parseMixed, placeholder, python, pythonLanguage, receiveUpdates, rectangularSelection, searchKeymap, selectNextOccurrence, sendableUpdates, setDiagnostics, showTooltip, sql, syntaxHighlighting, syntaxTree, syntaxTreeAvailable, tags, tooltips };
