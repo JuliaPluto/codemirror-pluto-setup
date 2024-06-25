@@ -1,4 +1,4 @@
-import {
+export {
     EditorState,
     EditorSelection,
     Compartment,
@@ -12,8 +12,8 @@ import {
     combineConfig,
     Annotation,
 } from "@codemirror/state"
-import { julia as julia_andrey } from "@plutojl/lang-julia"
-import {
+export { julia as julia_andrey } from "@plutojl/lang-julia"
+export {
     keymap,
     EditorView,
     highlightSpecialChars,
@@ -31,7 +31,7 @@ import {
     Tooltip,
     MatchDecorator,
 } from "@codemirror/view"
-import {
+export {
     defaultKeymap,
     indentMore,
     indentLess,
@@ -40,7 +40,7 @@ import {
     historyKeymap,
     history,
 } from "@codemirror/commands"
-import {
+export {
     indentOnInput,
     indentUnit,
     syntaxTree,
@@ -52,104 +52,21 @@ import {
     defaultHighlightStyle,
     syntaxHighlighting,
 } from "@codemirror/language"
-import { tags } from "@lezer/highlight"
-import { closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete"
-import * as autocomplete from "@codemirror/autocomplete"
-import {
+export { tags } from "@lezer/highlight"
+export { closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete"
+export * as autocomplete from "@codemirror/autocomplete"
+export {
     highlightSelectionMatches,
     searchKeymap,
     selectNextOccurrence,
 } from "@codemirror/search"
-import { TreeCursor, NodeProp, parseMixed } from "@lezer/common"
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown"
-import { parseCode } from "@lezer/markdown"
-import { html, htmlLanguage } from "@codemirror/lang-html"
-import { javascript, javascriptLanguage } from "@codemirror/lang-javascript"
-import { css, cssLanguage } from "@codemirror/lang-css"
-import { sql, PostgreSQL } from "@codemirror/lang-sql"
-import { python, pythonLanguage } from "@codemirror/lang-python"
-import { collab, receiveUpdates, sendableUpdates, getSyncedVersion, getClientID } from "@codemirror/collab"
-import { linter, setDiagnostics, Diagnostic } from "@codemirror/lint"
-
-export { css, cssLanguage }
-
-export {
-    Facet,
-    StateField,
-    StateEffect,
-    Transaction,
-    ChangeSet,
-    indentUnit,
-    EditorState,
-    EditorSelection,
-    Compartment,
-    EditorView,
-    SelectionRange,
-    placeholder,
-    julia_andrey,
-    keymap,
-    history,
-    historyKeymap,
-    defaultKeymap,
-    indentMore,
-    indentLess,
-    moveLineUp,
-    moveLineDown,
-    tags,
-    HighlightStyle,
-    syntaxHighlighting,
-    syntaxTree,
-    syntaxTreeAvailable,
-    autocomplete,
-    lineNumbers,
-    highlightSpecialChars,
-    foldGutter,
-    drawSelection,
-    indentOnInput,
-    defaultHighlightStyle,
-    bracketMatching,
-    closeBrackets,
-    rectangularSelection,
-    highlightSelectionMatches,
-    closeBracketsKeymap,
-    searchKeymap,
-    selectNextOccurrence,
-    foldKeymap,
-    completionKeymap,
-    Decoration,
-    ViewUpdate,
-    ViewPlugin,
-    WidgetType,
-    TreeCursor,
-    Text,
-    Annotation,
-    combineConfig,
-    NodeProp,
-    Tooltip,
-    tooltips,
-    showTooltip,
-    MatchDecorator,
-    // Syntax Highlighting magic
-    markdown,
-    markdownLanguage,
-    parseCode,
-    parseMixed,
-    html,
-    htmlLanguage,
-    javascript,
-    javascriptLanguage,
-    sql,
-    PostgreSQL,
-    python,
-    pythonLanguage,
-    // Collaboration
-    collab,
-    receiveUpdates,
-    sendableUpdates,
-    getSyncedVersion,
-    getClientID,
-    // Linter
-    linter,
-    setDiagnostics,
-    Diagnostic,
-}
+export { TreeCursor, NodeProp, parseMixed } from "@lezer/common"
+export { markdown, markdownLanguage } from "@codemirror/lang-markdown"
+export { parseCode } from "@lezer/markdown"
+export { html, htmlLanguage } from "@codemirror/lang-html"
+export { javascript, javascriptLanguage } from "@codemirror/lang-javascript"
+export { css, cssLanguage } from "@codemirror/lang-css"
+export { sql, PostgreSQL } from "@codemirror/lang-sql"
+export { python, pythonLanguage } from "@codemirror/lang-python"
+export { collab, receiveUpdates, sendableUpdates, getSyncedVersion, getClientID } from "@codemirror/collab"
+export { linter, setDiagnostics, Diagnostic } from "@codemirror/lint"
