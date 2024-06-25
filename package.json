@@ -51,7 +51,7 @@
         "@lezer/common": "^1.2.1",
         "@lezer/highlight": "^1.2.0",
         "@lezer/markdown": "^1.2.0",
-        "@plutojl/lang-julia": "^0.11.0"
+        "@plutojl/lang-julia": "^0.12.0"
     },
     "devDependencies": {
         "@rollup/plugin-node-resolve": "^15.0.2",
