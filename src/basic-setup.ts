@@ -64,7 +64,7 @@ export { TreeCursor, NodeProp, parseMixed } from "@lezer/common"
 export { tags } from "@lezer/highlight"
 
 // Language support
-export { julia as julia_andrey } from "@plutojl/lang-julia"
+export { julia } from "@plutojl/lang-julia"
 export { markdown, markdownLanguage } from "@codemirror/lang-markdown"
 export { parseCode } from "@lezer/markdown"
 export { html, htmlLanguage } from "@codemirror/lang-html"
