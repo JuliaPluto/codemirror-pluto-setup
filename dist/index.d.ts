@@ -2767,6 +2767,10 @@ declare class InputStream {
     the stream position) to change that.
     */
     acceptToken(token: number, endOffset?: number): void;
+    /**
+    Accept a token ending at a specific given position.
+    */
+    acceptTokenTo(token: number, endPos: number): void;
     private getChunk;
     private readNext;
     /**
@@ -3836,7 +3840,7 @@ declare class EditorView {
     /**
     Find the line block around the given document position. A line
     block is a range delimited on both sides by either a
-    non-[hidden](https://codemirror.net/6/docs/ref/#view.Decoration^replace) line breaks, or the
+    non-[hidden](https://codemirror.net/6/docs/ref/#view.Decoration^replace) line break, or the
     start/end of the document. It will usually just hold a line of
     text, but may be broken into multiple textblocks by block
     widgets.
@@ -4059,6 +4063,18 @@ declare class EditorView {
     */
     scrollSnapshot(): StateEffect<ScrollTarget>;
     /**
+    Enable or disable tab-focus mode, which disables key bindings
+    for Tab and Shift-Tab, letting the browser's default
+    focus-changing behavior go through instead. This is useful to
+    prevent trapping keyboard users in your editor.
+    
+    Without argument, this toggles the mode. With a boolean, it
+    enables (true) or disables it (false). Given a number, it
+    temporarily enables the mode until that number of milliseconds
+    have passed or another non-Tab key is pressed.
+    */
+    setTabFocusMode(to?: boolean | number): void;
+    /**
     Facet to add a [style
     module](https://github.com/marijnh/style-mod#documentation) to
     an editor view. The view will ensure that the module is
@@ -4100,6 +4116,15 @@ declare class EditorView {
     dispatching the custom behavior as a separate transaction.
     */
     static inputHandler: Facet<(view: EditorView, from: number, to: number, text: string, insert: () => Transaction) => boolean, readonly ((view: EditorView, from: number, to: number, text: string, insert: () => Transaction) => boolean)[]>;
+    /**
+    Functions provided in this facet will be used to transform text
+    pasted or dropped into the editor.
+    */
+    static clipboardInputFilter: Facet<(text: string, state: EditorState) => string, readonly ((text: string, state: EditorState) => string)[]>;
+    /**
+    Transform text copied or dragged from the editor.
+    */
+    static clipboardOutputFilter: Facet<(text: string, state: EditorState) => string, readonly ((text: string, state: EditorState) => string)[]>;
     /**
     Scroll handlers can override how things are scrolled into view.
     If they return `true`, no further handling happens for the
@@ -4496,7 +4521,7 @@ config?: SpecialCharConfig): Extension;
 Extension that enables a placeholder—a piece of example content
 to show when the editor is empty.
 */
-declare function placeholder(content: string | HTMLElement): Extension;
+declare function placeholder(content: string | HTMLElement | ((view: EditorView) => HTMLElement)): Extension;
 
 /**
 Helper class used to make it easier to maintain decorations on
@@ -4764,6 +4789,7 @@ declare class Tag {
     this one itself and sorted in order of decreasing specificity.
     */
     readonly set: Tag[];
+    toString(): string;
     /**
     Define a new tag. If `parent` is given, the tag is treated as a
     sub-tag of that parent, and
@@ -4771,6 +4797,7 @@ declare class Tag {
     this tag will try to fall back to the parent tag (or grandparent
     tag, etc).
     */
+    static define(name?: string, parent?: Tag): Tag;
     static define(parent?: Tag): Tag;
     /**
     Define a tag _modifier_, which is a function that, given a tag,
@@ -4784,7 +4811,7 @@ declare class Tag {
     example `m1(m2(m3(t1)))` is a subtype of `m1(m2(t1))`,
     `m1(m3(t1)`, and so on.
     */
-    static defineModifier(): (tag: Tag) => Tag;
+    static defineModifier(name?: string): (tag: Tag) => Tag;
 }
 /**
 A highlighter defines a mapping from highlighting tags and
@@ -5085,7 +5112,7 @@ declare const tags: {
     */
     heading6: Tag;
     /**
-    A prose separator (such as a horizontal rule).
+    A prose [content](#highlight.tags.content) separator (such as a horizontal rule).
     */
     contentSeparator: Tag;
     /**
@@ -5526,7 +5553,7 @@ declare class HighlightStyle implements Highlighter {
     */
     readonly module: StyleModule | null;
     readonly style: (tags: readonly Tag[]) => string | null;
-    readonly scope: ((type: NodeType) => boolean) | undefined;
+    readonly scope?: (type: NodeType) => boolean;
     private constructor();
     /**
     Create a highlighter style that associates the given styles to
@@ -5724,6 +5751,12 @@ selected lines.
 */
 declare const indentLess: StateCommand;
 /**
+Insert a tab character at the cursor or, if something is selected,
+use [`indentMore`](https://codemirror.net/6/docs/ref/#commands.indentMore) to indent the entire
+selection.
+*/
+declare const insertTab: StateCommand;
+/**
 The default keymap. Includes all bindings from
 [`standardKeymap`](https://codemirror.net/6/docs/ref/#commands.standardKeymap) plus the following:
 
@@ -5744,6 +5777,7 @@ The default keymap. Includes all bindings from
 - Shift-Ctrl-\\ (Shift-Cmd-\\ on macOS): [`cursorMatchingBracket`](https://codemirror.net/6/docs/ref/#commands.cursorMatchingBracket)
 - Ctrl-/ (Cmd-/ on macOS): [`toggleComment`](https://codemirror.net/6/docs/ref/#commands.toggleComment).
 - Shift-Alt-a: [`toggleBlockComment`](https://codemirror.net/6/docs/ref/#commands.toggleBlockComment).
+- Ctrl-m (Alt-Shift-m on macOS): [`toggleTabFocusMode`](https://codemirror.net/6/docs/ref/#commands.toggleTabFocusMode).
 */
 declare const defaultKeymap: readonly KeyBinding[];
 
@@ -5873,6 +5907,14 @@ declare class CompletionContext {
     */
     readonly explicit: boolean;
     /**
+    The editor view. May be undefined if the context was created
+    in a situation where there is no such view available, such as
+    in synchronous updates via
+    [`CompletionResult.update`](https://codemirror.net/6/docs/ref/#autocomplete.CompletionResult.update)
+    or when called by test code.
+    */
+    readonly view?: EditorView | undefined;
+    /**
     Create a new completion context. (Mostly useful for testing
     completion sources—in the editor, the extension will create
     these for you.)
@@ -5892,7 +5934,15 @@ declare class CompletionContext {
     only return completions when either there is part of a
     completable entity before the cursor, or `explicit` is true.
     */
-    explicit: boolean);
+    explicit: boolean, 
+    /**
+    The editor view. May be undefined if the context was created
+    in a situation where there is no such view available, such as
+    in synchronous updates via
+    [`CompletionResult.update`](https://codemirror.net/6/docs/ref/#autocomplete.CompletionResult.update)
+    or when called by test code.
+    */
+    view?: EditorView | undefined);
     /**
     Get the extent, content, and (if there is a token) type of the
     token before `this.pos`.
@@ -5921,8 +5971,18 @@ declare class CompletionContext {
     Allows you to register abort handlers, which will be called when
     the query is
     [aborted](https://codemirror.net/6/docs/ref/#autocomplete.CompletionContext.aborted).
+    
+    By default, running queries will not be aborted for regular
+    typing or backspacing, on the assumption that they are likely to
+    return a result with a
+    [`validFor`](https://codemirror.net/6/docs/ref/#autocomplete.CompletionResult.validFor) field that
+    allows the result to be used after all. Passing `onDocChange:
+    true` will cause this query to be aborted for any document
+    change.
     */
-    addEventListener(type: "abort", listener: () => void): void;
+    addEventListener(type: "abort", listener: () => void, options?: {
+        onDocChange: boolean;
+    }): void;
 }
 /**
 Given a a fixed array of options, return an autocompleter that
@@ -6037,6 +6097,11 @@ interface CompletionConfig {
     whenever the user types something that can be completed.
     */
     activateOnTyping?: boolean;
+    /**
+    When given, if a completion that matches the predicate is
+    picked, reactivate completion again as if it was typed normally.
+    */
+    activateOnCompletion?: (completion: Completion) => boolean;
     /**
     The amount of time to wait for further typing before querying
     completion sources via
@@ -6261,7 +6326,7 @@ interface CloseBracketConfig {
     /**
     The opening brackets to close. Defaults to `["(", "[", "{", "'",
     '"']`. Brackets may be single characters or a triple of quotes
-    (as in `"''''"`).
+    (as in `"'''"`).
     */
     brackets?: string[];
     /**
@@ -6314,7 +6379,7 @@ declare function autocompletion(config?: CompletionConfig): Extension;
 /**
 Basic keybindings for autocompletion.
 
- - Ctrl-Space: [`startCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.startCompletion)
+ - Ctrl-Space (and Alt-\` on macOS): [`startCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.startCompletion)
  - Escape: [`closeCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.closeCompletion)
  - ArrowDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true)`
  - ArrowUp: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(false)`
@@ -6578,6 +6643,7 @@ declare class InlineContext {
     get end(): number;
     slice(from: number, to: number): string;
     addDelimiter(type: DelimiterType, from: number, to: number, open: boolean, close: boolean): number;
+    get hasOpenLink(): boolean;
     addElement(elt: Element$1): number;
     findOpeningDelimiter(type: DelimiterType): number;
     takeContent(startIndex: number): any[];
@@ -6636,6 +6702,13 @@ declare function markdown(config?: {
     disable this.
     */
     completeHTMLTags?: boolean;
+    /**
+    By default, HTML tags in the document are handled by the [HTML
+    language](https://github.com/codemirror/lang-html) package with
+    tag matching turned off. You can pass in an alternative language
+    configuration here if you want.
+    */
+    htmlTagLanguage?: LanguageSupport;
 }): LanguageSupport;
 
 /**
@@ -6756,7 +6829,7 @@ interface Diagnostic {
     An optional custom rendering function that displays the message
     as a DOM node.
     */
-    renderMessage?: () => Node;
+    renderMessage?: (view: EditorView) => Node;
     /**
     An optional array of actions that can be taken on this
     diagnostic.
@@ -6801,6 +6874,20 @@ interface LintConfig {
     tooltip will appear if the empty set is returned.
     */
     tooltipFilter?: null | DiagnosticFilter;
+    /**
+    Can be used to control what kind of transactions cause lint
+    hover tooltips associated with the given document range to be
+    hidden. By default any transactions that changes the line
+    around the range will hide it. Returning null falls back to this
+    behavior.
+    */
+    hideOn?: (tr: Transaction, from: number, to: number) => boolean | null;
+    /**
+    When enabled (defaults to off), this will cause the lint panel
+    to automatically open when diagnostics are found, and close when
+    all diagnostics are resolved or removed.
+    */
+    autoPanel?: boolean;
 }
 /**
 Returns a transaction spec which updates the current set of
@@ -6914,6 +7001,12 @@ type SQLDialectSpec = {
     */
     identifierQuotes?: string;
     /**
+    Controls whether identifiers are case-insensitive. Identifiers
+    with upper-case letters are quoted when set to false (which is
+    the default).
+    */
+    caseInsensitiveIdentifiers?: boolean;
+    /**
     Controls whether bit values can be defined as 0b1010. Defaults
     to false.
     */
@@ -6996,6 +7089,10 @@ interface SQLConfig {
     When set to true, keyword completions will be upper-case.
     */
     upperCaseKeywords?: boolean;
+    /**
+    Can be used to customize the completions generated for keywords.
+    */
+    keywordCompletion?: (label: string, type: string) => Completion;
 }
 /**
 SQL language support for the given SQL dialect, with keyword
@@ -7091,4 +7188,4 @@ Get this editor's collaborative editing client ID.
 */
 declare function getClientID(state: EditorState): string;
 
-export { Annotation, ChangeSet, Compartment, Decoration, Diagnostic, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, MatchDecorator, NodeProp, PostgreSQL, SelectionRange, StateEffect, StateField, Text, Tooltip, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, index_d as autocomplete, bracketMatching, closeBrackets, closeBracketsKeymap, collab, combineConfig, completionKeymap, css, cssLanguage, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, getClientID, getSyncedVersion, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, javascript, javascriptLanguage, julia as julia_andrey, keymap, lineNumbers, linter, markdown, markdownLanguage, moveLineDown, moveLineUp, parseCode, parseMixed, placeholder, python, pythonLanguage, receiveUpdates, rectangularSelection, searchKeymap, selectNextOccurrence, sendableUpdates, setDiagnostics, showTooltip, sql, syntaxHighlighting, syntaxTree, syntaxTreeAvailable, tags, tooltips };
+export { Annotation, ChangeSet, Compartment, Decoration, Diagnostic, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, MatchDecorator, NodeProp, PostgreSQL, SelectionRange, StateEffect, StateField, Text, Tooltip, Transaction, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, index_d as autocomplete, bracketMatching, closeBrackets, closeBracketsKeymap, collab, combineConfig, completionKeymap, css, cssLanguage, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, getClientID, getSyncedVersion, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, insertTab, javascript, javascriptLanguage, julia as julia_andrey, keymap, lineNumbers, linter, markdown, markdownLanguage, moveLineDown, moveLineUp, parseCode, parseMixed, placeholder, python, pythonLanguage, receiveUpdates, rectangularSelection, searchKeymap, selectNextOccurrence, sendableUpdates, setDiagnostics, showTooltip, sql, syntaxHighlighting, syntaxTree, syntaxTreeAvailable, tags, tooltips };

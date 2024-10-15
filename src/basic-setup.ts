@@ -33,6 +33,7 @@ import {
 } from "@codemirror/view"
 import {
     defaultKeymap,
+    insertTab,
     indentMore,
     indentLess,
     moveLineUp,
@@ -91,6 +92,7 @@ export {
     history,
     historyKeymap,
     defaultKeymap,
+    insertTab,
     indentMore,
     indentLess,
     moveLineUp,
