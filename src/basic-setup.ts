@@ -51,6 +51,7 @@ import {
     HighlightStyle,
     defaultHighlightStyle,
     syntaxHighlighting,
+    StreamLanguage,
 } from "@codemirror/language"
 import { tags } from "@lezer/highlight"
 import { closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete"
@@ -70,6 +71,8 @@ import { sql, PostgreSQL } from "@codemirror/lang-sql"
 import { python, pythonLanguage } from "@codemirror/lang-python"
 import { collab, receiveUpdates, sendableUpdates, getSyncedVersion, getClientID } from "@codemirror/collab"
 import { linter, setDiagnostics, Diagnostic } from "@codemirror/lint"
+
+import {toml} from "@codemirror/legacy-modes/mode/toml"
 
 export { css, cssLanguage }
 
@@ -152,4 +155,7 @@ export {
     linter,
     setDiagnostics,
     Diagnostic,
+    
+    StreamLanguage,
+    toml,
 }

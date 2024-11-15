@@ -172,6 +172,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@codemirror/legacy-modes@npm:^6.4.2":
+  version: 6.4.2
+  resolution: "@codemirror/legacy-modes@npm:6.4.2"
+  dependencies:
+    "@codemirror/language": ^6.0.0
+  checksum: fe55df97efe980a573ff5572f480eae323d7652a4a61435c654a90142def7102218023590112de7cd826c495ecaadae68a89fb5e5d4323d207af267bcce1d0c1
+  languageName: node
+  linkType: hard
+
 "@codemirror/lint@npm:^6.0.0, @codemirror/lint@npm:^6.5.0":
   version: 6.5.0
   resolution: "@codemirror/lint@npm:6.5.0"
@@ -339,6 +348,7 @@ __metadata:
     "@codemirror/lang-python": ^6.1.5
     "@codemirror/lang-sql": ^6.6.2
     "@codemirror/language": ^6.10.1
+    "@codemirror/legacy-modes": ^6.4.2
     "@codemirror/lint": ^6.5.0
     "@codemirror/search": ^6.5.6
     "@codemirror/state": ^6.4.1
