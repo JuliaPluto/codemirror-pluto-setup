@@ -33,9 +33,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@codemirror/autocomplete@npm:^6.0.0, @codemirror/autocomplete@npm:^6.10.2, @codemirror/autocomplete@npm:^6.15.0, @codemirror/autocomplete@npm:^6.3.2, @codemirror/autocomplete@npm:^6.7.1":
-  version: 6.15.0
-  resolution: "@codemirror/autocomplete@npm:6.15.0"
+"@codemirror/autocomplete@npm:^6.0.0, @codemirror/autocomplete@npm:^6.10.2, @codemirror/autocomplete@npm:^6.18.3, @codemirror/autocomplete@npm:^6.3.2, @codemirror/autocomplete@npm:^6.7.1":
+  version: 6.18.3
+  resolution: "@codemirror/autocomplete@npm:6.18.3"
   dependencies:
     "@codemirror/language": ^6.0.0
     "@codemirror/state": ^6.0.0
@@ -46,7 +46,7 @@ __metadata:
     "@codemirror/state": ^6.0.0
     "@codemirror/view": ^6.0.0
     "@lezer/common": ^1.0.0
-  checksum: fce8d85e34a76d37a009c74d7d25c32a8cf12a9cbcff95211f96ff9afcb092e0d79e1f3b40425b4ea9b797579aaf64dd770ff2187ffabe2e5c9f44da23631363
+  checksum: 48f3a09e05a2ab236641c3df0dbd577ef4c04da8ea8c26c47bc90f5652342a62d6e736e6b89428a85ff50efe039c01f0f0864134914a40a1513a4d57024cbb76
   languageName: node
   linkType: hard
 
@@ -338,7 +338,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@plutojl/codemirror-pluto-setup@workspace:."
   dependencies:
-    "@codemirror/autocomplete": ^6.15.0
+    "@codemirror/autocomplete": ^6.18.3
     "@codemirror/collab": ^6.1.1
     "@codemirror/commands": ^6.3.3
     "@codemirror/lang-css": ^6.2.1

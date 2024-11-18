@@ -9850,14 +9850,14 @@ function combineAttrs(source, target) {
     }
     return target;
 }
-const noAttrs = /*@__PURE__*/Object.create(null);
+const noAttrs$1 = /*@__PURE__*/Object.create(null);
 function attrsEq(a, b, ignore) {
     if (a == b)
         return true;
     if (!a)
-        a = noAttrs;
+        a = noAttrs$1;
     if (!b)
-        b = noAttrs;
+        b = noAttrs$1;
     let keysA = Object.keys(a), keysB = Object.keys(b);
     if (keysA.length - (ignore && keysA.indexOf(ignore) > -1 ? 1 : 0) !=
         keysB.length - (ignore && keysB.indexOf(ignore) > -1 ? 1 : 0))
@@ -22434,14 +22434,27 @@ class CompletionContext {
     only return completions when either there is part of a
     completable entity before the cursor, or `explicit` is true.
     */
-    explicit) {
+    explicit, 
+    /**
+    The editor view. May be undefined if the context was created
+    in a situation where there is no such view available, such as
+    in synchronous updates via
+    [`CompletionResult.update`](https://codemirror.net/6/docs/ref/#autocomplete.CompletionResult.update)
+    or when called by test code.
+    */
+    view) {
         this.state = state;
         this.pos = pos;
         this.explicit = explicit;
+        this.view = view;
         /**
         @internal
         */
         this.abortListeners = [];
+        /**
+        @internal
+        */
+        this.abortOnDocChange = false;
     }
     /**
     Get the extent, content, and (if there is a token) type of the
@@ -22475,10 +22488,21 @@ class CompletionContext {
     Allows you to register abort handlers, which will be called when
     the query is
     [aborted](https://codemirror.net/6/docs/ref/#autocomplete.CompletionContext.aborted).
+    
+    By default, running queries will not be aborted for regular
+    typing or backspacing, on the assumption that they are likely to
+    return a result with a
+    [`validFor`](https://codemirror.net/6/docs/ref/#autocomplete.CompletionResult.validFor) field that
+    allows the result to be used after all. Passing `onDocChange:
+    true` will cause this query to be aborted for any document
+    change.
     */
-    addEventListener(type, listener) {
-        if (type == "abort" && this.abortListeners)
+    addEventListener(type, listener, options) {
+        if (type == "abort" && this.abortListeners) {
             this.abortListeners.push(listener);
+            if (options && options.onDocChange)
+                this.abortOnDocChange = true;
+        }
     }
 }
 function toSet(chars) {
@@ -22575,9 +22599,10 @@ function insertCompletionText(state, text, from, to) {
         if (range != main && from != to &&
             state.sliceDoc(range.from + fromOff, range.from + toOff) != state.sliceDoc(from, to))
             return { range };
+        let lines = state.toText(text);
         return {
-            changes: { from: range.from + fromOff, to: to == main.from ? range.to : range.from + toOff, insert: text },
-            range: EditorSelection.cursor(range.from + fromOff + text.length)
+            changes: { from: range.from + fromOff, to: to == main.from ? range.to : range.from + toOff, insert: lines },
+            range: EditorSelection.cursor(range.from + fromOff + lines.length)
         };
     })), { scrollIntoView: true, userEvent: "input.complete" });
 }
@@ -22754,6 +22779,7 @@ const completionConfig = /*@__PURE__*/Facet.define({
     combine(configs) {
         return combineConfig(configs, {
             activateOnTyping: true,
+            activateOnCompletion: () => false,
             activateOnTypingDelay: 100,
             selectOnOpen: true,
             override: null,
@@ -23196,12 +23222,12 @@ class CompletionDialog {
         return selected == this.selected || selected >= this.options.length ? this
             : new CompletionDialog(this.options, makeAttrs(id, selected), this.tooltip, this.timestamp, selected, this.disabled);
     }
-    static build(active, state, id, prev, conf) {
+    static build(active, state, id, prev, conf, didSetActive) {
+        if (prev && !didSetActive && active.some(s => s.isPending))
+            return prev.setDisabled();
         let options = sortOptions(active, state);
-        if (!options.length) {
-            return prev && active.some(a => a.state == 1 /* State.Pending */) ?
-                new CompletionDialog(prev.options, prev.attrs, prev.tooltip, prev.timestamp, prev.selected, true) : null;
-        }
+        if (!options.length)
+            return prev && active.some(a => a.isPending) ? prev.setDisabled() : null;
         let selected = state.facet(completionConfig).selectOnOpen ? 0 : -1;
         if (prev && prev.selected != selected && prev.selected != -1) {
             let selectedValue = prev.options[prev.selected].completion;
@@ -23219,6 +23245,9 @@ class CompletionDialog {
     }
     map(changes) {
         return new CompletionDialog(this.options, this.attrs, Object.assign(Object.assign({}, this.tooltip), { pos: changes.mapPos(this.tooltip.pos) }), this.timestamp, this.selected, this.disabled);
+    }
+    setDisabled() {
+        return new CompletionDialog(this.options, this.attrs, this.tooltip, this.timestamp, this.selected, true);
     }
 }
 class CompletionState {
@@ -23241,15 +23270,15 @@ class CompletionState {
         });
         if (active.length == this.active.length && active.every((a, i) => a == this.active[i]))
             active = this.active;
-        let open = this.open;
+        let open = this.open, didSet = tr.effects.some(e => e.is(setActiveEffect));
         if (open && tr.docChanged)
             open = open.map(tr.changes);
         if (tr.selection || active.some(a => a.hasResult() && tr.changes.touchesRange(a.from, a.to)) ||
-            !sameResults(active, this.active))
-            open = CompletionDialog.build(active, state, this.id, open, conf);
-        else if (open && open.disabled && !active.some(a => a.state == 1 /* State.Pending */))
+            !sameResults(active, this.active) || didSet)
+            open = CompletionDialog.build(active, state, this.id, open, conf, didSet);
+        else if (open && open.disabled && !active.some(a => a.isPending))
             open = null;
-        if (!open && active.every(a => a.state != 1 /* State.Pending */) && active.some(a => a.hasResult()))
+        if (!open && active.every(a => !a.isPending) && active.some(a => a.hasResult()))
             active = active.map(a => a.hasResult() ? new ActiveSource(a.source, 0 /* State.Inactive */) : a);
         for (let effect of tr.effects)
             if (effect.is(setSelectedEffect))
@@ -23257,15 +23286,15 @@ class CompletionState {
         return active == this.active && open == this.open ? this : new CompletionState(active, this.id, open);
     }
     get tooltip() { return this.open ? this.open.tooltip : null; }
-    get attrs() { return this.open ? this.open.attrs : baseAttrs; }
+    get attrs() { return this.open ? this.open.attrs : this.active.length ? baseAttrs : noAttrs; }
 }
 function sameResults(a, b) {
     if (a == b)
         return true;
     for (let iA = 0, iB = 0;;) {
-        while (iA < a.length && !a[iA].hasResult)
+        while (iA < a.length && !a[iA].hasResult())
             iA++;
-        while (iB < b.length && !b[iB].hasResult)
+        while (iB < b.length && !b[iB].hasResult())
             iB++;
         let endA = iA == a.length, endB = iB == b.length;
         if (endA || endB)
@@ -23277,6 +23306,7 @@ function sameResults(a, b) {
 const baseAttrs = {
     "aria-autocomplete": "list"
 };
+const noAttrs = {};
 function makeAttrs(id, selected) {
     let result = {
         "aria-autocomplete": "list",
@@ -23288,27 +23318,37 @@ function makeAttrs(id, selected) {
     return result;
 }
 const none$2 = [];
-function getUserEvent(tr) {
-    return tr.isUserEvent("input.type") ? "input" : tr.isUserEvent("delete.backward") ? "delete" : null;
+function getUpdateType(tr, conf) {
+    if (tr.isUserEvent("input.complete")) {
+        let completion = tr.annotation(pickedCompletion);
+        if (completion && conf.activateOnCompletion(completion))
+            return 4 /* UpdateType.Activate */ | 8 /* UpdateType.Reset */;
+    }
+    let typing = tr.isUserEvent("input.type");
+    return typing && conf.activateOnTyping ? 4 /* UpdateType.Activate */ | 1 /* UpdateType.Typing */
+        : typing ? 1 /* UpdateType.Typing */
+            : tr.isUserEvent("delete.backward") ? 2 /* UpdateType.Backspacing */
+                : tr.selection ? 8 /* UpdateType.Reset */
+                    : tr.docChanged ? 16 /* UpdateType.ResetIfTouching */ : 0 /* UpdateType.None */;
 }
 class ActiveSource {
-    constructor(source, state, explicitPos = -1) {
+    constructor(source, state, explicit = false) {
         this.source = source;
         this.state = state;
-        this.explicitPos = explicitPos;
+        this.explicit = explicit;
     }
     hasResult() { return false; }
+    get isPending() { return this.state == 1 /* State.Pending */; }
     update(tr, conf) {
-        let event = getUserEvent(tr), value = this;
-        if (event)
-            value = value.handleUserEvent(tr, event, conf);
-        else if (tr.docChanged)
-            value = value.handleChange(tr);
-        else if (tr.selection && value.state != 0 /* State.Inactive */)
+        let type = getUpdateType(tr, conf), value = this;
+        if ((type & 8 /* UpdateType.Reset */) || (type & 16 /* UpdateType.ResetIfTouching */) && this.touches(tr))
             value = new ActiveSource(value.source, 0 /* State.Inactive */);
+        if ((type & 4 /* UpdateType.Activate */) && value.state == 0 /* State.Inactive */)
+            value = new ActiveSource(this.source, 1 /* State.Pending */);
+        value = value.updateFor(tr, type);
         for (let effect of tr.effects) {
             if (effect.is(startCompletionEffect))
-                value = new ActiveSource(value.source, 1 /* State.Pending */, effect.value ? cur(tr.state) : -1);
+                value = new ActiveSource(value.source, 1 /* State.Pending */, effect.value);
             else if (effect.is(closeCompletionEffect))
                 value = new ActiveSource(value.source, 0 /* State.Inactive */);
             else if (effect.is(setActiveEffect))
@@ -23318,45 +23358,40 @@ class ActiveSource {
         }
         return value;
     }
-    handleUserEvent(tr, type, conf) {
-        return type == "delete" || !conf.activateOnTyping ? this.map(tr.changes) : new ActiveSource(this.source, 1 /* State.Pending */);
-    }
-    handleChange(tr) {
-        return tr.changes.touchesRange(cur(tr.startState)) ? new ActiveSource(this.source, 0 /* State.Inactive */) : this.map(tr.changes);
-    }
-    map(changes) {
-        return changes.empty || this.explicitPos < 0 ? this : new ActiveSource(this.source, this.state, changes.mapPos(this.explicitPos));
+    updateFor(tr, type) { return this.map(tr.changes); }
+    map(changes) { return this; }
+    touches(tr) {
+        return tr.changes.touchesRange(cur(tr.state));
     }
 }
 class ActiveResult extends ActiveSource {
-    constructor(source, explicitPos, result, from, to) {
-        super(source, 2 /* State.Result */, explicitPos);
+    constructor(source, explicit, limit, result, from, to) {
+        super(source, 3 /* State.Result */, explicit);
+        this.limit = limit;
         this.result = result;
         this.from = from;
         this.to = to;
     }
     hasResult() { return true; }
-    handleUserEvent(tr, type, conf) {
+    updateFor(tr, type) {
         var _a;
+        if (!(type & 3 /* UpdateType.SimpleInteraction */))
+            return this.map(tr.changes);
         let result = this.result;
         if (result.map && !tr.changes.empty)
             result = result.map(result, tr.changes);
         let from = tr.changes.mapPos(this.from), to = tr.changes.mapPos(this.to, 1);
         let pos = cur(tr.state);
-        if ((this.explicitPos < 0 ? pos <= from : pos < this.from) ||
-            pos > to || !result ||
-            type == "delete" && cur(tr.startState) == this.from)
-            return new ActiveSource(this.source, type == "input" && conf.activateOnTyping ? 1 /* State.Pending */ : 0 /* State.Inactive */);
-        let explicitPos = this.explicitPos < 0 ? -1 : tr.changes.mapPos(this.explicitPos);
+        if (pos > to || !result ||
+            (type & 2 /* UpdateType.Backspacing */) && (cur(tr.startState) == this.from || pos < this.limit))
+            return new ActiveSource(this.source, type & 4 /* UpdateType.Activate */ ? 1 /* State.Pending */ : 0 /* State.Inactive */);
+        let limit = tr.changes.mapPos(this.limit);
         if (checkValid(result.validFor, tr.state, from, to))
-            return new ActiveResult(this.source, explicitPos, result, from, to);
+            return new ActiveResult(this.source, this.explicit, limit, result, from, to);
         if (result.update &&
-            (result = result.update(result, from, to, new CompletionContext(tr.state, pos, explicitPos >= 0))))
-            return new ActiveResult(this.source, explicitPos, result, result.from, (_a = result.to) !== null && _a !== void 0 ? _a : cur(tr.state));
-        return new ActiveSource(this.source, 1 /* State.Pending */, explicitPos);
-    }
-    handleChange(tr) {
-        return tr.changes.touchesRange(this.from, this.to) ? new ActiveSource(this.source, 0 /* State.Inactive */) : this.map(tr.changes);
+            (result = result.update(result, from, to, new CompletionContext(tr.state, pos, false))))
+            return new ActiveResult(this.source, this.explicit, limit, result, result.from, (_a = result.to) !== null && _a !== void 0 ? _a : cur(tr.state));
+        return new ActiveSource(this.source, 1 /* State.Pending */, this.explicit);
     }
     map(mapping) {
         if (mapping.empty)
@@ -23364,7 +23399,10 @@ class ActiveResult extends ActiveSource {
         let result = this.result.map ? this.result.map(this.result, mapping) : this.result;
         if (!result)
             return new ActiveSource(this.source, 0 /* State.Inactive */);
-        return new ActiveResult(this.source, this.explicitPos < 0 ? -1 : mapping.mapPos(this.explicitPos), this.result, mapping.mapPos(this.from), mapping.mapPos(this.to, 1));
+        return new ActiveResult(this.source, this.explicit, mapping.mapPos(this.limit), this.result, mapping.mapPos(this.from), mapping.mapPos(this.to, 1));
+    }
+    touches(tr) {
+        return tr.changes.touchesRange(this.from, this.to);
     }
 }
 function checkValid(validFor, state, from, to) {
@@ -23473,19 +23511,22 @@ const completionPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
         this.pendingStart = false;
         this.composing = 0 /* CompositionState.None */;
         for (let active of view.state.field(completionState).active)
-            if (active.state == 1 /* State.Pending */)
+            if (active.isPending)
                 this.startQuery(active);
     }
     update(update) {
         let cState = update.state.field(completionState);
+        let conf = update.state.facet(completionConfig);
         if (!update.selectionSet && !update.docChanged && update.startState.field(completionState) == cState)
             return;
         let doesReset = update.transactions.some(tr => {
-            return (tr.selection || tr.docChanged) && !getUserEvent(tr);
+            let type = getUpdateType(tr, conf);
+            return (type & 8 /* UpdateType.Reset */) || (tr.selection || tr.docChanged) && !(type & 3 /* UpdateType.SimpleInteraction */);
         });
         for (let i = 0; i < this.running.length; i++) {
             let query = this.running[i];
             if (doesReset ||
+                query.context.abortOnDocChange && update.docChanged ||
                 query.updates.length + update.transactions.length > MaxUpdateCount && Date.now() - query.time > MinAbortTime) {
                 for (let handler of query.context.abortListeners) {
                     try {
@@ -23506,12 +23547,12 @@ const completionPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
             clearTimeout(this.debounceUpdate);
         if (update.transactions.some(tr => tr.effects.some(e => e.is(startCompletionEffect))))
             this.pendingStart = true;
-        let delay = this.pendingStart ? 50 : update.state.facet(completionConfig).activateOnTypingDelay;
-        this.debounceUpdate = cState.active.some(a => a.state == 1 /* State.Pending */ && !this.running.some(q => q.active.source == a.source))
+        let delay = this.pendingStart ? 50 : conf.activateOnTypingDelay;
+        this.debounceUpdate = cState.active.some(a => a.isPending && !this.running.some(q => q.active.source == a.source))
             ? setTimeout(() => this.startUpdate(), delay) : -1;
         if (this.composing != 0 /* CompositionState.None */)
             for (let tr of update.transactions) {
-                if (getUserEvent(tr) == "input")
+                if (tr.isUserEvent("input.type"))
                     this.composing = 2 /* CompositionState.Changed */;
                 else if (this.composing == 2 /* CompositionState.Changed */ && tr.selection)
                     this.composing = 3 /* CompositionState.ChangedAndMoved */;
@@ -23522,13 +23563,15 @@ const completionPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
         this.pendingStart = false;
         let { state } = this.view, cState = state.field(completionState);
         for (let active of cState.active) {
-            if (active.state == 1 /* State.Pending */ && !this.running.some(r => r.active.source == active.source))
+            if (active.isPending && !this.running.some(r => r.active.source == active.source))
                 this.startQuery(active);
         }
+        if (this.running.length && cState.open && cState.open.disabled)
+            this.debounceAccept = setTimeout(() => this.accept(), this.view.state.facet(completionConfig).updateSyncTime);
     }
     startQuery(active) {
         let { state } = this.view, pos = cur(state);
-        let context = new CompletionContext(state, pos, active.explicitPos == pos);
+        let context = new CompletionContext(state, pos, active.explicit, this.view);
         let pending = new RunningQuery(active, context);
         this.running.push(pending);
         Promise.resolve(active.source(context)).then(result => {
@@ -23555,14 +23598,16 @@ const completionPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
             clearTimeout(this.debounceAccept);
         this.debounceAccept = -1;
         let updated = [];
-        let conf = this.view.state.facet(completionConfig);
+        let conf = this.view.state.facet(completionConfig), cState = this.view.state.field(completionState);
         for (let i = 0; i < this.running.length; i++) {
             let query = this.running[i];
             if (query.done === undefined)
                 continue;
             this.running.splice(i--, 1);
             if (query.done) {
-                let active = new ActiveResult(query.active.source, query.active.explicitPos, query.done, query.done.from, (_a = query.done.to) !== null && _a !== void 0 ? _a : cur(query.updates.length ? query.updates[0].startState : this.view.state));
+                let pos = cur(query.updates.length ? query.updates[0].startState : this.view.state);
+                let limit = Math.min(pos, query.done.from + (query.active.explicit ? 0 : 1));
+                let active = new ActiveResult(query.active.source, query.active.explicit, limit, query.done, query.done.from, (_a = query.done.to) !== null && _a !== void 0 ? _a : pos);
                 // Replay the transactions that happened since the start of
                 // the request and see if that preserves the result
                 for (let tr of query.updates)
@@ -23572,15 +23617,15 @@ const completionPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
                     continue;
                 }
             }
-            let current = this.view.state.field(completionState).active.find(a => a.source == query.active.source);
-            if (current && current.state == 1 /* State.Pending */) {
+            let current = cState.active.find(a => a.source == query.active.source);
+            if (current && current.isPending) {
                 if (query.done == null) {
                     // Explicitly failed. Should clear the pending status if it
                     // hasn't been re-set in the meantime.
                     let active = new ActiveSource(query.active.source, 0 /* State.Inactive */);
                     for (let tr of query.updates)
                         active = active.update(tr, conf);
-                    if (active.state != 1 /* State.Pending */)
+                    if (!active.isPending)
                         updated.push(active);
                 }
                 else {
@@ -23589,7 +23634,7 @@ const completionPlugin = /*@__PURE__*/ViewPlugin.fromClass(class {
                 }
             }
         }
-        if (updated.length)
+        if (updated.length || cState.open && cState.open.disabled)
             this.view.dispatch({ effects: setActiveEffect.of(updated) });
     }
 }, {
@@ -23687,7 +23732,8 @@ const baseTheme$3 = /*@__PURE__*/EditorView.baseTheme({
         padding: "3px 9px",
         width: "max-content",
         maxWidth: `${400 /* Info.Width */}px`,
-        boxSizing: "border-box"
+        boxSizing: "border-box",
+        whiteSpace: "pre-line"
     },
     ".cm-completionInfo.cm-completionInfo-left": { right: "100%" },
     ".cm-completionInfo.cm-completionInfo-right": { left: "100%" },
@@ -23800,8 +23846,9 @@ class Snippet {
         let fields = [];
         let lines = [], positions = [], m;
         for (let line of template.split(/\r\n?|\n/)) {
-            while (m = /[#$]\{(?:(\d+)(?::([^}]*))?|([^}]*))\}/.exec(line)) {
-                let seq = m[1] ? +m[1] : null, name = m[2] || m[3] || "", found = -1;
+            while (m = /[#$]\{(?:(\d+)(?::([^}]*))?|((?:\\[{}]|[^}])*))\}/.exec(line)) {
+                let seq = m[1] ? +m[1] : null, rawName = m[2] || m[3] || "", found = -1;
+                let name = rawName.replace(/\\[{}]/g, m => m[1]);
                 for (let i = 0; i < fields.length; i++) {
                     if (seq != null ? fields[i].seq == seq : name ? fields[i].name == name : false)
                         found = i;
@@ -23817,16 +23864,16 @@ class Snippet {
                             pos.field++;
                 }
                 positions.push(new FieldPos(found, lines.length, m.index, m.index + name.length));
-                line = line.slice(0, m.index) + name + line.slice(m.index + m[0].length);
+                line = line.slice(0, m.index) + rawName + line.slice(m.index + m[0].length);
             }
-            for (let esc; esc = /\\([{}])/.exec(line);) {
-                line = line.slice(0, esc.index) + esc[1] + line.slice(esc.index + esc[0].length);
+            line = line.replace(/\\([{}])/g, (_, brace, index) => {
                 for (let pos of positions)
-                    if (pos.line == lines.length && pos.from > esc.index) {
+                    if (pos.line == lines.length && pos.from > index) {
                         pos.from--;
                         pos.to--;
                     }
-            }
+                return brace;
+            });
             lines.push(line);
         }
         return new Snippet(lines, positions);
@@ -24362,7 +24409,7 @@ function autocompletion(config = {}) {
 /**
 Basic keybindings for autocompletion.
 
- - Ctrl-Space: [`startCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.startCompletion)
+ - Ctrl-Space (and Alt-\` on macOS): [`startCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.startCompletion)
  - Escape: [`closeCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.closeCompletion)
  - ArrowDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true)`
  - ArrowUp: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(false)`
@@ -24372,6 +24419,7 @@ Basic keybindings for autocompletion.
 */
 const completionKeymap = [
     { key: "Ctrl-Space", run: startCompletion },
+    { mac: "Alt-`", run: startCompletion },
     { key: "Escape", run: closeCompletion },
     { key: "ArrowDown", run: /*@__PURE__*/moveCompletionSelection(true) },
     { key: "ArrowUp", run: /*@__PURE__*/moveCompletionSelection(false) },
@@ -24388,7 +24436,7 @@ returns `null`.
 */
 function completionStatus(state) {
     let cState = state.field(completionState, false);
-    return cState && cState.active.some(a => a.state == 1 /* State.Pending */) ? "pending"
+    return cState && cState.active.some(a => a.isPending) ? "pending"
         : cState && cState.active.some(a => a.state != 0 /* State.Inactive */) ? "active" : null;
 }
 const completionArrayCache = /*@__PURE__*/new WeakMap;

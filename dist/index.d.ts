@@ -6146,6 +6146,14 @@ declare class CompletionContext {
     */
     readonly explicit: boolean;
     /**
+    The editor view. May be undefined if the context was created
+    in a situation where there is no such view available, such as
+    in synchronous updates via
+    [`CompletionResult.update`](https://codemirror.net/6/docs/ref/#autocomplete.CompletionResult.update)
+    or when called by test code.
+    */
+    readonly view?: EditorView | undefined;
+    /**
     Create a new completion context. (Mostly useful for testing
     completion sources—in the editor, the extension will create
     these for you.)
@@ -6165,7 +6173,15 @@ declare class CompletionContext {
     only return completions when either there is part of a
     completable entity before the cursor, or `explicit` is true.
     */
-    explicit: boolean);
+    explicit: boolean, 
+    /**
+    The editor view. May be undefined if the context was created
+    in a situation where there is no such view available, such as
+    in synchronous updates via
+    [`CompletionResult.update`](https://codemirror.net/6/docs/ref/#autocomplete.CompletionResult.update)
+    or when called by test code.
+    */
+    view?: EditorView | undefined);
     /**
     Get the extent, content, and (if there is a token) type of the
     token before `this.pos`.
@@ -6194,8 +6210,18 @@ declare class CompletionContext {
     Allows you to register abort handlers, which will be called when
     the query is
     [aborted](https://codemirror.net/6/docs/ref/#autocomplete.CompletionContext.aborted).
+    
+    By default, running queries will not be aborted for regular
+    typing or backspacing, on the assumption that they are likely to
+    return a result with a
+    [`validFor`](https://codemirror.net/6/docs/ref/#autocomplete.CompletionResult.validFor) field that
+    allows the result to be used after all. Passing `onDocChange:
+    true` will cause this query to be aborted for any document
+    change.
     */
-    addEventListener(type: "abort", listener: () => void): void;
+    addEventListener(type: "abort", listener: () => void, options?: {
+        onDocChange: boolean;
+    }): void;
 }
 /**
 Given a a fixed array of options, return an autocompleter that
@@ -6310,6 +6336,11 @@ interface CompletionConfig {
     whenever the user types something that can be completed.
     */
     activateOnTyping?: boolean;
+    /**
+    When given, if a completion that matches the predicate is
+    picked, reactivate completion again as if it was typed normally.
+    */
+    activateOnCompletion?: (completion: Completion) => boolean;
     /**
     The amount of time to wait for further typing before querying
     completion sources via
@@ -6534,7 +6565,7 @@ interface CloseBracketConfig {
     /**
     The opening brackets to close. Defaults to `["(", "[", "{", "'",
     '"']`. Brackets may be single characters or a triple of quotes
-    (as in `"''''"`).
+    (as in `"'''"`).
     */
     brackets?: string[];
     /**
@@ -6587,7 +6618,7 @@ declare function autocompletion(config?: CompletionConfig): Extension;
 /**
 Basic keybindings for autocompletion.
 
- - Ctrl-Space: [`startCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.startCompletion)
+ - Ctrl-Space (and Alt-\` on macOS): [`startCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.startCompletion)
  - Escape: [`closeCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.closeCompletion)
  - ArrowDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true)`
  - ArrowUp: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(false)`
