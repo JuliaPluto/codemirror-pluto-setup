@@ -60,7 +60,7 @@ export {
 } from "@codemirror/search"
 export { collab, receiveUpdates, sendableUpdates, getSyncedVersion, getClientID } from "@codemirror/collab"
 export { linter, setDiagnostics, Diagnostic } from "@codemirror/lint"
-export { TreeCursor, NodeProp, parseMixed } from "@lezer/common"
+export { TreeCursor, Tree, NodeProp, parseMixed, NodeWeakMap } from "@lezer/common"
 export { tags } from "@lezer/highlight"
 
 // Language support

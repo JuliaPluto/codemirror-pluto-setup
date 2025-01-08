@@ -7,7 +7,7 @@ export * as autocomplete from "@codemirror/autocomplete";
 export { highlightSelectionMatches, searchKeymap, selectNextOccurrence, } from "@codemirror/search";
 export { collab, receiveUpdates, sendableUpdates, getSyncedVersion, getClientID } from "@codemirror/collab";
 export { linter, setDiagnostics, Diagnostic } from "@codemirror/lint";
-export { TreeCursor, NodeProp, parseMixed } from "@lezer/common";
+export { TreeCursor, Tree, NodeProp, parseMixed, NodeWeakMap } from "@lezer/common";
 export { tags } from "@lezer/highlight";
 export { julia } from "@plutojl/lang-julia";
 export { markdown, markdownLanguage } from "@codemirror/lang-markdown";
