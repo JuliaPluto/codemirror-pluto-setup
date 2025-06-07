@@ -1,4 +1,4 @@
-export { EditorState, EditorSelection, Compartment, SelectionRange, Facet, StateField, StateEffect, Transaction, Text, ChangeSet, combineConfig, Annotation, } from "@codemirror/state";
+export { EditorState, EditorSelection, Compartment, SelectionRange, Facet, StateField, StateEffect, StateEffectType, Transaction, Text, ChangeSet, combineConfig, Annotation, Prec, } from "@codemirror/state";
 export { keymap, EditorView, highlightSpecialChars, drawSelection, highlightActiveLine, placeholder, Decoration, ViewUpdate, ViewPlugin, WidgetType, lineNumbers, rectangularSelection, tooltips, showTooltip, Tooltip, MatchDecorator, } from "@codemirror/view";
 export { defaultKeymap, indentMore, indentLess, moveLineUp, moveLineDown, historyKeymap, history, } from "@codemirror/commands";
 export { indentOnInput, indentUnit, syntaxTree, syntaxTreeAvailable, bracketMatching, foldGutter, foldKeymap, HighlightStyle, defaultHighlightStyle, syntaxHighlighting, } from "@codemirror/language";

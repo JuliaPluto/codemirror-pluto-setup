@@ -6,11 +6,13 @@ export {
     Facet,
     StateField,
     StateEffect,
+    StateEffectType,
     Transaction,
     Text,
     ChangeSet,
     combineConfig,
     Annotation,
+    Prec,
 } from "@codemirror/state"
 export {
     keymap,
