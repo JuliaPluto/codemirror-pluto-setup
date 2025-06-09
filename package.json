@@ -45,7 +45,7 @@
         "@codemirror/lang-sql": "^6.8.0",
         "@codemirror/language": "^6.10.8",
         "@codemirror/lint": "^6.8.4",
-        "@codemirror/merge": "^6.10.1",
+        "@codemirror/merge": "https://github.com/codemirror/merge#f6e6b5cdeb8d51865b84d92d340de096af371f55",
         "@codemirror/search": "^6.5.8",
         "@codemirror/state": "^6.5.1",
         "@codemirror/view": "^6.36.2",

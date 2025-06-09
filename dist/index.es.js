@@ -35186,9 +35186,11 @@ function unifiedMergeView(config) {
             let updateDoc = tr.effects.find(e => e.is(updateOriginalDoc));
             if (!tr.docChanged && !updateDoc)
                 return null;
-            let prev = tr.startState.field(ChunkField);
-            let chunks = updateDoc ? Chunk.updateA(prev, updateDoc.value.doc, tr.newDoc, updateDoc.value.changes, diffConf)
-                : Chunk.updateB(prev, tr.startState.field(originalDoc), tr.newDoc, tr.changes, diffConf);
+            let chunks = tr.startState.field(ChunkField);
+            if (updateDoc)
+                chunks = Chunk.updateA(chunks, updateDoc.value.doc, tr.startState.doc, updateDoc.value.changes, diffConf);
+            if (tr.docChanged)
+                chunks = Chunk.updateB(chunks, tr.startState.field(originalDoc), tr.newDoc, tr.changes, diffConf);
             return { effects: setChunks.of(chunks) };
         }),
         mergeConfig.of({
