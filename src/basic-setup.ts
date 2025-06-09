@@ -40,6 +40,7 @@ export {
     moveLineDown,
     historyKeymap,
     history,
+    invertedEffects,
 } from "@codemirror/commands"
 export {
     indentOnInput,

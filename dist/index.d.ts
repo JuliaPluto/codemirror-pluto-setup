@@ -1354,7 +1354,7 @@ Subtype of [`Command`](https://codemirror.net/6/docs/ref/#view.Command) that doe
 to the actual editor view. Mostly useful to define commands that
 can be run and tested outside of a browser environment.
 */
-type StateCommand$1 = (target: {
+type StateCommand = (target: {
     state: EditorState;
     dispatch: (transaction: Transaction) => void;
 }) => boolean;
@@ -3440,6 +3440,14 @@ Create a line number gutter extension.
 */
 declare function lineNumbers(config?: LineNumberConfig): Extension;
 
+/**
+This facet provides a way to register functions that, given a
+transaction, provide a set of effects that the history should
+store when inverting the transaction. This can be used to
+integrate some kinds of effects in the history, so that they can
+be undone (and redone again).
+*/
+declare const invertedEffects: Facet<(tr: Transaction) => readonly StateEffect<any>[], readonly ((tr: Transaction) => readonly StateEffect<any>[])[]>;
 interface HistoryConfig {
     /**
     The minimum depth (amount of events) to store. Defaults to 100.
@@ -3474,21 +3482,21 @@ declare const historyKeymap: readonly KeyBinding[];
 /**
 Move the selected lines up one line.
 */
-declare const moveLineUp: StateCommand$1;
+declare const moveLineUp: StateCommand;
 /**
 Move the selected lines down one line.
 */
-declare const moveLineDown: StateCommand$1;
+declare const moveLineDown: StateCommand;
 /**
 Add a [unit](https://codemirror.net/6/docs/ref/#language.indentUnit) of indentation to all selected
 lines.
 */
-declare const indentMore: StateCommand$1;
+declare const indentMore: StateCommand;
 /**
 Remove a [unit](https://codemirror.net/6/docs/ref/#language.indentUnit) of indentation from all
 selected lines.
 */
-declare const indentLess: StateCommand$1;
+declare const indentLess: StateCommand;
 /**
 The default keymap. Includes all bindings from
 [`standardKeymap`](https://codemirror.net/6/docs/ref/#commands.standardKeymap) plus the following:
@@ -6338,15 +6346,15 @@ declare function snippet(template: string): (editor: {
 /**
 A command that clears the active snippet, if any.
 */
-declare const clearSnippet: StateCommand$1;
+declare const clearSnippet: StateCommand;
 /**
 Move to the next snippet field, if available.
 */
-declare const nextSnippetField: StateCommand$1;
+declare const nextSnippetField: StateCommand;
 /**
 Move to the previous snippet field, if available.
 */
-declare const prevSnippetField: StateCommand$1;
+declare const prevSnippetField: StateCommand;
 /**
 Check if there is an active snippet with a next field for
 `nextSnippetField` to move to.
@@ -6433,7 +6441,7 @@ declare function closeBrackets(): Extension;
 Command that implements deleting a pair of matching brackets when
 the cursor is between them.
 */
-declare const deleteBracketPair: StateCommand$1;
+declare const deleteBracketPair: StateCommand;
 /**
 Close-brackets related key bindings. Binds Backspace to
 [`deleteBracketPair`](https://codemirror.net/6/docs/ref/#autocomplete.deleteBracketPair).
@@ -6604,7 +6612,7 @@ declare function highlightSelectionMatches(options?: HighlightOptions): Extensio
 Select next occurrence of the current selection. Expand selection
 to the surrounding word when the selection is empty.
 */
-declare const selectNextOccurrence: StateCommand$1;
+declare const selectNextOccurrence: StateCommand;
 /**
 Default search-related key bindings.
 
@@ -7350,25 +7358,6 @@ appropriate.
 declare function presentableDiff(a: string, b: string, config?: DiffConfig): readonly Change[];
 
 /**
-Get the changed chunks for the merge view that this editor is part
-of, plus the side it is on if it is part of a `MergeView`. Returns
-null if the editor doesn't have a merge extension active or the
-merge view hasn't finished initializing yet.
-*/
-declare function getChunks(state: EditorState): {
-    chunks: any;
-    side: any;
-} | null;
-/**
-Move the selection to the next changed chunk.
-*/
-declare const goToNextChunk: StateCommand;
-/**
-Move the selection to the previous changed chunk.
-*/
-declare const goToPreviousChunk: StateCommand;
-
-/**
 A chunk describes a range of lines which have changed content in
 them. Either side (a/b) may either be empty (when its `to` is
 equal to its `from`), or points at a range starting at the start
@@ -7461,6 +7450,25 @@ declare class Chunk {
     */
     static updateB(chunks: readonly Chunk[], a: Text, b: Text, changes: ChangeDesc, conf?: DiffConfig): readonly Chunk[];
 }
+
+/**
+Get the changed chunks for the merge view that this editor is part
+of, plus the side it is on if it is part of a `MergeView`. Returns
+null if the editor doesn't have a merge extension active or the
+merge view hasn't finished initializing yet.
+*/
+declare function getChunks(state: EditorState): {
+    chunks: readonly Chunk[];
+    side: "a" | "b" | null;
+} | null;
+/**
+Move the selection to the next changed chunk.
+*/
+declare const goToNextChunk: StateCommand;
+/**
+Move the selection to the previous changed chunk.
+*/
+declare const goToPreviousChunk: StateCommand;
 
 /**
 Configuration options to `MergeView` that can be provided both
@@ -7645,12 +7653,15 @@ between its content and the given original document. Changed
 chunks will be highlighted, with uneditable widgets displaying the
 original text displayed above the new text.
 */
-declare function unifiedMergeView(config: UnifiedMergeConfig): any[];
+declare function unifiedMergeView(config: UnifiedMergeConfig): (Extension | StateField<DecorationSet>)[];
 /**
 The state effect used to signal changes in the original doc in a
 unified merge view.
 */
-declare const updateOriginalDoc: any;
+declare const updateOriginalDoc: StateEffectType<{
+    doc: Text;
+    changes: ChangeSet;
+}>;
 /**
 Create an effect that, when added to a transaction on a unified
 merge view, will update the original document that's being compared against.
@@ -7680,7 +7691,7 @@ declare function rejectChunk(view: EditorView, pos?: number): boolean;
 A state effect that expands the section of collapsed unchanged
 code starting at the given position.
 */
-declare const uncollapseUnchanged: any;
+declare const uncollapseUnchanged: StateEffectType<number>;
 
 type index_d_Change = Change;
 declare const index_d_Change: typeof Change;
@@ -7726,4 +7737,4 @@ declare namespace index_d {
   };
 }
 
-export { Annotation, ChangeSet, Compartment, Decoration, Diagnostic, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, MatchDecorator, NodeProp, NodeWeakMap, PostgreSQL, Prec, SelectionRange, StateEffect, StateEffectType, StateField, Text, Tooltip, Transaction, Tree, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, index_d$1 as autocomplete, bracketMatching, closeBrackets, closeBracketsKeymap, collab, combineConfig, completionKeymap, css, cssLanguage, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, getClientID, getSyncedVersion, highlightActiveLine, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, javascript, javascriptLanguage, julia, keymap, lineNumbers, linter, markdown, markdownLanguage, index_d as merge, moveLineDown, moveLineUp, parseCode, parseMixed, placeholder, python, pythonLanguage, receiveUpdates, rectangularSelection, searchKeymap, selectNextOccurrence, sendableUpdates, setDiagnostics, showTooltip, sql, syntaxHighlighting, syntaxTree, syntaxTreeAvailable, tags, tooltips };
+export { Annotation, ChangeSet, Compartment, Decoration, Diagnostic, EditorSelection, EditorState, EditorView, Facet, HighlightStyle, MatchDecorator, NodeProp, NodeWeakMap, PostgreSQL, Prec, SelectionRange, StateEffect, StateEffectType, StateField, Text, Tooltip, Transaction, Tree, TreeCursor, ViewPlugin, ViewUpdate, WidgetType, index_d$1 as autocomplete, bracketMatching, closeBrackets, closeBracketsKeymap, collab, combineConfig, completionKeymap, css, cssLanguage, defaultHighlightStyle, defaultKeymap, drawSelection, foldGutter, foldKeymap, getClientID, getSyncedVersion, highlightActiveLine, highlightSelectionMatches, highlightSpecialChars, history, historyKeymap, html, htmlLanguage, indentLess, indentMore, indentOnInput, indentUnit, invertedEffects, javascript, javascriptLanguage, julia, keymap, lineNumbers, linter, markdown, markdownLanguage, index_d as merge, moveLineDown, moveLineUp, parseCode, parseMixed, placeholder, python, pythonLanguage, receiveUpdates, rectangularSelection, searchKeymap, selectNextOccurrence, sendableUpdates, setDiagnostics, showTooltip, sql, syntaxHighlighting, syntaxTree, syntaxTreeAvailable, tags, tooltips };
