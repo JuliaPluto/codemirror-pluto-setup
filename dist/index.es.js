@@ -34234,6 +34234,7 @@ const mergeConfig = /*@__PURE__*/Facet.define({
     combine: values => values[0]
 });
 const setChunks = /*@__PURE__*/StateEffect.define();
+const computeChunks = /*@__PURE__*/Facet.define();
 const ChunkField = /*@__PURE__*/StateField.define({
     create(state) {
         return null;
@@ -34242,6 +34243,8 @@ const ChunkField = /*@__PURE__*/StateField.define({
         for (let e of tr.effects)
             if (e.is(setChunks))
                 current = e.value;
+        for (let comp of tr.state.facet(computeChunks))
+            current = comp(current, tr);
         return current;
     }
 });
@@ -35182,16 +35185,13 @@ function unifiedMergeView(config) {
         deletedChunks,
         baseTheme,
         EditorView.editorAttributes.of({ class: "cm-merge-b" }),
-        EditorState.transactionExtender.of(tr => {
+        computeChunks.of((chunks, tr) => {
             let updateDoc = tr.effects.find(e => e.is(updateOriginalDoc));
-            if (!tr.docChanged && !updateDoc)
-                return null;
-            let chunks = tr.startState.field(ChunkField);
             if (updateDoc)
                 chunks = Chunk.updateA(chunks, updateDoc.value.doc, tr.startState.doc, updateDoc.value.changes, diffConf);
             if (tr.docChanged)
-                chunks = Chunk.updateB(chunks, tr.startState.field(originalDoc), tr.newDoc, tr.changes, diffConf);
-            return { effects: setChunks.of(chunks) };
+                chunks = Chunk.updateB(chunks, tr.state.field(originalDoc), tr.newDoc, tr.changes, diffConf);
+            return chunks;
         }),
         mergeConfig.of({
             highlightChanges: config.highlightChanges !== false,
