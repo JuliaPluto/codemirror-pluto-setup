@@ -6,11 +6,13 @@ export {
     Facet,
     StateField,
     StateEffect,
+    StateEffectType,
     Transaction,
     Text,
     ChangeSet,
     combineConfig,
     Annotation,
+    Prec,
 } from "@codemirror/state"
 export {
     keymap,
@@ -38,6 +40,7 @@ export {
     moveLineDown,
     historyKeymap,
     history,
+    invertedEffects,
 } from "@codemirror/commands"
 export {
     indentOnInput,
@@ -72,3 +75,4 @@ export { css, cssLanguage } from "@codemirror/lang-css"
 export { javascript, javascriptLanguage } from "@codemirror/lang-javascript"
 export { sql, PostgreSQL } from "@codemirror/lang-sql"
 export { python, pythonLanguage } from "@codemirror/lang-python"
+export * as merge from "@codemirror/merge"
