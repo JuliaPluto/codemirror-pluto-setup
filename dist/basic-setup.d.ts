@@ -18,3 +18,4 @@ export { javascript, javascriptLanguage } from "@codemirror/lang-javascript";
 export { sql, PostgreSQL } from "@codemirror/lang-sql";
 export { python, pythonLanguage } from "@codemirror/lang-python";
 export * as merge from "@codemirror/merge";
+export { toml } from "@codemirror/legacy-modes/mode/toml";
