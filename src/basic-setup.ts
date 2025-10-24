@@ -53,6 +53,7 @@ export {
     HighlightStyle,
     defaultHighlightStyle,
     syntaxHighlighting,
+    StreamLanguage,
 } from "@codemirror/language"
 export { closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete"
 export * as autocomplete from "@codemirror/autocomplete"
@@ -76,3 +77,4 @@ export { javascript, javascriptLanguage } from "@codemirror/lang-javascript"
 export { sql, PostgreSQL } from "@codemirror/lang-sql"
 export { python, pythonLanguage } from "@codemirror/lang-python"
 export * as merge from "@codemirror/merge"
+export { toml } from "@codemirror/legacy-modes/mode/toml"
