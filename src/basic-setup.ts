@@ -54,6 +54,7 @@ export {
     defaultHighlightStyle,
     syntaxHighlighting,
     StreamLanguage,
+    delimitedIndent,
 } from "@codemirror/language"
 export { closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete"
 export * as autocomplete from "@codemirror/autocomplete"

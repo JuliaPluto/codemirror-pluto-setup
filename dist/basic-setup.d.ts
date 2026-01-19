@@ -1,7 +1,7 @@
 export { EditorState, EditorSelection, Compartment, SelectionRange, Facet, StateField, StateEffect, StateEffectType, Transaction, Text, ChangeSet, combineConfig, Annotation, Prec, } from "@codemirror/state";
 export { keymap, EditorView, highlightSpecialChars, drawSelection, highlightActiveLine, placeholder, Decoration, ViewUpdate, ViewPlugin, WidgetType, lineNumbers, rectangularSelection, tooltips, showTooltip, Tooltip, MatchDecorator, } from "@codemirror/view";
 export { defaultKeymap, indentMore, indentLess, moveLineUp, moveLineDown, historyKeymap, history, invertedEffects, } from "@codemirror/commands";
-export { indentOnInput, indentUnit, syntaxTree, syntaxTreeAvailable, bracketMatching, foldGutter, foldKeymap, HighlightStyle, defaultHighlightStyle, syntaxHighlighting, StreamLanguage, } from "@codemirror/language";
+export { indentOnInput, indentUnit, syntaxTree, syntaxTreeAvailable, bracketMatching, foldGutter, foldKeymap, HighlightStyle, defaultHighlightStyle, syntaxHighlighting, StreamLanguage, delimitedIndent, } from "@codemirror/language";
 export { closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete";
 export * as autocomplete from "@codemirror/autocomplete";
 export { highlightSelectionMatches, searchKeymap, selectNextOccurrence, } from "@codemirror/search";
