@@ -6545,7 +6545,7 @@ class TileBuilder {
         this.flushBuffer();
         let parent = this.ensureMarks(marks, openStart);
         let prev = parent.lastChild;
-        if (prev && prev.isText() && !(prev.flags & 8 /* TileFlag.Composition */)) {
+        if (prev && prev.isText() && !(prev.flags & 8 /* TileFlag.Composition */) && prev.length + text.length < 512 /* C.Chunk */) {
             this.cache.reused.set(prev, 2 /* Reused.DOM */);
             let tile = parent.children[parent.children.length - 1] = new TextTile(prev.dom, prev.text + text);
             tile.parent = parent;
@@ -7039,7 +7039,7 @@ class TileUpdate {
                     }
                     else {
                         b.ensureLine(pendingLineAttrs);
-                        b.addText(chars, active, openStart);
+                        b.addText(chars, active, pos == from ? openStart : active.length);
                         pos += chars.length;
                     }
                     pendingLineAttrs = null;
@@ -7939,7 +7939,7 @@ function moveVertically(view, start, forward, distance) {
         return EditorSelection.cursor(startPos, start.assoc);
     let goal = start.goalColumn, startY;
     let rect = view.contentDOM.getBoundingClientRect();
-    let startCoords = view.coordsAtPos(startPos, start.assoc || -1), docTop = view.documentTop;
+    let startCoords = view.coordsAtPos(startPos, (start.empty ? start.assoc : 0) || (forward ? 1 : -1)), docTop = view.documentTop;
     if (startCoords) {
         if (goal == null)
             goal = startCoords.left - rect.left;
@@ -8020,8 +8020,10 @@ function posAtCoords(view, coords, precise, scanY) {
         if (scanY == null)
             break;
         if (block.type == BlockType.Text) {
-            // Check whether we aren't landing the top/bottom padding of the line
-            let rect = view.docView.coordsAt(scanY < 0 ? block.from : block.to, scanY);
+            if (scanY < 0 ? block.to < view.viewport.from : block.from > view.viewport.to)
+                break;
+            // Check whether we aren't landing on the top/bottom padding of the line
+            let rect = view.docView.coordsAt(scanY < 0 ? block.from : block.to, scanY > 0 ? -1 : 1);
             if (rect && (scanY < 0 ? rect.top <= yOffset + docTop : rect.bottom >= yOffset + docTop))
                 break;
         }
@@ -13376,7 +13378,7 @@ function rectanglesForRange(view, className, range) {
         return pieces(top).concat(between).concat(pieces(bottom));
     }
     function piece(left, top, right, bottom) {
-        return new RectangleMarker(className, left - base.left, top - base.top, right - left, bottom - top);
+        return new RectangleMarker(className, left - base.left, top - base.top, Math.max(0, right - left), bottom - top);
     }
     function pieces({ top, bottom, horizontal }) {
         let pieces = [];
@@ -16279,12 +16281,12 @@ class TreeNode extends BaseNode {
     get name() { return this._tree.type.name; }
     get to() { return this.from + this._tree.length; }
     nextChild(i, dir, pos, side, mode = 0) {
-        var _a;
         for (let parent = this;;) {
             for (let { children, positions } = parent._tree, e = dir > 0 ? children.length : -1; i != e; i += dir) {
-                let next = children[i], start = positions[i] + parent.from;
+                let next = children[i], start = positions[i] + parent.from, mounted;
                 if (!((mode & IterMode.EnterBracketed) && next instanceof Tree &&
-                    ((_a = MountedTree.get(next)) === null || _a === void 0 ? void 0 : _a.overlay) === null && (start >= pos || start + next.length <= pos)) &&
+                    (mounted = MountedTree.get(next)) && !mounted.overlay && mounted.bracketed &&
+                    pos >= start && pos <= start + next.length) &&
                     !checkSide(side, pos, start, start + next.length))
                     continue;
                 if (next instanceof TreeBuffer) {
@@ -21188,13 +21190,15 @@ function changeBlockComment(option, state, ranges = state.selection.ranges) {
 function changeLineComment(option, state, ranges = state.selection.ranges) {
     let lines = [];
     let prevLine = -1;
-    for (let { from, to } of ranges) {
-        let startI = lines.length, minIndent = 1e9;
-        let token = getConfig(state, from).line;
-        if (!token)
-            continue;
+    ranges: for (let { from, to } of ranges) {
+        let startI = lines.length, minIndent = 1e9, token;
         for (let pos = from; pos <= to;) {
             let line = state.doc.lineAt(pos);
+            if (token == undefined) {
+                token = getConfig(state, line.from).line;
+                if (!token)
+                    continue ranges;
+            }
             if (line.from > prevLine && (from == to || to > line.from)) {
                 prevLine = line.from;
                 let indent = /^\s*/.exec(line.text)[0].length;
@@ -21533,7 +21537,8 @@ class HistoryState {
         let branch = side == 0 /* BranchName.Done */ ? this.done : this.undone;
         if (branch.length == 0)
             return null;
-        let event = branch[branch.length - 1], selection = event.selectionsAfter[0] || state.selection;
+        let event = branch[branch.length - 1], selection = event.selectionsAfter[0] ||
+            (event.startSelection ? event.startSelection.map(event.changes.invertedDesc, 1) : state.selection);
         if (onlySelection && event.selectionsAfter.length) {
             return state.update({
                 selection: event.selectionsAfter[event.selectionsAfter.length - 1],
@@ -26378,6 +26383,8 @@ class LintPanel {
         this.view = view;
         this.items = [];
         let onkeydown = (event) => {
+            if (event.ctrlKey || event.altKey || event.metaKey)
+                return;
             if (event.keyCode == 27) { // Escape
                 closeLintPanel(this.view);
                 this.view.focus();
@@ -28982,6 +28989,7 @@ const juliaLanguage = /*@__PURE__*/LRLanguage.define({
         closeBrackets: { brackets: ["(", "[", "{", "'", '"', "`", "'''", '"""', "```"] },
         commentTokens: { line: "#", block: { open: "#=", close: "=#" } },
         indentOnInput: /^\s*(\]|\}|\)|end|else|elseif|catch|finally)$/,
+        wordChars: "⁺⁻⁼⁽⁾₉₊₋₌₍₎℘⅀⅁⅂⅃⅄𝛁𝛛𝛻𝜕𝜵𝝏𝝯𝞉𝞩𝟃!",
     },
 });
 function collectKeywords() {
