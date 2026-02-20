@@ -33,6 +33,8 @@ v19.1.0
 1. `yarn dedupe`
 1. `yarn run bundle`
 
+Updating indirect packages is difficult... Easiest is to just remove `yarn.lock` and run `yarn install`.
+
 # How to release and update pluto
 
 This package is not on NPM, but we use jsdelivr.com to get the source file directly from a git tag.
