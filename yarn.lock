@@ -370,7 +370,7 @@ __metadata:
     "@lezer/highlight": ^1.2.3
     "@lezer/markdown": ^1.6.3
     "@plutojl/lang-julia": ^0.12.2
-    "@plutojl/lezer-julia": 0.12.6
+    "@plutojl/lezer-julia": 0.12.7
     "@rollup/plugin-node-resolve": ^16.0.3
     "@rollup/plugin-typescript": ^12.3.0
     rollup: ^4.58.0
@@ -392,14 +392,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@plutojl/lezer-julia@npm:0.12.6, @plutojl/lezer-julia@npm:^0.12.1":
-  version: 0.12.6
-  resolution: "@plutojl/lezer-julia@npm:0.12.6"
+"@plutojl/lezer-julia@npm:0.12.7, @plutojl/lezer-julia@npm:^0.12.1":
+  version: 0.12.7
+  resolution: "@plutojl/lezer-julia@npm:0.12.7"
   dependencies:
     "@lezer/common": ^1.2.1
     "@lezer/highlight": ^1.2.0
     "@lezer/lr": ^1.4.0
-  checksum: cf9b2534a8186028abecb62847f3b71cf23b07b7c27e173d810077f23fb74623b998f62c72907fa6a990267b8bb2a3320283b4dc5a2527b6967efcf894ece999
+  checksum: e27f9d7a999ed893b68677de6f70f5943f2d479aac705be1579109adaf0023cd17ea935109a5b5a81b069264aa6b3e263a52986216a0db80a0c49d5b1c478056
   languageName: node
   linkType: hard
 

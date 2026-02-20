@@ -1,6 +1,6 @@
 {
     "name": "@plutojl/codemirror-pluto-setup",
-    "version": "2002.0.3",
+    "version": "2002.0.4",
     "description": "Example configuration for the CodeMirror code editor - as used by Pluto.jl",
     "scripts": {
         "bundle": "rollup -c"
@@ -54,7 +54,7 @@
         "@lezer/highlight": "^1.2.3",
         "@lezer/markdown": "^1.6.3",
         "@plutojl/lang-julia": "^0.12.2",
-        "@plutojl/lezer-julia": "0.12.6"
+        "@plutojl/lezer-julia": "0.12.7"
     },
     "devDependencies": {
         "@rollup/plugin-node-resolve": "^16.0.3",
