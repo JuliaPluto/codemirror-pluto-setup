@@ -1403,11 +1403,11 @@ class SelectionRange {
     /**
     Extend this range to cover at least `from` to `to`.
     */
-    extend(from, to = from) {
+    extend(from, to = from, assoc = 0) {
         if (from <= this.anchor && to >= this.anchor)
-            return EditorSelection.range(from, to);
+            return EditorSelection.range(from, to, undefined, undefined, assoc);
         let head = Math.abs(from - this.anchor) > Math.abs(to - this.anchor) ? from : to;
-        return EditorSelection.range(this.anchor, head);
+        return EditorSelection.range(this.anchor, head, undefined, undefined, assoc);
     }
     /**
     Compare this range to another range.
@@ -1554,11 +1554,13 @@ class EditorSelection {
     /**
     Create a selection range.
     */
-    static range(anchor, head, goalColumn, bidiLevel) {
+    static range(anchor, head, goalColumn, bidiLevel, assoc) {
         let flags = ((goalColumn !== null && goalColumn !== void 0 ? goalColumn : 16777215 /* RangeFlag.NoGoalColumn */) << 6 /* RangeFlag.GoalColumnOffset */) |
             (bidiLevel == null ? 7 : Math.min(6, bidiLevel));
+        if (!assoc && anchor != head)
+            assoc = head < anchor ? 1 : -1;
         return head < anchor ? SelectionRange.create(head, anchor, 32 /* RangeFlag.Inverted */ | 16 /* RangeFlag.AssocAfter */ | flags)
-            : SelectionRange.create(anchor, head, (head > anchor ? 8 /* RangeFlag.AssocBefore */ : 0) | flags);
+            : SelectionRange.create(anchor, head, (!assoc ? 0 : assoc < 0 ? 8 /* RangeFlag.AssocBefore */ : 16 /* RangeFlag.AssocAfter */) | flags);
     }
     /**
     @internal
@@ -4310,6 +4312,7 @@ var browser = {
     chrome_version: chrome ? +chrome[1] : 0,
     ios,
     android: /*@__PURE__*//Android\b/.test(nav.userAgent),
+    webkit,
     webkit_version: webkit ? +(/*@__PURE__*//\bAppleWebKit\/(\d+)/.exec(nav.userAgent) || [0, 0])[1] : 0,
     safari,
     safari_version: safari ? +(/*@__PURE__*//\bVersion\/(\d+(\.\d+)?)/.exec(nav.userAgent) || [0, 0])[1] : 0,
@@ -4415,7 +4418,7 @@ class WidgetType {
     couldn't (in which case the widget will be redrawn). The default
     implementation just returns false.
     */
-    updateDOM(dom, view) { return false; }
+    updateDOM(dom, view, from) { return false; }
     /**
     @internal
     */
@@ -4675,10 +4678,23 @@ widget that starts inside its range, including blocks starting
 directly at `from` but not including `to`.
 */
 class BlockWrapper extends RangeValue {
-    constructor(tagName, attributes) {
+    constructor(
+    /**
+    @internal
+    */
+    tagName, 
+    /**
+    @internal
+    */
+    attributes, 
+    /**
+    @internal
+    */
+    rank) {
         super();
         this.tagName = tagName;
         this.attributes = attributes;
+        this.rank = rank;
     }
     eq(other) {
         return other == this ||
@@ -4689,7 +4705,7 @@ class BlockWrapper extends RangeValue {
     attributes.
     */
     static create(spec) {
-        return new BlockWrapper(spec.tagName, spec.attributes || noAttrs$1);
+        return new BlockWrapper(spec.tagName, spec.attributes || noAttrs$1, spec.rank == null ? 50 : Math.max(0, Math.min(spec.rank, 100)));
     }
     /**
     Create a range set from the given block wrapper ranges.
@@ -4828,12 +4844,12 @@ function scrollRectIntoView(dom, rect, side, x, y, xMargin, yMargin, ltr) {
             }
             let moveX = 0, moveY = 0;
             if (y == "nearest") {
-                if (rect.top < bounding.top) {
+                if (rect.top < bounding.top + yMargin) {
                     moveY = rect.top - (bounding.top + yMargin);
                     if (side > 0 && rect.bottom > bounding.bottom + moveY)
                         moveY = rect.bottom - bounding.bottom + yMargin;
                 }
-                else if (rect.bottom > bounding.bottom) {
+                else if (rect.bottom > bounding.bottom - yMargin) {
                     moveY = rect.bottom - bounding.bottom + yMargin;
                     if (side < 0 && (rect.top - moveY) < bounding.top)
                         moveY = rect.top - (bounding.top + yMargin);
@@ -4847,12 +4863,12 @@ function scrollRectIntoView(dom, rect, side, x, y, xMargin, yMargin, ltr) {
                 moveY = targetTop - bounding.top;
             }
             if (x == "nearest") {
-                if (rect.left < bounding.left) {
+                if (rect.left < bounding.left + xMargin) {
                     moveX = rect.left - (bounding.left + xMargin);
                     if (side > 0 && rect.right > bounding.right + moveX)
                         moveX = rect.right - bounding.right + xMargin;
                 }
-                else if (rect.right > bounding.right) {
+                else if (rect.right > bounding.right - xMargin) {
                     moveX = rect.right - bounding.right + xMargin;
                     if (side < 0 && rect.left < bounding.left + moveX)
                         moveX = rect.left - (bounding.left + xMargin);
@@ -4904,16 +4920,16 @@ function scrollRectIntoView(dom, rect, side, x, y, xMargin, yMargin, ltr) {
         }
     }
 }
-function scrollableParents(dom) {
-    let doc = dom.ownerDocument, x, y;
+function scrollableParents(dom, getX = true) {
+    let doc = dom.ownerDocument, x = null, y = null;
     for (let cur = dom.parentNode; cur;) {
-        if (cur == doc.body || (x && y)) {
+        if (cur == doc.body || ((!getX || x) && y)) {
             break;
         }
         else if (cur.nodeType == 1) {
             if (!y && cur.scrollHeight > cur.clientHeight)
                 y = cur;
-            if (!x && cur.scrollWidth > cur.clientWidth)
+            if (getX && !x && cur.scrollWidth > cur.clientWidth)
                 x = cur;
             cur = cur.assignedSlot || cur.parentNode;
         }
@@ -5038,6 +5054,8 @@ function atElementStart(doc, selection) {
     }
 }
 function isScrolledToBottom(elt) {
+    if (elt instanceof Window)
+        return elt.pageYOffset > Math.max(0, elt.document.documentElement.scrollHeight - elt.innerHeight - 4);
     return elt.scrollTop > Math.max(1, elt.scrollHeight - elt.clientHeight - 4);
 }
 function textNodeBefore(startNode, startOffset) {
@@ -5590,7 +5608,7 @@ const nativeSelectionHidden = /*@__PURE__*/Facet.define({
 });
 const scrollHandler = /*@__PURE__*/Facet.define();
 class ScrollTarget {
-    constructor(range, y = "nearest", x = "nearest", yMargin = 5, xMargin = 5, 
+    constructor(range, y, x, yMargin, xMargin, 
     // This data structure is abused to also store precise scroll
     // snapshots, instead of a `scrollIntoView` request. When this
     // flag is `true`, `range` points at a position in the reference
@@ -6588,6 +6606,7 @@ class TileBuilder {
             this.cache.reused.set(oldTile, 2 /* Reused.DOM */);
         let text = new TextTile(composition.text, composition.text.nodeValue);
         text.flags |= 8 /* TileFlag.Composition */;
+        this.pos = composition.range.toB;
         head.append(text);
     }
     addInlineWidget(widget, marks, openStart) {
@@ -6686,7 +6705,8 @@ class TileBuilder {
                 this.wrappers.splice(i, 1);
         for (let cur = this.blockWrappers; cur.value && cur.from <= this.pos; cur.next())
             if (cur.to >= this.pos) {
-                let wrap = new OpenWrapper(cur.from, cur.to, cur.value, cur.rank), i = this.wrappers.length;
+                let rank = (cur.rank * 102) + cur.value.rank;
+                let wrap = new OpenWrapper(cur.from, cur.to, cur.value, rank), i = this.wrappers.length;
                 while (i > 0 && (this.wrappers[i - 1].rank - wrap.rank || this.wrappers[i - 1].to - wrap.to) < 0)
                     i--;
                 this.wrappers.splice(i, 0, wrap);
@@ -6816,7 +6836,7 @@ class TileCache {
                 let tile = widgets[i];
                 if (!this.reused.has(tile) &&
                     (pass == 0 ? tile.widget.compare(widget)
-                        : tile.widget.constructor == widget.constructor && widget.updateDOM(tile.dom, this.view))) {
+                        : tile.widget.constructor == widget.constructor && widget.updateDOM(tile.dom, this.view, tile.widget))) {
                     widgets.splice(i, 1);
                     if (i < this.index[0])
                         this.index[0]--;
@@ -6935,7 +6955,7 @@ class TileUpdate {
                 }
                 else if (tile.isText()) {
                     this.builder.ensureLine(null);
-                    if (!from && to == tile.length) {
+                    if (!from && to == tile.length && !this.cache.reused.has(tile)) {
                         this.builder.addText(tile.text, activeMarks, openMarks, this.cache.reuse(tile));
                     }
                     else {
@@ -7239,6 +7259,8 @@ class DocView {
             if (composition || changes.length) {
                 let oldTile = this.tile;
                 let builder = new TileUpdate(this.view, oldTile, this.blockWrappers, this.decorations, this.dynamicDecorationMap);
+                if (composition && Tile.get(composition.text))
+                    builder.cache.reused.set(Tile.get(composition.text), 2 /* Reused.DOM */);
                 this.tile = builder.run(changes, composition);
                 destroyDropped(oldTile, builder.cache.reused);
             }
@@ -7670,6 +7692,7 @@ class DocView {
         this.blockWrappers = this.view.state.facet(blockWrappers).map(v => typeof v == "function" ? v(this.view) : v);
     }
     scrollIntoView(target) {
+        var _a;
         if (target.isSnapshot) {
             let ref = this.view.viewState.lineBlockAt(target.range.head);
             this.view.scrollDOM.scrollTop = ref.top - target.yMargin;
@@ -7686,7 +7709,7 @@ class DocView {
             }
         }
         let { range } = target;
-        let rect = this.coordsAt(range.head, range.empty ? range.assoc : range.head > range.anchor ? -1 : 1), other;
+        let rect = this.coordsAt(range.head, (_a = range.assoc) !== null && _a !== void 0 ? _a : (range.empty ? 0 : range.head > range.anchor ? -1 : 1)), other;
         if (!rect)
             return;
         if (!range.empty && (other = this.coordsAt(range.anchor, range.anchor > range.head ? -1 : 1)))
@@ -7953,7 +7976,8 @@ function moveVertically(view, start, forward, distance) {
         return EditorSelection.cursor(startPos, start.assoc);
     let goal = start.goalColumn, startY;
     let rect = view.contentDOM.getBoundingClientRect();
-    let startCoords = view.coordsAtPos(startPos, (start.empty ? start.assoc : 0) || (forward ? 1 : -1)), docTop = view.documentTop;
+    let startCoords = view.coordsAtPos(startPos, start.assoc || ((start.empty ? forward : start.head == start.from) ? 1 : -1));
+    let docTop = view.documentTop;
     if (startCoords) {
         if (goal == null)
             goal = startCoords.left - rect.left;
@@ -7966,9 +7990,16 @@ function moveVertically(view, start, forward, distance) {
         startY = (dir < 0 ? line.top : line.bottom) + docTop;
     }
     let resolvedGoal = rect.left + goal;
-    let dist = distance !== null && distance !== void 0 ? distance : (view.viewState.heightOracle.textHeight >> 1);
-    let pos = posAtCoords(view, { x: resolvedGoal, y: startY + dist * dir }, false, dir);
-    return EditorSelection.cursor(pos.pos, pos.assoc, undefined, goal);
+    let halfText = view.viewState.heightOracle.textHeight >> 1, dist = distance !== null && distance !== void 0 ? distance : halfText;
+    for (let scan = 0;; scan += halfText) {
+        let y = startY + (dist + scan) * dir;
+        let pos = posAtCoords(view, { x: resolvedGoal, y }, false, dir);
+        if (forward ? y > rect.bottom : y < rect.top)
+            return EditorSelection.cursor(pos.pos, pos.assoc);
+        let posCoords = view.coordsAtPos(pos.pos, pos.assoc), mid = posCoords ? (posCoords.top + posCoords.bottom) / 2 : 0;
+        if (!posCoords || (forward ? mid > startY : mid < startY))
+            return EditorSelection.cursor(pos.pos, pos.assoc, undefined, goal);
+    }
 }
 function skipAtomicRanges(atoms, pos, bias) {
     for (;;) {
@@ -8101,7 +8132,7 @@ class InlineCoordsScan {
     // (including the position after the last piece). For a text tile,
     // these will be character clusters, for a composite tile, these
     // will be child tiles.
-    scan(positions, getRects) {
+    scan(positions, getRects, recursed = false) {
         let lo = 0, hi = positions.length - 1, seen = new Set();
         let bidi = this.bidiIn(positions[0], positions[hi]);
         let above, below;
@@ -8138,6 +8169,9 @@ class InlineCoordsScan {
             if (rects)
                 for (let i = 0; i < rects.length; i++) {
                     let rect = rects[i], side = 0;
+                    // Ignore empty rectangles when there are other rectangles
+                    if (rect.width == 0 && rects.length > 1)
+                        continue;
                     if (rect.bottom < this.y) {
                         if (!above || above.bottom < rect.bottom)
                             above = rect;
@@ -8171,7 +8205,20 @@ class InlineCoordsScan {
         if (!closestRect) {
             let side = above && (!below || (this.y - above.bottom < below.top - this.y)) ? above : below;
             this.y = (side.top + side.bottom) / 2;
-            return this.scan(positions, getRects);
+            return this.scan(positions, getRects, true);
+        }
+        // Handle the case where closest matched a higher element on the
+        // same line as an element below/above the coords
+        if (closestDx && !recursed) {
+            let { top, bottom } = closestRect;
+            if (above && above.bottom > (top + top + bottom) / 3) {
+                this.y = above.bottom - 1;
+                return this.scan(positions, getRects, true);
+            }
+            if (below && below.top < (top + bottom + bottom) / 3) {
+                this.y = below.top + 1;
+                return this.scan(positions, getRects, true);
+            }
         }
         let ltr = (bidi ? this.dirAt(positions[closestI], 1) : this.baseDir) == Direction.LTR;
         return {
@@ -8361,7 +8408,7 @@ class DOMChange {
         this.bounds = null;
         this.text = "";
         this.domChanged = start > -1;
-        let { impreciseHead: iHead, impreciseAnchor: iAnchor } = view.docView;
+        let { impreciseHead: iHead, impreciseAnchor: iAnchor } = view.docView, curSel = view.state.selection;
         if (view.state.readOnly && start > -1) {
             // Ignore changes when the editor is read-only
             this.newSel = null;
@@ -8377,18 +8424,18 @@ class DOMChange {
             let domSel = view.observer.selectionRange;
             let head = iHead && iHead.node == domSel.focusNode && iHead.offset == domSel.focusOffset ||
                 !contains(view.contentDOM, domSel.focusNode)
-                ? view.state.selection.main.head
+                ? curSel.main.head
                 : view.docView.posFromDOM(domSel.focusNode, domSel.focusOffset);
             let anchor = iAnchor && iAnchor.node == domSel.anchorNode && iAnchor.offset == domSel.anchorOffset ||
                 !contains(view.contentDOM, domSel.anchorNode)
-                ? view.state.selection.main.anchor
+                ? curSel.main.anchor
                 : view.docView.posFromDOM(domSel.anchorNode, domSel.anchorOffset);
             // iOS will refuse to select the block gaps when doing
             // select-all.
             // Chrome will put the selection *inside* them, confusing
             // posFromDOM
             let vp = view.viewport;
-            if ((browser.ios || browser.chrome) && view.state.selection.main.empty && head != anchor &&
+            if ((browser.ios || browser.chrome) && curSel.main.empty && head != anchor &&
                 (vp.from > 0 || vp.to < view.state.doc.length)) {
                 let from = Math.min(head, anchor), to = Math.max(head, anchor);
                 let offFrom = vp.from - from, offTo = vp.to - to;
@@ -8397,10 +8444,22 @@ class DOMChange {
                     anchor = view.state.doc.length;
                 }
             }
-            if (view.inputState.composing > -1 && view.state.selection.ranges.length > 1)
-                this.newSel = view.state.selection.replaceRange(EditorSelection.range(anchor, head));
-            else
+            if (view.inputState.composing > -1 && curSel.ranges.length > 1) {
+                this.newSel = curSel.replaceRange(EditorSelection.range(anchor, head));
+            }
+            else if (view.lineWrapping && anchor == head && !(curSel.main.empty && curSel.main.head == head) &&
+                view.inputState.lastTouchTime > Date.now() - 100) {
+                // If this is a cursor selection change in a line-wrapping
+                // editor that may have been a touch, use the last touch
+                // position to assign a side to the cursor.
+                let before = view.coordsAtPos(head, -1), assoc = 0;
+                if (before)
+                    assoc = view.inputState.lastTouchY <= before.bottom ? -1 : 1;
+                this.newSel = EditorSelection.create([EditorSelection.cursor(head, assoc)]);
+            }
+            else {
                 this.newSel = EditorSelection.single(anchor, head);
+            }
         }
     }
 }
@@ -8436,7 +8495,7 @@ function domBoundsAround(tile, from, to, offset) {
 }
 function applyDOMChange(view, domChange) {
     let change;
-    let { newSel } = domChange, sel = view.state.selection.main;
+    let { newSel } = domChange, { state } = view, sel = state.selection.main;
     let lastKey = view.inputState.lastKeyTime > Date.now() - 100 ? view.inputState.lastKeyCode : -1;
     if (domChange.bounds) {
         let { from, to } = domChange.bounds;
@@ -8447,8 +8506,15 @@ function applyDOMChange(view, domChange) {
             preferredPos = sel.to;
             preferredSide = "end";
         }
-        let diff = findDiff$1(view.state.doc.sliceString(from, to, LineBreakPlaceholder), domChange.text, preferredPos - from, preferredSide);
-        if (diff) {
+        let cmp = state.doc.sliceString(from, to, LineBreakPlaceholder), selEnd, diff;
+        if (!sel.empty && sel.from >= from && sel.to <= to && (domChange.typeOver || cmp != domChange.text) &&
+            cmp.slice(0, sel.from - from) == domChange.text.slice(0, sel.from - from) &&
+            cmp.slice(sel.to - from) == domChange.text.slice(selEnd = domChange.text.length - (cmp.length - (sel.to - from)))) {
+            // This looks like a selection replacement
+            change = { from: sel.from, to: sel.to,
+                insert: Text.of(domChange.text.slice(sel.from - from, selEnd).split(LineBreakPlaceholder)) };
+        }
+        else if (diff = findDiff$1(cmp, domChange.text, preferredPos - from, preferredSide)) {
             // Chrome inserts two newlines when pressing shift-enter at the
             // end of a line. DomChange drops one of those.
             if (browser.chrome && lastKey == 13 &&
@@ -8458,16 +8524,12 @@ function applyDOMChange(view, domChange) {
                 insert: Text.of(domChange.text.slice(diff.from, diff.toB).split(LineBreakPlaceholder)) };
         }
     }
-    else if (newSel && (!view.hasFocus && view.state.facet(editable) || sameSelPos(newSel, sel))) {
+    else if (newSel && (!view.hasFocus && state.facet(editable) || sameSelPos(newSel, sel))) {
         newSel = null;
     }
     if (!change && !newSel)
         return false;
-    if (!change && domChange.typeOver && !sel.empty && newSel && newSel.main.empty) {
-        // Heuristic to notice typing over a selected character
-        change = { from: sel.from, to: sel.to, insert: view.state.doc.slice(sel.from, sel.to) };
-    }
-    else if ((browser.mac || browser.android) && change && change.from == change.to && change.from == sel.head - 1 &&
+    if ((browser.mac || browser.android) && change && change.from == change.to && change.from == sel.head - 1 &&
         /^\. ?$/.test(change.insert.toString()) && view.contentDOM.getAttribute("autocorrect") == "off") {
         // Detect insert-period-on-double-space Mac and Android behavior,
         // and transform it into a regular space insert.
@@ -8475,18 +8537,7 @@ function applyDOMChange(view, domChange) {
             newSel = EditorSelection.single(newSel.main.anchor - 1, newSel.main.head - 1);
         change = { from: change.from, to: change.to, insert: Text.of([change.insert.toString().replace(".", " ")]) };
     }
-    else if (change && change.from >= sel.from && change.to <= sel.to &&
-        (change.from != sel.from || change.to != sel.to) &&
-        (sel.to - sel.from) - (change.to - change.from) <= 4) {
-        // If the change is inside the selection and covers most of it,
-        // assume it is a selection replace (with identical characters at
-        // the start/end not included in the diff)
-        change = {
-            from: sel.from, to: sel.to,
-            insert: view.state.doc.slice(sel.from, change.from).append(change.insert).append(view.state.doc.slice(change.to, sel.to))
-        };
-    }
-    else if (view.state.doc.lineAt(sel.from).to < sel.to && view.docView.lineHasWidget(sel.to) &&
+    else if (state.doc.lineAt(sel.from).to < sel.to && view.docView.lineHasWidget(sel.to) &&
         view.inputState.insertingTextAt > Date.now() - 50) {
         // For a cross-line insertion, Chrome and Safari will crudely take
         // the text of the line after the selection, flattening any
@@ -8495,7 +8546,7 @@ function applyDOMChange(view, domChange) {
         // replace of the text provided by the beforeinput event.
         change = {
             from: sel.from, to: sel.to,
-            insert: view.state.toText(view.inputState.insertingText)
+            insert: state.toText(view.inputState.insertingText)
         };
     }
     else if (browser.chrome && change && change.from == change.to && change.from == sel.head &&
@@ -8517,7 +8568,7 @@ function applyDOMChange(view, domChange) {
                 scrollIntoView = true;
             userEvent = view.inputState.lastSelectionOrigin;
             if (userEvent == "select.pointer")
-                newSel = skipAtomsForSelection(view.state.facet(atomicRanges).map(f => f(view)), newSel);
+                newSel = skipAtomsForSelection(state.facet(atomicRanges).map(f => f(view)), newSel);
         }
         view.dispatch({ selection: newSel, scrollIntoView, userEvent });
         return true;
@@ -8695,9 +8746,12 @@ class InputState {
         this.lastKeyCode = 0;
         this.lastKeyTime = 0;
         this.lastTouchTime = 0;
+        this.lastTouchX = 0;
+        this.lastTouchY = 0;
         this.lastFocusTime = 0;
         this.lastScrollTop = 0;
         this.lastScrollLeft = 0;
+        this.lastWheelEvent = 0;
         // On iOS, some keys need to have their default behavior happen
         // (after which we retroactively handle them and reset the DOM) to
         // avoid messing up the virtual keyboard state.
@@ -8817,9 +8871,9 @@ class InputState {
         // applyDOMChange, notify key handlers of it and reset to
         // the state they produce.
         let pending;
-        if (browser.ios && !event.synthetic && !event.altKey && !event.metaKey &&
+        if (browser.ios && !event.synthetic && !event.altKey && !event.metaKey && !event.shiftKey &&
             ((pending = PendingKeys.find(key => key.keyCode == event.keyCode)) && !event.ctrlKey ||
-                EmacsyPendingKeys.indexOf(event.key) > -1 && event.ctrlKey && !event.shiftKey)) {
+                EmacsyPendingKeys.indexOf(event.key) > -1 && event.ctrlKey)) {
             this.pendingIOSKey = pending || event;
             setTimeout(() => this.flushIOSKey(), 250);
             return true;
@@ -9127,6 +9181,9 @@ observers.scroll = view => {
     view.inputState.lastScrollTop = view.scrollDOM.scrollTop;
     view.inputState.lastScrollLeft = view.scrollDOM.scrollLeft;
 };
+observers.wheel = observers.mousewheel = view => {
+    view.inputState.lastWheelEvent = Date.now();
+};
 handlers.keydown = (view, event) => {
     view.inputState.setSelectionOrigin("select");
     if (event.keyCode == 27 && view.inputState.tabFocusMode != 0)
@@ -9134,8 +9191,13 @@ handlers.keydown = (view, event) => {
     return false;
 };
 observers.touchstart = (view, e) => {
-    view.inputState.lastTouchTime = Date.now();
-    view.inputState.setSelectionOrigin("select.pointer");
+    let iState = view.inputState, touch = e.targetTouches[0];
+    iState.lastTouchTime = Date.now();
+    if (touch) {
+        iState.lastTouchX = touch.clientX;
+        iState.lastTouchY = touch.clientY;
+    }
+    iState.setSelectionOrigin("select.pointer");
 };
 observers.touchmove = view => {
     view.inputState.setSelectionOrigin("select.pointer");
@@ -9215,10 +9277,10 @@ function basicMouseSelection(view, event) {
             if (start.pos != cur.pos && !extend) {
                 let startRange = rangeForClick(view, start.pos, start.assoc, type);
                 let from = Math.min(startRange.from, range.from), to = Math.max(startRange.to, range.to);
-                range = from < range.from ? EditorSelection.range(from, to) : EditorSelection.range(to, from);
+                range = from < range.from ? EditorSelection.range(from, to, range.assoc) : EditorSelection.range(to, from, range.assoc);
             }
             if (extend)
-                return startSel.replaceRange(startSel.main.extend(range.from, range.to));
+                return startSel.replaceRange(startSel.main.extend(range.from, range.to, range.assoc));
             else if (multiple && type == 1 && startSel.ranges.length > 1 && (removed = removeRangeAround(startSel, cur.pos)))
                 return removed;
             else if (multiple)
@@ -9449,7 +9511,7 @@ observers.compositionend = view => {
     view.inputState.compositionFirstChange = null;
     if (browser.chrome && browser.android) {
         // Delay flushing for a bit on Android because it'll often fire a
-        // bunch of contradictory changes in a row at end of compositon
+        // bunch of contradictory changes in a row at end of composition
         view.observer.flushSoon();
     }
     else if (view.inputState.compositionPendingChange) {
@@ -9524,8 +9586,8 @@ handlers.beforeinput = (view, event) => {
 const appliedFirefoxHack = /*@__PURE__*/new Set;
 // In Firefox, when cut/copy handlers are added to the document, that
 // somehow avoids a bug where those events aren't fired when the
-// selection is empty. See https://github.com/codemirror/dev/issues/1082
-// and https://bugzilla.mozilla.org/show_bug.cgi?id=995961
+// selection is empty. See issue #1082 and
+// https://bugzilla.mozilla.org/show_bug.cgi?id=995961
 function firefoxCopyCutHack(doc) {
     if (!appliedFirefoxHack.has(doc)) {
         appliedFirefoxHack.add(doc);
@@ -9580,8 +9642,7 @@ class HeightOracle {
     }
     refresh(whiteSpace, lineHeight, charWidth, textHeight, lineLength, knownHeights) {
         let lineWrapping = wrappingWhiteSpace.indexOf(whiteSpace) > -1;
-        let changed = Math.abs(lineHeight - this.lineHeight) > 0.3 || this.lineWrapping != lineWrapping ||
-            Math.abs(charWidth - this.charWidth) > 0.1;
+        let changed = Math.abs(lineHeight - this.lineHeight) > 0.3 || this.lineWrapping != lineWrapping;
         this.lineWrapping = lineWrapping;
         this.lineHeight = lineHeight;
         this.charWidth = charWidth;
@@ -10370,7 +10431,8 @@ class LineGapWidget extends WidgetType {
     get estimatedHeight() { return this.vertical ? this.size : -1; }
 }
 class ViewState {
-    constructor(state) {
+    constructor(view, state) {
+        this.view = view;
         this.state = state;
         // These are contentDOM-local coordinates
         this.pixelViewport = { left: 0, right: window.innerWidth, top: 0, bottom: 0 };
@@ -10381,12 +10443,14 @@ class ViewState {
         this.contentDOMHeight = 0; // contentDOM.getBoundingClientRect().height
         this.editorHeight = 0; // scrollDOM.clientHeight, unscaled
         this.editorWidth = 0; // scrollDOM.clientWidth, unscaled
-        this.scrollTop = 0; // Last seen scrollDOM.scrollTop, scaled
-        this.scrolledToBottom = false;
         // The CSS-transformation scale of the editor (transformed size /
         // concrete size)
         this.scaleX = 1;
         this.scaleY = 1;
+        // Last seen vertical offset of the element at the top of the scroll
+        // container, or top of the window if there's no wrapping scroller
+        this.scrollOffset = 0;
+        this.scrolledToBottom = false;
         // The vertical position (document-relative) to which to anchor the
         // scroll position. -1 means anchor to the end of the document.
         this.scrollAnchorPos = 0;
@@ -10424,6 +10488,7 @@ class ViewState {
         this.updateViewportLines();
         this.lineGaps = this.ensureLineGaps([]);
         this.lineGapDeco = Decoration.set(this.lineGaps.map(gap => gap.draw(this, false)));
+        this.scrollParent = view.scrollDOM;
         this.computeVisibleRanges();
     }
     updateForViewport() {
@@ -10457,7 +10522,7 @@ class ViewState {
         let contentChanges = update.changedRanges;
         let heightChanges = ChangedRange.extendWithRanges(contentChanges, heightRelevantDecoChanges(prevDeco, this.stateDeco, update ? update.changes : ChangeSet.empty(this.state.doc.length)));
         let prevHeight = this.heightMap.height;
-        let scrollAnchor = this.scrolledToBottom ? null : this.scrollAnchorAt(this.scrollTop);
+        let scrollAnchor = this.scrolledToBottom ? null : this.scrollAnchorAt(this.scrollOffset);
         clearHeightChangeFlag();
         this.heightMap = this.heightMap.applyChanges(this.stateDeco, update.startState.doc, this.heightOracle.setDoc(this.state.doc), heightChanges);
         if (this.heightMap.height != prevHeight || heightChangeFlag)
@@ -10489,8 +10554,8 @@ class ViewState {
             !update.state.facet(nativeSelectionHidden))
             this.mustEnforceCursorAssoc = true;
     }
-    measure(view) {
-        let dom = view.contentDOM, style = window.getComputedStyle(dom);
+    measure() {
+        let { view } = this, dom = view.contentDOM, style = window.getComputedStyle(dom);
         let oracle = this.heightOracle;
         let whiteSpace = style.whiteSpace;
         this.defaultTextDirection = style.direction == "rtl" ? Direction.RTL : Direction.LTR;
@@ -10524,12 +10589,18 @@ class ViewState {
             this.editorWidth = view.scrollDOM.clientWidth;
             result |= 16 /* UpdateFlag.Geometry */;
         }
-        let scrollTop = view.scrollDOM.scrollTop * this.scaleY;
-        if (this.scrollTop != scrollTop) {
+        let scrollParent = scrollableParents(this.view.contentDOM, false).y;
+        if (scrollParent != this.scrollParent) {
+            this.scrollParent = scrollParent;
             this.scrollAnchorHeight = -1;
-            this.scrollTop = scrollTop;
+            this.scrollOffset = 0;
         }
-        this.scrolledToBottom = isScrolledToBottom(view.scrollDOM);
+        let scrollOffset = this.getScrollOffset();
+        if (this.scrollOffset != scrollOffset) {
+            this.scrollAnchorHeight = -1;
+            this.scrollOffset = scrollOffset;
+        }
+        this.scrolledToBottom = isScrolledToBottom(this.scrollParent || view.win);
         // Pixel viewport
         let pixelViewport = (this.printing ? fullPixelRange : visiblePixelRange)(dom, this.paddingTop);
         let dTop = pixelViewport.top - this.pixelViewport.top, dBottom = pixelViewport.bottom - this.pixelViewport.bottom;
@@ -10806,9 +10877,14 @@ class ViewState {
             this.viewportLines.find(l => l.top <= height && l.bottom >= height)) ||
             scaleBlock(this.heightMap.lineAt(this.scaler.fromDOM(height), QueryType$1.ByHeight, this.heightOracle, 0, 0), this.scaler);
     }
-    scrollAnchorAt(scrollTop) {
-        let block = this.lineBlockAtHeight(scrollTop + 8);
-        return block.from >= this.viewport.from || this.viewportLines[0].top - scrollTop > 200 ? block : this.viewportLines[0];
+    getScrollOffset() {
+        let base = this.scrollParent == this.view.scrollDOM ? this.scrollParent.scrollTop
+            : (this.scrollParent ? this.scrollParent.getBoundingClientRect().top : 0) - this.view.contentDOM.getBoundingClientRect().top;
+        return base * this.scaleY;
+    }
+    scrollAnchorAt(scrollOffset) {
+        let block = this.lineBlockAtHeight(scrollOffset + 8);
+        return block.from >= this.viewport.from || this.viewportLines[0].top - scrollOffset > 200 ? block : this.viewportLines[0];
     }
     elementAtHeight(height) {
         return scaleBlock(this.heightMap.blockAt(this.scaler.fromDOM(height), this.heightOracle, 0, 0), this.scaler);
@@ -10996,7 +11072,7 @@ const baseTheme$1$2 = /*@__PURE__*/buildTheme("." + baseThemeID, {
         flexShrink: 0,
         display: "block",
         whiteSpace: "pre",
-        wordWrap: "normal", // https://github.com/codemirror/dev/issues/456
+        wordWrap: "normal", // Issue #456
         boxSizing: "border-box",
         minHeight: "100%",
         padding: "4px 0",
@@ -11061,6 +11137,21 @@ const baseTheme$1$2 = /*@__PURE__*/buildTheme("." + baseThemeID, {
     "&dark .cm-cursor": {
         borderLeftColor: "#ddd"
     },
+    ".cm-selectionHandle": {
+        backgroundColor: "currentColor",
+        width: "1.5px"
+    },
+    ".cm-selectionHandle-start::before, .cm-selectionHandle-end::before": {
+        content: '""',
+        backgroundColor: "inherit",
+        borderRadius: "50%",
+        width: "8px",
+        height: "8px",
+        position: "absolute",
+        left: "-3.25px"
+    },
+    ".cm-selectionHandle-start::before": { top: "-8px" },
+    ".cm-selectionHandle-end::before": { bottom: "-8px" },
     ".cm-dropCursor": {
         position: "absolute"
     },
@@ -11400,7 +11491,7 @@ class DOMObserver {
     readSelectionRange() {
         let { view } = this;
         // The Selection object is broken in shadow roots in Safari. See
-        // https://github.com/codemirror/dev/issues/414
+        // issue #414
         let selection = getSelection(view.root);
         if (!selection)
             return false;
@@ -12055,7 +12146,7 @@ class EditorView {
             ((trs) => this.update(trs));
         this.dispatch = this.dispatch.bind(this);
         this._root = (config.root || getRoot(config.parent) || document);
-        this.viewState = new ViewState(config.state || EditorState.create(config));
+        this.viewState = new ViewState(this, config.state || EditorState.create(config));
         if (config.scrollTo && config.scrollTo.is(scrollIntoView$1))
             this.viewState.scrollTarget = config.scrollTo.value.clip(this.viewState.state);
         this.plugins = this.state.facet(viewPlugin).map(spec => new PluginInstance(spec));
@@ -12144,7 +12235,8 @@ class EditorView {
                     scrollTarget = scrollTarget.map(tr.changes);
                 if (tr.scrollIntoView) {
                     let { main } = tr.state.selection;
-                    scrollTarget = new ScrollTarget(main.empty ? main : EditorSelection.cursor(main.head, main.head > main.anchor ? -1 : 1));
+                    let { x, y } = this.state.facet(EditorView.cursorScrollMargin);
+                    scrollTarget = new ScrollTarget(main.empty ? main : EditorSelection.cursor(main.head, main.head > main.anchor ? -1 : 1), "nearest", "nearest", y, x);
                 }
                 for (let e of tr.effects)
                     if (e.is(scrollIntoView$1))
@@ -12210,7 +12302,7 @@ class EditorView {
         try {
             for (let plugin of this.plugins)
                 plugin.destroy(this);
-            this.viewState = new ViewState(newState);
+            this.viewState = new ViewState(this, newState);
             this.plugins = newState.facet(viewPlugin).map(spec => new PluginInstance(spec));
             this.pluginMap.clear();
             for (let plugin of this.plugins)
@@ -12289,26 +12381,26 @@ class EditorView {
         if (flush)
             this.observer.forceFlush();
         let updated = null;
-        let sDOM = this.scrollDOM, scrollTop = sDOM.scrollTop * this.scaleY;
+        let scroll = this.viewState.scrollParent, scrollOffset = this.viewState.getScrollOffset();
         let { scrollAnchorPos, scrollAnchorHeight } = this.viewState;
-        if (Math.abs(scrollTop - this.viewState.scrollTop) > 1)
+        if (Math.abs(scrollOffset - this.viewState.scrollOffset) > 1)
             scrollAnchorHeight = -1;
         this.viewState.scrollAnchorHeight = -1;
         try {
             for (let i = 0;; i++) {
                 if (scrollAnchorHeight < 0) {
-                    if (isScrolledToBottom(sDOM)) {
+                    if (isScrolledToBottom(scroll || this.win)) {
                         scrollAnchorPos = -1;
                         scrollAnchorHeight = this.viewState.heightMap.height;
                     }
                     else {
-                        let block = this.viewState.scrollAnchorAt(scrollTop);
+                        let block = this.viewState.scrollAnchorAt(scrollOffset);
                         scrollAnchorPos = block.from;
                         scrollAnchorHeight = block.top;
                     }
                 }
                 this.updateState = 1 /* UpdateState.Measuring */;
-                let changed = this.viewState.measure(this);
+                let changed = this.viewState.measure();
                 if (!changed && !this.measureRequests.length && this.viewState.scrollTarget == null)
                     break;
                 if (i > 5) {
@@ -12369,10 +12461,15 @@ class EditorView {
                         else {
                             let newAnchorHeight = scrollAnchorPos < 0 ? this.viewState.heightMap.height :
                                 this.viewState.lineBlockAt(scrollAnchorPos).top;
-                            let diff = newAnchorHeight - scrollAnchorHeight;
-                            if (diff > 1 || diff < -1) {
-                                scrollTop = scrollTop + diff;
-                                sDOM.scrollTop = scrollTop / this.scaleY;
+                            let diff = (newAnchorHeight - scrollAnchorHeight) / this.scaleY;
+                            if ((diff > 1 || diff < -1) &&
+                                (scroll == this.scrollDOM || this.hasFocus ||
+                                    Math.max(this.inputState.lastWheelEvent, this.inputState.lastTouchTime) > Date.now() - 100)) {
+                                scrollOffset = scrollOffset + diff;
+                                if (scroll)
+                                    scroll.scrollTop += diff;
+                                else
+                                    this.win.scrollBy(0, diff);
                                 scrollAnchorHeight = -1;
                                 continue;
                             }
@@ -12796,7 +12893,8 @@ class EditorView {
     cause it to scroll the given position or range into view.
     */
     static scrollIntoView(pos, options = {}) {
-        return scrollIntoView$1.of(new ScrollTarget(typeof pos == "number" ? EditorSelection.cursor(pos) : pos, options.y, options.x, options.yMargin, options.xMargin));
+        var _a, _b, _c, _d;
+        return scrollIntoView$1.of(new ScrollTarget(typeof pos == "number" ? EditorSelection.cursor(pos) : pos, (_a = options.y) !== null && _a !== void 0 ? _a : "nearest", (_b = options.x) !== null && _b !== void 0 ? _b : "nearest", (_c = options.yMargin) !== null && _c !== void 0 ? _c : 5, (_d = options.xMargin) !== null && _d !== void 0 ? _d : 5));
     }
     /**
     Return an effect that resets the editor to its current (at the
@@ -12862,7 +12960,7 @@ class EditorView {
     }
     /**
     Create a theme extension. The first argument can be a
-    [`style-mod`](https://github.com/marijnh/style-mod#documentation)
+    [`style-mod`](https://code.haverbeke.berlin/marijn/style-mod#documentation)
     style spec providing the styles for the theme. These will be
     prefixed with a generated class for the style.
     
@@ -12908,7 +13006,7 @@ class EditorView {
 }
 /**
 Facet to add a [style
-module](https://github.com/marijnh/style-mod#documentation) to
+module](https://code.haverbeke.berlin/marijn/style-mod#documentation) to
 an editor view. The view will ensure that the module is
 mounted in its [document
 root](https://codemirror.net/6/docs/ref/#view.EditorView.constructor^config.root).
@@ -13055,11 +13153,30 @@ supported.)
 */
 EditorView.bidiIsolatedRanges = bidiIsolatedRanges;
 /**
+Can be used to specify the distance that scrolling cursor into
+view keeps it away from the sides of the editor, either as a
+single pixel number or two different values for the different
+axes. Defaults to 5 pixels on both axes.
+*/
+EditorView.cursorScrollMargin = /*@__PURE__*/Facet.define({
+    combine: inputs => {
+        let x = 5, y = 5;
+        for (let i of inputs) {
+            if (typeof i == "number")
+                x = y = i;
+            else
+                ({ x, y } = i);
+        }
+        return { x, y };
+    }
+});
+/**
 Facet that allows extensions to provide additional scroll
 margins (space around the sides of the scrolling element that
 should be considered invisible). This can be useful when the
 plugin introduces elements that cover part of that element (for
-example a horizontally fixed gutter).
+example a horizontally fixed gutter). Not to be confused with
+[`cursorScrollMargin`](https://codemirror.net/6/docs/ref/#view.EditorView^cursorScrollMargin).
 */
 EditorView.scrollMargins = scrollMargins;
 /**
@@ -13595,7 +13712,7 @@ class LayerView {
                 old = next;
             }
             this.drawn = markers;
-            if (browser.safari && browser.safari_version >= 26) // Issue #1600, 1627
+            if (browser.webkit) // Issue #1600, 1627, 1686
                 this.dom.style.display = this.dom.firstChild ? "" : "none";
         }
     }
@@ -13620,7 +13737,8 @@ const selectionConfig = /*@__PURE__*/Facet.define({
     combine(configs) {
         return combineConfig(configs, {
             cursorBlinkRate: 1200,
-            drawRangeCursor: true
+            drawRangeCursor: true,
+            iosSelectionHandles: true
         }, {
             cursorBlinkRate: (a, b) => Math.min(a, b),
             drawRangeCursor: (a, b) => a || b
@@ -13664,9 +13782,9 @@ const cursorLayer = /*@__PURE__*/layer({
         let cursors = [];
         for (let r of state.selection.ranges) {
             let prim = r == state.selection.main;
-            if (r.empty || conf.drawRangeCursor) {
+            if (r.empty || conf.drawRangeCursor && !(prim && browser.ios && conf.iosSelectionHandles)) {
                 let className = prim ? "cm-cursor cm-cursor-primary" : "cm-cursor cm-cursor-secondary";
-                let cursor = r.empty ? r : EditorSelection.cursor(r.head, r.head > r.anchor ? -1 : 1);
+                let cursor = r.empty ? r : EditorSelection.cursor(r.head, r.assoc);
                 for (let piece of RectangleMarker.forRange(view, className, cursor))
                     cursors.push(piece);
             }
@@ -13692,8 +13810,19 @@ function setBlinkRate(state, dom) {
 const selectionLayer = /*@__PURE__*/layer({
     above: false,
     markers(view) {
-        return view.state.selection.ranges.map(r => r.empty ? [] : RectangleMarker.forRange(view, "cm-selectionBackground", r))
-            .reduce((a, b) => a.concat(b));
+        let markers = [], { main, ranges } = view.state.selection;
+        for (let r of ranges)
+            if (!r.empty) {
+                for (let marker of RectangleMarker.forRange(view, "cm-selectionBackground", r))
+                    markers.push(marker);
+            }
+        if (browser.ios && !main.empty && view.state.facet(selectionConfig).iosSelectionHandles) {
+            for (let piece of RectangleMarker.forRange(view, "cm-selectionHandle cm-selectionHandle-start", EditorSelection.cursor(main.from, 1)))
+                markers.push(piece);
+            for (let piece of RectangleMarker.forRange(view, "cm-selectionHandle cm-selectionHandle-end", EditorSelection.cursor(main.to, 1)))
+                markers.push(piece);
+        }
+        return markers;
     },
     update(update, dom) {
         return update.docChanged || update.selectionSet || update.viewportChanged || configChanged$1(update);
@@ -14628,11 +14757,13 @@ const showHoverTooltipHost = /*@__PURE__*/showTooltip.compute([showHoverTooltip]
         arrow: tooltips.some(t => t.arrow),
     };
 });
+const hoverPlugin = /*@__PURE__*/Facet.define();
 class HoverPlugin {
-    constructor(view, source, field, setHover, hoverTime) {
+    constructor(view, source, field, locked, setHover, hoverTime) {
         this.view = view;
         this.source = source;
         this.field = field;
+        this.locked = locked;
         this.setHover = setHover;
         this.hoverTime = hoverTime;
         this.hoverTimeout = -1;
@@ -14643,7 +14774,7 @@ class HoverPlugin {
         view.dom.addEventListener("mouseleave", this.mouseleave = this.mouseleave.bind(this));
         view.dom.addEventListener("mousemove", this.mousemove = this.mousemove.bind(this));
     }
-    update() {
+    update(update) {
         if (this.pending) {
             this.pending = null;
             clearTimeout(this.restartTimeout);
@@ -14687,19 +14818,29 @@ class HoverPlugin {
             let rtl = bidi && bidi.dir == Direction.RTL ? -1 : 1;
             side = (lastMove.x < posCoords.left ? -rtl : rtl);
         }
+        this.activateHover(view, pos, side);
+    }
+    activateHover(view, pos, side, locked) {
         let open = this.source(view, pos, side);
-        if (open === null || open === void 0 ? void 0 : open.then) {
+        let done = (value) => {
+            if (value && !(Array.isArray(value) && !value.length)) {
+                let tooltips = Array.isArray(value) ? value : [value];
+                if (locked)
+                    this.locked.set(tooltips, locked);
+                view.dispatch({ effects: this.setHover.of(tooltips) });
+            }
+        };
+        if (open && "then" in open) {
             let pending = this.pending = { pos };
             open.then(result => {
                 if (this.pending == pending) {
                     this.pending = null;
-                    if (result && !(Array.isArray(result) && !result.length))
-                        view.dispatch({ effects: this.setHover.of(Array.isArray(result) ? result : [result]) });
+                    done(result);
                 }
             }, e => logException(view.state, e, "hover tooltip"));
         }
-        else if (open && !(Array.isArray(open) && !open.length)) {
-            view.dispatch({ effects: this.setHover.of(Array.isArray(open) ? open : [open]) });
+        else {
+            done(open);
         }
     }
     get tooltip() {
@@ -14713,7 +14854,7 @@ class HoverPlugin {
         if (this.hoverTimeout < 0)
             this.hoverTimeout = setTimeout(this.checkHover, this.hoverTime);
         let { active, tooltip } = this;
-        if (active.length && tooltip && !isInTooltip(tooltip.dom, event) || this.pending) {
+        if (active.length && !this.locked.has(active) && tooltip && !isInTooltip(tooltip.dom, event) || this.pending) {
             let { pos } = active[0] || this.pending, end = (_b = (_a = active[0]) === null || _a === void 0 ? void 0 : _a.end) !== null && _b !== void 0 ? _b : pos;
             if ((pos == end ? this.view.posAtCoords(this.lastMove) != pos
                 : !isOverRange(this.view, pos, end, event.clientX, event.clientY))) {
@@ -14726,7 +14867,7 @@ class HoverPlugin {
         clearTimeout(this.hoverTimeout);
         this.hoverTimeout = -1;
         let { active } = this;
-        if (active.length) {
+        if (active.length && !this.locked.has(active)) {
             let { tooltip } = this;
             let inTooltip = tooltip && tooltip.dom.contains(event.relatedTarget);
             if (!inTooltip)
@@ -14738,7 +14879,8 @@ class HoverPlugin {
     watchTooltipLeave(tooltip) {
         let watch = (event) => {
             tooltip.removeEventListener("mouseleave", watch);
-            if (this.active.length && !this.view.dom.contains(event.relatedTarget))
+            let { active } = this;
+            if (active.length && !this.locked.has(active) && !this.view.dom.contains(event.relatedTarget))
                 this.view.dispatch({ effects: this.setHover.of([]) });
         };
         tooltip.addEventListener("mouseleave", watch);
@@ -14789,44 +14931,57 @@ extension.
 */
 function hoverTooltip(source, options = {}) {
     let setHover = StateEffect.define();
+    // This would be better stored in the state field, but we've set
+    // down the type of the field in our interface, so it's indirectly
+    // stored by array identity.
+    let locked = new WeakMap();
     let hoverState = StateField.define({
         create() { return []; },
         update(value, tr) {
+            let lock = locked.get(value);
             if (value.length) {
                 if (options.hideOnChange && (tr.docChanged || tr.selection))
                     value = [];
+                else if (lock && lock(tr))
+                    value = [];
                 else if (options.hideOn)
                     value = value.filter(v => !options.hideOn(tr, v));
-                if (tr.docChanged) {
-                    let mapped = [];
-                    for (let tooltip of value) {
-                        let newPos = tr.changes.mapPos(tooltip.pos, -1, MapMode.TrackDel);
-                        if (newPos != null) {
-                            let copy = Object.assign(Object.create(null), tooltip);
-                            copy.pos = newPos;
-                            if (copy.end != null)
-                                copy.end = tr.changes.mapPos(copy.end);
-                            mapped.push(copy);
-                        }
+            }
+            if (tr.docChanged && value.length) {
+                let mapped = [];
+                for (let tooltip of value) {
+                    let newPos = tr.changes.mapPos(tooltip.pos, -1, MapMode.TrackDel);
+                    if (newPos != null) {
+                        let copy = Object.assign(Object.create(null), tooltip);
+                        copy.pos = newPos;
+                        if (copy.end != null)
+                            copy.end = tr.changes.mapPos(copy.end);
+                        mapped.push(copy);
                     }
-                    value = mapped;
                 }
+                value = mapped;
             }
             for (let effect of tr.effects) {
-                if (effect.is(setHover))
+                if (effect.is(setHover)) {
                     value = effect.value;
-                if (effect.is(closeHoverTooltipEffect))
+                    lock = undefined;
+                }
+                if (effect.is(closeHoverTooltipEffect) && !effect.value || effect.value == hoverState)
                     value = [];
             }
+            if (value.length && lock)
+                locked.set(value, lock);
             return value;
         },
         provide: f => showHoverTooltip.from(f)
     });
+    const plugin = ViewPlugin.define(view => new HoverPlugin(view, source, hoverState, locked, setHover, options.hoverTime || 300 /* Hover.Time */));
     return {
         active: hoverState,
         extension: [
             hoverState,
-            ViewPlugin.define(view => new HoverPlugin(view, source, hoverState, setHover, options.hoverTime || 300 /* Hover.Time */)),
+            plugin,
+            hoverPlugin.of(plugin),
             showHoverTooltipHost
         ]
     };
@@ -17659,8 +17814,14 @@ class StructureCursor {
         let { cursor } = this, p = pos - this.offset;
         while (!this.done && cursor.from < p) {
             if (cursor.to >= pos && cursor.enter(p, 1, IterMode.IgnoreOverlays | IterMode.ExcludeBuffers)) ;
-            else if (!cursor.next(false))
-                this.done = true;
+            else if (cursor.to <= pos) {
+                if (!cursor.next(false))
+                    this.done = true;
+                // Moved to next node
+            }
+            else {
+                break;
+            }
         }
     }
     hasNode(cursor) {
@@ -20465,30 +20626,44 @@ function defaultRenderMatch(match) {
         decorations.push(mark.range(match.end.from, match.end.to));
     return decorations;
 }
-const bracketMatchingState = /*@__PURE__*/StateField.define({
-    create() { return Decoration.none; },
-    update(deco, tr) {
-        if (!tr.docChanged && !tr.selection)
-            return deco;
-        let decorations = [];
-        let config = tr.state.facet(bracketMatchingConfig);
-        for (let range of tr.state.selection.ranges) {
-            if (!range.empty)
-                continue;
-            let match = matchBrackets(tr.state, range.head, -1, config)
-                || (range.head > 0 && matchBrackets(tr.state, range.head - 1, 1, config))
-                || (config.afterCursor &&
-                    (matchBrackets(tr.state, range.head, 1, config) ||
-                        (range.head < tr.state.doc.length && matchBrackets(tr.state, range.head + 1, -1, config))));
-            if (match)
-                decorations = decorations.concat(config.renderMatch(match, tr.state));
+function bracketDeco(state) {
+    let decorations = [];
+    let config = state.facet(bracketMatchingConfig);
+    for (let range of state.selection.ranges) {
+        if (!range.empty)
+            continue;
+        let match = matchBrackets(state, range.head, -1, config)
+            || (range.head > 0 && matchBrackets(state, range.head - 1, 1, config))
+            || (config.afterCursor &&
+                (matchBrackets(state, range.head, 1, config) ||
+                    (range.head < state.doc.length && matchBrackets(state, range.head + 1, -1, config))));
+        if (match)
+            decorations = decorations.concat(config.renderMatch(match, state));
+    }
+    return Decoration.set(decorations, true);
+}
+const bracketMatcher = /*@__PURE__*/ViewPlugin.fromClass(class {
+    constructor(view) {
+        this.paused = false;
+        this.decorations = bracketDeco(view.state);
+    }
+    update(update) {
+        if (update.docChanged || update.selectionSet || this.paused) {
+            if (update.view.composing) {
+                this.decorations = this.decorations.map(update.changes);
+                this.paused = true;
+            }
+            else {
+                this.decorations = bracketDeco(update.state);
+                this.paused = false;
+            }
         }
-        return Decoration.set(decorations, true);
-    },
-    provide: f => EditorView.decorations.from(f)
+    }
+}, {
+    decorations: v => v.decorations
 });
 const bracketMatchingUnique = [
-    bracketMatchingState,
+    bracketMatcher,
     baseTheme$4
 ];
 /**
@@ -20572,6 +20747,8 @@ function matchMarkedBrackets(_state, _pos, dir, token, handle, matching, bracket
     return { start: firstToken, matched: false };
 }
 function matchPlainBrackets(state, pos, dir, tree, tokenType, maxScanDistance, brackets) {
+    if (dir < 0 ? !pos : pos == state.doc.length)
+        return null;
     let startCh = dir < 0 ? state.sliceDoc(pos - 1, pos) : state.sliceDoc(pos, pos + 1);
     let bracket = brackets.indexOf(startCh);
     if (bracket < 0 || (bracket % 2 == 0) != (dir > 0))
@@ -21878,7 +22055,7 @@ const cursorMatchingBracket = ({ state, dispatch }) => toMatchingBracket(state, 
 function extendSel(target, how) {
     let selection = updateSel(target.state.selection, range => {
         let head = how(range);
-        return EditorSelection.range(range.anchor, head.head, head.goalColumn, head.bidiLevel || undefined);
+        return EditorSelection.range(range.anchor, head.head, head.goalColumn, head.bidiLevel || undefined, head.assoc);
     });
     if (selection.eq(target.state.selection))
         return false;
@@ -23076,6 +23253,7 @@ function defaultPositionInfo(view, list, option, info, space, tooltip) {
     };
 }
 
+const setSelectedEffect = /*@__PURE__*/StateEffect.define();
 function optionContent(config) {
     let content = config.addToOptions.slice();
     if (config.icons)
@@ -23131,8 +23309,8 @@ function rangeAroundSelected(total, selected, max) {
         let off = Math.floor(selected / max);
         return { from: off * max, to: (off + 1) * max };
     }
-    let off = Math.floor((total - selected) / max);
-    return { from: total - (off + 1) * max, to: total - off * max };
+    let off = Math.ceil((total - selected) / max);
+    return { from: total - off * max, to: total - (off - 1) * max };
 }
 class CompletionTooltip {
     constructor(view, stateField, applyCompletion) {
@@ -23165,6 +23343,16 @@ class CompletionTooltip {
                     this.applyCompletion(view, options[+match[1]]);
                     e.preventDefault();
                     return;
+                }
+            }
+            if (e.target == this.list) {
+                let move = this.list.classList.contains("cm-completionListIncompleteTop") &&
+                    e.clientY < this.list.firstChild.getBoundingClientRect().top ? this.range.from - 1 :
+                    this.list.classList.contains("cm-completionListIncompleteBottom") &&
+                        e.clientY > this.list.lastChild.getBoundingClientRect().bottom ? this.range.to : null;
+                if (move != null) {
+                    view.dispatch({ effects: setSelectedEffect.of(move) });
+                    e.preventDefault();
                 }
             }
         });
@@ -23668,7 +23856,6 @@ function checkValid(validFor, state, from, to) {
 const setActiveEffect = /*@__PURE__*/StateEffect.define({
     map(sources, mapping) { return sources.map(s => s.map(mapping)); }
 });
-const setSelectedEffect = /*@__PURE__*/StateEffect.define();
 const completionState = /*@__PURE__*/StateField.define({
     create() { return CompletionState.start(); },
     update(value, tr) { return value.update(tr); },
@@ -23982,7 +24169,8 @@ const baseTheme$3 = /*@__PURE__*/EditorView.baseTheme({
         content: '"···"',
         opacity: 0.5,
         display: "block",
-        textAlign: "center"
+        textAlign: "center",
+        cursor: "pointer",
     },
     ".cm-tooltip.cm-completionInfo": {
         position: "absolute",
@@ -24402,7 +24590,8 @@ A completion source that will scan the document for words (using a
 return those as completions.
 */
 const completeAnyWord = context => {
-    let wordChars = context.state.languageDataAt("wordChars", context.pos).join("");
+    var _a;
+    let wordChars = (_a = context.state.languageDataAt("wordChars", context.pos)[0]) !== null && _a !== void 0 ? _a : "";
     let re = wordRE(wordChars);
     let token = context.matchBefore(mapRE(re, s => s + "$"));
     if (!token && !context.explicit)
@@ -24803,8 +24992,13 @@ class SearchCursor {
         The current match (only holds a meaningful value after
         [`next`](https://codemirror.net/6/docs/ref/#search.SearchCursor.next) has been called and when
         `done` is false).
+        
+        The `precise` flag will be set to false if the match starts or
+        ends _inside_ a character that, when normalized, expands to
+        multiple characters. It indicates that the `from`-`to` range
+        covers content that isn't part of the actual match.
         */
-        this.value = { from: 0, to: 0 };
+        this.value = { from: 0, to: 0, precise: false };
         /**
         Whether the end of the iterated region has been reached.
         */
@@ -24855,44 +25049,45 @@ class SearchCursor {
             this.bufferPos += codePointSize(next);
             let norm = this.normalize(str);
             if (norm.length)
-                for (let i = 0, pos = start;; i++) {
+                for (let i = 0, pos = start, posPrecise = true;; i++) {
                     let code = norm.charCodeAt(i);
-                    let match = this.match(code, pos, this.bufferPos + this.bufferStart);
-                    if (i == norm.length - 1) {
-                        if (match) {
-                            this.value = match;
-                            return this;
-                        }
-                        break;
+                    let match = this.match(code, pos, posPrecise, this.bufferPos + this.bufferStart, i == norm.length - 1);
+                    if (match) {
+                        this.value = match;
+                        return this;
                     }
-                    if (pos == start && i < str.length && str.charCodeAt(i) == code)
+                    if (i == norm.length - 1)
+                        break;
+                    if (posPrecise && i < str.length && str.charCodeAt(i) == code)
                         pos++;
+                    else
+                        posPrecise = false;
                 }
         }
     }
-    match(code, pos, end) {
+    match(code, pos, posPrecise, end, endPrecise) {
         let match = null;
-        for (let i = 0; i < this.matches.length; i += 2) {
-            let index = this.matches[i], keep = false;
-            if (this.query.charCodeAt(index) == code) {
-                if (index == this.query.length - 1) {
-                    match = { from: this.matches[i + 1], to: end };
+        for (let i = 0; i < this.matches.length;) {
+            let partial = this.matches[i], keep = false;
+            if (this.query.charCodeAt(partial.index) == code) {
+                if (partial.index == this.query.length - 1) {
+                    match = { from: partial.from, to: end, precise: endPrecise && partial.precise };
                 }
                 else {
-                    this.matches[i]++;
+                    partial.index++;
                     keep = true;
                 }
             }
-            if (!keep) {
-                this.matches.splice(i, 2);
-                i -= 2;
-            }
+            if (keep)
+                i++;
+            else
+                this.matches.splice(i, 1);
         }
         if (this.query.charCodeAt(0) == code) {
             if (this.query.length == 1)
-                match = { from: pos, to: end };
+                match = { from: pos, to: end, precise: posPrecise && endPrecise };
             else
-                this.matches.push(1, pos);
+                this.matches.push({ from: pos, index: 1, precise: posPrecise });
         }
         if (match && this.test && !this.test(match.from, match.to, this.buffer, this.bufferStart))
             match = null;
@@ -24902,7 +25097,7 @@ class SearchCursor {
 if (typeof Symbol != "undefined")
     SearchCursor.prototype[Symbol.iterator] = function () { return this; };
 
-const empty = { from: -1, to: -1, match: /*@__PURE__*//.*/.exec("") };
+const empty = { from: -1, to: -1, match: /*@__PURE__*//.*/.exec(""), precise: true };
 const baseFlags = "gm" + (/x/.unicode == null ? "" : "u");
 /**
 This class is similar to [`SearchCursor`](https://codemirror.net/6/docs/ref/#search.SearchCursor)
@@ -24927,7 +25122,9 @@ class RegExpCursor {
         /**
         Will contain an object with the extent of the match and the
         match object when [`next`](https://codemirror.net/6/docs/ref/#search.RegExpCursor.next)
-        sucessfully finds a match.
+        sucessfully finds a match. The `precise` flag is always true for
+        this type of cursor, and only there to make sure this cursor is
+        a subtype of `SearchCursor`.
         */
         this.value = empty;
         if (/\\[sWDnr]|\n|\r|\[\^/.test(query))
@@ -24972,7 +25169,7 @@ class RegExpCursor {
                 if (from == this.curLineStart + this.curLine.length)
                     this.nextLine();
                 if ((from < to || from > this.value.to) && (!this.test || this.test(from, to, match))) {
-                    this.value = { from, to, match };
+                    this.value = { from, to, precise: true, match };
                     return this;
                 }
                 off = this.matchPos - this.curLineStart;
@@ -25045,7 +25242,7 @@ class MultilineRegExpCursor {
                 // again, since it'll likely be able to match more
                 if ((this.flat.to >= this.to || match.index + match[0].length <= this.flat.text.length - 10) &&
                     (!this.test || this.test(from, to, match))) {
-                    this.value = { from, to, match };
+                    this.value = { from, to, precise: true, match };
                     this.matchPos = toCharEnd(this.text, to + (from == to ? 1 : 0));
                     return this;
                 }
@@ -25666,10 +25863,12 @@ const replaceNext = /*@__PURE__*/searchCommand((view, { query }) => {
     let next = match;
     let changes = [], selection, replacement;
     let effects = [];
-    if (next.from == from && next.to == to) {
+    if (!next.precise) {
+        next = query.nextMatch(state, next.from, next.to);
+    }
+    else if (next.from == from && next.to == to) {
         replacement = state.toText(query.getReplacement(next));
         changes.push({ from: next.from, to: next.to, insert: replacement });
-        next = query.nextMatch(state, next.from, next.to);
         effects.push(EditorView.announce.of(state.phrase("replaced match on line $", state.doc.lineAt(from).number) + "."));
     }
     let changeSet = view.state.changes(changes);
@@ -25693,10 +25892,12 @@ replacement.
 const replaceAll = /*@__PURE__*/searchCommand((view, { query }) => {
     if (view.state.readOnly)
         return false;
-    let changes = query.matchAll(view.state, 1e9).map(match => {
-        let { from, to } = match;
-        return { from, to, insert: query.getReplacement(match) };
-    });
+    let changes = [];
+    for (let match of query.matchAll(view.state, 1e9)) {
+        let { from, to, precise } = match;
+        if (precise)
+            changes.push({ from, to, insert: query.getReplacement(match) });
+    }
     if (!changes.length)
         return false;
     let announceText = view.state.phrase("replaced $ matches", changes.length) + ".";
@@ -26681,7 +26882,7 @@ const baseTheme$1 = /*@__PURE__*/EditorView.baseTheme({
         backgroundRepeat: "repeat-x",
         paddingBottom: "0.7px",
     },
-    ".cm-lintRange-error": { backgroundImage: /*@__PURE__*/underline("#d11") },
+    ".cm-lintRange-error": { backgroundImage: /*@__PURE__*/underline("#f11") },
     ".cm-lintRange-warning": { backgroundImage: /*@__PURE__*/underline("orange") },
     ".cm-lintRange-info": { backgroundImage: /*@__PURE__*/underline("#999") },
     ".cm-lintRange-hint": { backgroundImage: /*@__PURE__*/underline("#66d") },
@@ -26740,6 +26941,12 @@ const baseTheme$1 = /*@__PURE__*/EditorView.baseTheme({
             padding: 0,
             margin: 0
         }
+    },
+    "&dark .cm-lintRange-active": { backgroundColor: "#86714a80" },
+    "&dark .cm-panel.cm-panel-lint ul": {
+        "& [aria-selected]": {
+            backgroundColor: "#2e343e",
+        },
     }
 });
 function severityWeight(sev) {
@@ -26756,6 +26963,7 @@ function maxSeverity(diagnostics) {
     }
     return sev;
 }
+const lintHover = /*@__PURE__*/hoverTooltip(lintTooltip, { hideOn: hideTooltip });
 const lintExtensions = [
     lintState,
     /*@__PURE__*/EditorView.decorations.compute([lintState], state => {
@@ -26764,7 +26972,7 @@ const lintExtensions = [
             activeMark.range(selected.from, selected.to)
         ]);
     }),
-    /*@__PURE__*/hoverTooltip(lintTooltip, { hideOn: hideTooltip }),
+    lintHover,
     baseTheme$1
 ];
 
@@ -32615,7 +32823,21 @@ const javascriptLanguage = /*@__PURE__*/LRLanguage.define({
             }),
             /*@__PURE__*/foldNodeProp.add({
                 "Block ClassBody SwitchBody EnumBody ObjectExpression ArrayExpression ObjectType": foldInside,
-                BlockComment(tree) { return { from: tree.from + 2, to: tree.to - 2 }; }
+                BlockComment(tree) { return { from: tree.from + 2, to: tree.to - 2 }; },
+                JSXElement(tree) {
+                    let open = tree.firstChild;
+                    if (!open || open.name == "JSXSelfClosingTag")
+                        return null;
+                    let close = tree.lastChild;
+                    return { from: open.to, to: close.type.isError ? tree.to : close.from };
+                },
+                "JSXSelfClosingTag JSXOpenTag"(tree) {
+                    var _a;
+                    let name = (_a = tree.firstChild) === null || _a === void 0 ? void 0 : _a.nextSibling, close = tree.lastChild;
+                    if (!name || name.type.isError)
+                        return null;
+                    return { from: name.to, to: close.type.isError ? tree.to : close.from };
+                }
             })
         ]
     }),
@@ -35819,7 +36041,9 @@ class Chunk {
     /**
     The end of the chunk in document A. This is equal to `fromA`
     when the chunk covers no lines in document A, or is one unit
-    past the end of the last line in the chunk if it does.
+    past the end of the last line in the chunk if it does. (Note
+    that this may point outside the document if the chunk ends at
+    the end of the last line. See also `endA`.)
     */
     toA, 
     /**
@@ -35962,7 +36186,7 @@ function updateChunks(ranges, chunks, a, b, conf) {
         let fromA = range ? range.fromA + offA : a.length, fromB = range ? range.fromB + offB : b.length;
         while (chunkI < chunks.length) {
             let next = chunks[chunkI];
-            if (next.endA + offA > fromA || next.endB + offB > fromB)
+            if (range && (next.toA + offA > fromA || next.toB + offB > fromB))
                 break;
             result.push(next.offset(offA, offB));
             chunkI++;
