@@ -1,6 +1,6 @@
 {
     "name": "@plutojl/codemirror-pluto-setup",
-    "version": "2002.0.7",
+    "version": "2002.0.8",
     "description": "Example configuration for the CodeMirror code editor - as used by Pluto.jl",
     "scripts": {
         "bundle": "rollup -c"
@@ -70,6 +70,10 @@
     },
     "packageManager": "yarn@3.2.4+sha512.bb197bb586aabeca42ce9113e2235af3edaeac5797d26c99067e58d401d4eb43fbd51b644431434dd2a5f612ee65ffcd20262016c62f3608eb39fbfa6eeb1de7",
     "resolutions": {
-        "tar": ">=7.5.8"
+        "brace-expansion": "5.0.7",
+        "ip-address": "10.2.0",
+        "minimatch": "10.2.5",
+        "picomatch": "4.0.5",
+        "tar": "7.5.19"
     }
 }
