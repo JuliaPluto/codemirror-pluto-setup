@@ -11,8 +11,10 @@
         "alwaysStrict": true,
         "esModuleInterop": true,
         "declaration": true,
+        "rootDir": "src/",
         "outDir": "dist/",
-        "moduleResolution": "node"
+        "moduleResolution": "node",
+        "ignoreDeprecations": "6.0"
     },
     "include": ["src/"],
     "exclude": ["dist/"]
